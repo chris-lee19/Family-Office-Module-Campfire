@@ -2,14 +2,14 @@
 
 Status: planning draft · Source: First Fam Requirements & Gap Matrix (109 requirements, 13 domains) · Mapping: [`campfire_fit_map.csv`](campfire_fit_map.csv)
 
-## 1. The short answer: configure *and* build, but build *beside* Campfire, not inside it
+## 1. The short answer: configure Campfire, and build a Campfire OAuth app that lives inside it
 
-Campfire is a closed, multi-tenant SaaS ERP. You can **configure** it (entities, chart of accounts, custom dimensions/fields, bank feeds, AP approvals, close checklist) and **extend** it through its REST API. You cannot add screens or tables inside Campfire itself.
+You can **configure** Campfire (entities, chart of accounts, custom dimensions/fields, bank feeds, AP approvals, close checklist). Everything family-office-specific is built as a **Campfire OAuth app** with app extensions. Its tables and logic run in our service, but it surfaces *inside* Campfire's UI: a sidebar section, tabs and buttons on Campfire records, and sign-in with Campfire. See section 3a.
 
 So the shape is:
 
 - **Campfire = the books.** System of record for the GL, cash, AP and payments, consolidation and close.
-- **A Family Office layer (new app) = everything a family office has that a company doesn't.** That covers entities as *legal/ownership* objects, investments and alternatives, reconciliation, documents and K-1s, liquidity, and the family-facing reporting and portal. It reads from and writes to Campfire through the API, so to the user the two feel like one product.
+- **Family Office app = everything a family office has that a company doesn't.** That covers entities as *legal/ownership* objects, investments and alternatives, reconciliation, documents and K-1s, liquidity, and the family-facing reporting and portal. It reads from and writes to Campfire with the workspace's OAuth token, and its screens appear inside Campfire. To the user it is one product.
 
 That is essentially what Asseta.ai is: a multi-entity GL with an investments ledger, document AI and family reporting on one data model. The difference is that here the GL is Campfire's.
 
@@ -60,6 +60,52 @@ Design rules that make it feel like one product:
 4. **Deep links both ways.** FO layer GL figures link into Campfire; Campfire JE memos and attachments link back to the FO record.
 5. **One taxonomy.** The asset-class taxonomy lives in the FO layer and is pushed to Campfire as dimension values (fixes F2-type fragility).
 
+## 3a. How the app plugs into Campfire (OAuth app extensions)
+
+Reference: Campfire's sample partner app [`Campfire-eng/campfire_faketax_app`](https://github.com/Campfire-eng/campfire_faketax_app) (Flask; exercises every extension point) and https://docs.campfire.ai/guides/oauth-apps.
+
+The whole app is declared in one **manifest** pasted into Developer → Apps: details, scopes, allowed domain, slots, panels, navigation, events, hooks. Extension points and how we use them:
+
+| Campfire extension | What it is | Family Office use |
+|---|---|---|
+| OAuth 2.0 + PKCE, OIDC (`openid email profile`) | "Login with Campfire"; per-workspace access/refresh tokens. Endpoints `/ca/oauth/authorize`, `/ca/oauth/token`, JWKS at `/.well-known/jwks.json` | No separate user accounts; Campfire role determines what a user can do |
+| **Navigation** (sidebar section with pages, full-width iframes) | A "Family Office" section in Campfire's sidebar | Households & Net Worth, Entities & Ownership, Investments, Capital Calls, Reconciliation, Documents & K-1s, Liquidity |
+| **Panels** (tabs on detail / edit / list pages) | Our iframe as a tab on a Campfire record | "Investment detail" tab on a JE (lineage back to source), "Capital call" tab on a bill (notice PDF, extraction, unfunded impact) |
+| **Slots**: link / webhook / iframe buttons on detail header, list header, row menu, with `visible_when` and `confirm_text` | Buttons on Campfire records that call us | "Post investment batch", "Open source document", bulk "Tie out to FO ledger" |
+| **Event subscriptions** (signed thin events) | Campfire tells us when records change | Bill paid → mark capital call funded and update unfunded (INT-08); JE changed → re-run tie-out |
+| **Hooks** (synchronous pre-save, 5s budget, can modify or reject) | Validate or enrich a Campfire record before it saves | Reject a manual JE to an investment control account that bypasses the FO ledger; auto-tag `Holding` / `Asset Class` on capital-call bills |
+| **Install config** (`/ca/api/v1/oauth-app-install/config`) | Per-workspace settings stored in Campfire | Posting rules, default accounts, anomaly thresholds |
+| **Onboarding** (`connect_url` + `return_to`) and **manage link** | Guided setup after Connect | Create FO custom fields and dimensions, map COA, link entities, then return to Campfire |
+| **App bridge** (`app-bridge.js`: context, toast, refresh, resize, close) | iframe ↔ Campfire messaging | Feedback inside Campfire and record refresh after a write |
+| Draft queue (`202` + pending draft when approval required) | Campfire's approval control applies to app writes too | Investment JEs and capital-call bills respect Campfire approvals (SoD, SEC-07) |
+
+Platform facts that shape the build:
+
+- Campfire's backend is Django. APIs live under `/coa/api/...` (accounting objects) and `/ca/api/...` (company/app). App tokens are checked against scopes such as `invoices:write`, `custom_fields:write` and `accounts:write`.
+- Writes that replace child lines (e.g. invoice `lines`) are delete-and-recreate. Send every writable field back, and never store Campfire line IDs as durable keys.
+- Closed periods return `400`. Approvals return `202` with a pending draft. Both must be handled as normal outcomes.
+- Webhooks and events are HMAC-SHA256 signed. Iframe context tokens (`cf_ctx`) are single-use JWTs; frames use a `Partitioned` cookie.
+- The workspace needs the **`oauth_app_extensions`** feature flag, or no slots appear and no events are sent. Ask the Campfire partner contact to enable it on the sandbox.
+- Campfire must be able to reach the app over **public HTTPS** for webhooks, events and frames, so the dev loop needs a tunnel (ngrok) or a deployed dev instance.
+
+## 3b. Masttro & Arch: can this app do it?
+
+**Yes for the software, staged for the data feeds.** Separate what those products *are*:
+
+| Function | Masttro / Arch today | This app |
+|---|---|---|
+| Investment book of record, performance, exposure, net worth, wealth maps, portal | Masttro | **Build (P1–P2).** This is M1/M2/M9 and is needed regardless |
+| Alts: commitments, calls, distributions, NAV, K-1 tracking, document AI, tasks | Arch | **Build (P1–P2).** This is M2/M5/M6/M8 |
+| Custodian data feeds (direct feeds to thousands of custodians, daily pricing) | Masttro's data network | **P1:** import custodian files (First Fam is ~99% Pershing, so one feed covers the book). **P2:** a production feed through a data provider or direct Pershing file transfer |
+| Collecting documents from hundreds of GP/manager portals (logins, scraping) | Arch's operations | **P1:** upload / email-in plus AI extraction. **P2:** decide between a collection partner, keeping Arch as a source through an adapter, or GP email forwarding. Portal collection is a data-operations business, not code, and is the last thing to replicate |
+
+The design that makes both paths work: the app is the **book of record** with **pluggable source adapters** (`pershing_file`, `document_ai`, `masttro_api`, `arch_api`, ...).
+
+- **For First Fam:** the demo can show *replacing* Masttro + Arch (Pershing file + notices/K-1s through AI), or *coexisting* (Masttro/Arch adapters feed the same ledger).
+- **For the product:** it stands alone.
+
+Recommendation: demo replacement in P1 using a Pershing-style file and real-looking documents; build the Masttro/Arch adapters in P2 only if a client wants to keep them.
+
 ## 4. Campfire configuration (no code)
 
 | Area | Setup for the demo |
@@ -109,20 +155,37 @@ Each scene shows Campfire and the FO layer working as one, and closes a named Fi
 
 Phase is per requirement in `campfire_fit_map.csv`. Edit that file and rerun `scripts/annotate_matrix.py` to refresh counts.
 
-## 8. Things to verify with Campfire before building
+## 8. Things to verify with Campfire (partner channel)
 
-1. **Sandbox and API access** (partner/dev tenant, API token scopes, rate limits). This blocks everything in M3.
-2. **Entity model limits.** Count and pricing at ~100 entities. One third-party review mentions a "primary + adjusting entity" multi-book limit, so confirm.
-3. **API coverage** for: creating entities, custom dimension values, JEs with dimensions and custom fields, bills (create + read payment status), attachments, trial balance/balances by entity and dimension.
-4. **Webhooks or events** (e.g. bill paid) vs polling.
-5. **Embedding / SSO.** Any app marketplace, iframe/embedded-app support, or SSO/OIDC we can share so the FO layer launches from inside Campfire.
-6. **MFA/SSO** for SEC-06.
-7. **Bank feed coverage** for the client's banks; whether brokerage cash can feed directly.
-8. **Partner arrangement.** Whether Campfire would co-market or white-label an FO vertical (this shapes "demo" vs "product").
+Resolved: we are a Campfire partner with sandbox + API access, and Campfire supports OAuth apps with in-product extensions (section 3a).
 
-## 9. Decisions needed
+Still open:
 
-1. **Demo vs product.** Is this a sales demo for First Fam (Campfire replaces QuickBooks; Masttro and Arch stay as sources), or the start of an "Asseta on Campfire" product (FO layer replaces Masttro and Arch)? Recommendation: **build the data model as a product** (FO layer is the investment book of record) with **pluggable source adapters**, so the First Fam demo can show Masttro/Arch feeding in while the product can stand alone.
-2. **Tech stack.** Proposed: TypeScript, Next.js (UI + API), Postgres (row-level security for portal scoping), Claude API for document/K-1 extraction, and a typed Campfire API client. Everything is runnable against synthetic data plus a Campfire sandbox.
-3. **Demo data.** Synthetic "family" modeled on First Fam's structure but anonymized (no client names or figures in the demo data).
-4. **Look & feel.** Match Campfire's visual style so the hand-off between the two apps is seamless.
+1. **`oauth_app_extensions` flag** enabled on our sandbox workspace.
+2. **Which `object_type`s accept slots/panels.** The sample only shows `invoice`; we need `bill`, `journal_entry`, `vendor` and ideally `entity`.
+3. **Event topics and hook topics** for bills (created / approved / **paid**), journal entries and entities.
+4. **OAuth scopes** for journal entries, bills, entities, dimensions/tags, attachments and reports (trial balance / balances by entity and dimension). The search results confirm `journal_entries:write`.
+5. **Entity model limits.** Count and pricing at ~100 entities; whether entities can be created by API (MD-04 lifecycle).
+6. **Rate limits** and bulk endpoints for posting month-end batches.
+7. **MFA/SSO** for SEC-06, and whether non-accounting users (family members) can hold a Campfire seat or need portal access outside Campfire.
+8. **Bank feed coverage** for the client's banks; whether Pershing cash can feed directly.
+9. **Go-to-market.** Private app for HCVT clients vs a listed app in Campfire's directory (affects app review and versioning).
+
+## 9. Decisions
+
+| # | Decision | Status |
+|---|---|---|
+| 1 | Shape: Campfire = books; FO app as a Campfire OAuth app with in-product extensions | **Agreed** |
+| 2 | Demo vs product: build the data model as a product (book of record + pluggable source adapters); P1 demo shows replacement of Masttro/Arch; Masttro/Arch adapters in P2 if needed | Recommended |
+| 3 | Stack aligned to Campfire's backend: **Python / Django + Django REST Framework, Postgres** (row-level security for portal scoping), **React (Vite)** for the iframe pages styled to Campfire, Claude API for document/K-1 extraction, a typed Campfire client modeled on the sample app's (`campfire.py`: PKCE, refresh, scope-aware calls, signature + `cf_ctx` verification) | Recommended |
+| 4 | Demo data: synthetic family modeled on First Fam's structure, anonymized | Recommended |
+| 5 | Hosting for dev: public HTTPS dev instance or ngrok so Campfire can call webhooks and frames | To decide |
+
+## 10. Credentials & access (never share a Campfire login)
+
+The app never uses a person's username/password. Set up in the sandbox:
+
+1. **Developer → Apps → New app** ("Family Office", private). Copy `CLIENT_ID` / `CLIENT_SECRET`; rotate and copy the signing secret (`whsec_...`).
+2. A **sandbox API key** (admin role) for scripted Campfire configuration and demo-data seeding only.
+3. Store as environment secrets, never in the repo or chat: `CAMPFIRE_CLIENT_ID`, `CAMPFIRE_CLIENT_SECRET`, `CAMPFIRE_SIGNING_SECRET`, `CAMPFIRE_API_KEY`, plus `CAMPFIRE_BASE_URL=https://api.meetcampfire.com` and `CAMPFIRE_FRONTEND_ORIGIN=https://app.meetcampfire.com` (or the sandbox equivalents).
+4. Network allowlist for the build environment: `api.meetcampfire.com`, `app.meetcampfire.com`, `docs.campfire.ai`.
