@@ -106,7 +106,7 @@ The whole app is declared in one **manifest** pasted into Developer → Apps: de
 | **Install config** (`/ca/api/v1/oauth-app-install/config`) | Per-workspace settings stored in Campfire | Posting rules, default accounts, anomaly thresholds |
 | **Onboarding** (`connect_url` + `return_to`) and **manage link** | Guided setup after Connect | Create FO custom fields and dimensions, map COA, link entities, then return to Campfire |
 | **App bridge** (`app-bridge.js`: context, toast, refresh, resize, close) | iframe ↔ Campfire messaging | Feedback inside Campfire and record refresh after a write |
-| Draft queue (`202` + pending draft when approval required) | Campfire's approval control applies to app writes too | Investment JEs and capital-call bills respect Campfire approvals (SoD, SEC-07) |
+| Draft queue (`202` + pending draft when approval required) and the **Draft** permission level | Campfire's approval control applies to app writes too | The app takes Draft/Write but **never Approve**: investment JEs and capital-call bills land in Campfire's approval queue (SoD, SEC-07). Permission set: [`campfire_permissions.md`](campfire_permissions.md) |
 
 Platform facts that shape the build:
 
