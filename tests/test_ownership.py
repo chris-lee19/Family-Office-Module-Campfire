@@ -6,7 +6,7 @@ from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 
 from campfire_integration.models import Workspace
-from entities.management.commands.seed_demo import seed_alder
+from entities.demo import seed_alder
 from entities.models import Entity, Family, OwnershipInterest, Person
 from entities.services.ownership import (
     OwnershipCycleError,

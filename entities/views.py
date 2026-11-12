@@ -6,9 +6,9 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 from django.utils import timezone
 
-from campfire_integration.frames import FrameAuthError, session_workspace, verify_frame_request
+from campfire_integration import pages
+from campfire_integration.frames import session_workspace
 from campfire_integration.models import Workspace
-from core.framing import campfire_frame
 from entities.models import Entity, Family, Person
 from entities.services.ownership import OwnershipCycleError, effective_ownership, ownership_issues
 
@@ -61,7 +61,7 @@ def family_views(workspace: Workspace, as_of: date) -> list[FamilyView]:
     return views
 
 
-def _page(request: HttpRequest, workspace: Workspace, *, framed: bool) -> HttpResponse:
+def entities_page(request: HttpRequest, workspace: Workspace, framed: bool) -> HttpResponse:
     as_of = timezone.localdate()
     return render(
         request,
@@ -74,14 +74,7 @@ def home(request: HttpRequest) -> HttpResponse:
     workspace = session_workspace(request)
     if workspace is None:
         return render(request, "campfire/login.html")
-    return _page(request, workspace, framed=False)
+    return entities_page(request, workspace, False)
 
 
-@campfire_frame
-def frame_entities(request: HttpRequest) -> HttpResponse:
-    """Sidebar page inside Campfire (navigation surface)."""
-    try:
-        ctx = verify_frame_request(request, surfaces=("nav",))
-    except FrameAuthError as e:
-        return render(request, "campfire/message.html", {"title": "Cannot open this page", "message": str(e), "framed": True}, status=e.status)
-    return _page(request, ctx.workspace, framed=True)
+frame_entities = pages.framed(entities_page)

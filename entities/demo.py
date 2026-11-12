@@ -1,4 +1,4 @@
-"""Seed a fictional family ("Alder") into a workspace for demos and local development.
+"""The fictional Alder family used for demos and tests.
 
 Structure (all names fictional):
 
@@ -18,9 +18,6 @@ Structure (all names fictional):
 from datetime import date
 from decimal import Decimal
 
-from django.core.management.base import BaseCommand, CommandError
-from django.db import transaction
-
 from campfire_integration.models import Workspace
 from entities.models import Branch, Entity, EntityRole, Family, OwnershipInterest, Person
 
@@ -28,32 +25,6 @@ E = Entity.EntityType
 T = Entity.TaxClassification
 IT = OwnershipInterest.InterestType
 R = EntityRole.Role
-
-
-class Command(BaseCommand):
-    help = "Create the fictional Alder family in a workspace."
-
-    def add_arguments(self, parser):  # type: ignore[no-untyped-def]
-        parser.add_argument("--customer-id", type=int, required=True, help="Campfire customer id of the workspace")
-        parser.add_argument(
-            "--create-workspace", action="store_true", help="Create the workspace row if missing (local dev without Campfire)"
-        )
-        parser.add_argument("--reset", action="store_true", help="Delete and recreate the Alder family if present")
-
-    @transaction.atomic
-    def handle(self, *args, **opts):  # type: ignore[no-untyped-def]
-        workspace = Workspace.objects.filter(customer_id=opts["customer_id"]).first()
-        if workspace is None:
-            if not opts["create_workspace"]:
-                raise CommandError("No such workspace. Connect it from Campfire first, or pass --create-workspace.")
-            workspace = Workspace.objects.create(customer_id=opts["customer_id"], name="Demo workspace")
-        existing = Family.objects.filter(workspace=workspace, code="alder").first()
-        if existing:
-            if not opts["reset"]:
-                raise CommandError("The Alder family already exists in this workspace; pass --reset to recreate it.")
-            existing.delete()
-        family = seed_alder(workspace)
-        self.stdout.write(self.style.SUCCESS(f"Seeded {family} with {family.entities.count()} entities."))
 
 
 def seed_alder(workspace: Workspace) -> Family:

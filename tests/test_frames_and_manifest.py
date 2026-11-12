@@ -5,7 +5,7 @@ import pytest
 from django.core.management import call_command
 
 from campfire_integration.models import Workspace
-from entities.management.commands.seed_demo import seed_alder
+from entities.demo import seed_alder
 from tests.conftest import APP_URL, FRONTEND, context_token
 
 
@@ -55,5 +55,5 @@ def test_manifest(settings) -> None:  # type: ignore[no-untyped-def]
     assert manifest["app"]["allowed_scopes"] == ["openid", "email", "profile"]
     assert manifest["allowed_domains"] == ["fo.test"]
     items = manifest["navigation"][0]["items"]
-    assert items[0]["url_template"] == f"{APP_URL}/fo/frame/entities"
+    assert [i["url_template"] for i in items] == [f"{APP_URL}/fo/frame/investments", f"{APP_URL}/fo/frame/entities"]
     assert manifest["event_subscriptions"] == []

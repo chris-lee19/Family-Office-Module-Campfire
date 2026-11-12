@@ -9,5 +9,6 @@ urlpatterns = [
     path("healthz", lambda request: JsonResponse({"ok": True}), name="healthz"),
     path("campfire/", include("campfire_integration.urls")),
     path("fo/", include("entities.urls")),
+    path("fo/", include("investments.urls")),
     path("admin/", admin.site.urls),
 ]

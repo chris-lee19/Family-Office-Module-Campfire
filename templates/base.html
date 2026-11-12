@@ -22,12 +22,21 @@
     ul.plain { list-style:none; margin:0; padding:0; }
     .btn { display:inline-block; padding:8px 14px; border-radius:6px; background:var(--accent); color:#fff; text-decoration:none; border:0; cursor:pointer; font:inherit; }
     .btn.secondary { background:#f3f4f6; color:var(--fg); }
+    nav a { color:var(--fg); }
+    .num { text-align:right; font-variant-numeric: tabular-nums; white-space:nowrap; }
+    .cards { display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:12px; margin:12px 0 4px; }
+    .card { border:1px solid var(--line); border-radius:8px; padding:12px; }
+    .card .label { color:var(--muted); font-size:12px; } .card .value { font-size:20px; font-weight:600; font-variant-numeric: tabular-nums; }
+    .grid2 { display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:16px 32px; }
+    .bar { height:6px; background:#f3f4f6; border-radius:3px; min-width:60px; } .bar span { display:block; height:100%; background:var(--accent); border-radius:3px; }
+    .pill.held { background:#fee2e2; color:#991b1b; } .pill.stale { background:#fef3c7; color:#92400e; }
+    h3 { font-size:14px; margin:16px 0 4px; }
   </style>
 </head>
 <body class="{% if framed %}framed{% endif %}">
   {% if not framed %}
   <header class="top">
-    <strong>Family Office</strong>
+    <nav><strong>Family Office</strong>{% if request.session.campfire_user %} &nbsp; <a href="{% url 'investments:investments' %}">Investments</a> · <a href="{% url 'home' %}">Entities &amp; Ownership</a>{% endif %}</nav>
     {% if request.session.campfire_user %}
       <form method="post" action="{% url 'campfire:logout' %}">{% csrf_token %}
         <span class="muted">{% firstof request.session.campfire_user.name request.session.campfire_user.email "Campfire user" %}{% if workspace %} · {{ workspace }}{% endif %}</span>

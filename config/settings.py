@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     "core",
     "campfire_integration",
     "entities",
+    "investments",
 ]
 
 MIDDLEWARE = [

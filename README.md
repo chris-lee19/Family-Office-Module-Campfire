@@ -4,7 +4,7 @@ A Campfire partner app that adds family-office operations to Campfire's general 
 
 Plan and requirement mapping: [`docs/PLAN.md`](docs/PLAN.md), [`docs/campfire_fit_map.csv`](docs/campfire_fit_map.csv).
 
-## What exists today (P0 foundation)
+## What exists today (P0 foundation + core of M2 Investments)
 
 | Area | Where |
 |---|---|
@@ -16,7 +16,13 @@ Plan and requirement mapping: [`docs/PLAN.md`](docs/PLAN.md), [`docs/campfire_fi
 | M1 Entities & Ownership: entities with legal/tax type, effective-dated ownership, roles (trustees, managers), branches/generations | `entities/models.py` |
 | Look-through ownership, branch roll-up, over/under-allocation checks, cycle detection | `entities/services/ownership.py` |
 | "Entities & Ownership" page in Campfire's sidebar | `/fo/frame/entities` |
-| Fictional demo family | `python manage.py seed_demo` |
+| M2 Investments book of record: per-workspace asset-class taxonomy, instruments, accounts owned by an entity or a person (taxable / tax-deferred / tax-exempt), transactions with import batch + source reference (lineage), prices, NAV/appraisal marks, commitments, capital calls | `investments/models.py` |
+| Positions from transactions: cash, FIFO tax lots, cost basis, realized gains (short/long), income | `investments/services/ledger.py` |
+| Valuation: price × quantity, NAV rolled forward for cash flows, stale-mark flags, **anomaly hold** on marks that move more than the threshold vs. expected (REC-06) | `investments/services/valuation.py` |
+| Private funds: called, distributed, recallable, unfunded, DPI / RVPI / TVPI, IRR; paying a capital call books the contribution once | `investments/services/privates.py` |
+| Net worth by person (look-through), owner, asset class, liquidity, tax treatment | `investments/services/portfolio.py` |
+| "Investments" page in Campfire's sidebar | `/fo/frame/investments` (standalone: `/fo/investments`) |
+| Fictional demo family with entities and investments (dates relative to today) | `python manage.py seed_demo` |
 
 ## Local development
 
@@ -77,6 +83,7 @@ config/                 Django settings and URLs
 core/                   encryption, framing helpers
 campfire_integration/   OAuth, API client, security, events, manifest
 entities/               M1: families, branches, people, entities, ownership, roles
+investments/            M2: instruments, accounts, transactions, marks, commitments; ledger, valuation, privates, portfolio
 templates/              server-rendered pages (frames + standalone)
 tests/                  pytest
 docs/                   plan and requirement mapping (client workbooks stay in docs/client/, gitignored)
