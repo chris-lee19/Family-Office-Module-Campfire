@@ -1,110 +1,110 @@
 req_id,campfire_fit,fo_module,demo_phase,approach
-DA-01,Integrate,M2 Investments,P1,"Ingest custodian positions/transactions into the FO investment ledger (demo: synthetic Pershing-style daily file; product: custodian/Masttro API adapter). Campfire has no position concept."
-DA-02,Native,Campfire Core,P1,"Campfire bank connections + continuous bank reconciliation. Connect operating accounts per entity."
+DA-01,Integrate,M2 Investments,P1,Ingest custodian positions/transactions into the FO investment ledger (demo: synthetic Pershing-style daily file; product: custodian/Masttro API adapter). Campfire has no position concept.
+DA-02,Native,Campfire Core,P1,Campfire bank connections + continuous bank reconciliation. Connect operating accounts per entity.
 DA-03,Build,M2 Investments,P2,"Alternatives ledger (commitments, calls, distributions, NAV) in FO layer; source adapter can read Arch or ingest notices directly."
-DA-04,Build,M5 Documents & AI,P1,"LLM extraction of capital-call / distribution notices and statements into structured records with a human review queue. Campfire AI covers bills/invoices only."
+DA-04,Build,M5 Documents & AI,P1,LLM extraction of capital-call / distribution notices and statements into structured records with a human review queue. Campfire AI covers bills/invoices only.
 DA-05,Build,M5 Documents & AI,P2,"K-1 intake tracker: expected K-1 per holding per tax year, auto-matched when a K-1 document lands."
 DA-06,Build,M2 Investments,P2,"Illiquid asset register (art, RE, notes) with valuation method, last-mark date and required update cadence; stale-mark flag."
-DA-07,Integrate,M2 Investments,P2,"Market-data pricing feed for liquid securities (demo: static price file)."
-DA-08,Hybrid,M2 Investments,P3,"Campfire handles FX on GL entries natively; FO layer needs FX for position valuation."
-DA-09,Build,M2 Investments,P2,"Historical transaction/valuation load into FO ledger; seed demo with 3 yrs of synthetic history so performance calcs work."
+DA-07,Integrate,M2 Investments,P2,Market-data pricing feed for liquid securities (demo: static price file).
+DA-08,Hybrid,M2 Investments,P2,Campfire handles FX on GL entries natively; FO app needs FX for position valuation (international families).
+DA-09,Build,M2 Investments,P2,Historical transaction/valuation load into FO ledger; seed demo with 3 yrs of synthetic history so performance calcs work.
 DA-10,Integrate,M2 Investments,P3,"Manager-portal consolidation is a data-vendor problem (Arch/Canoe-type). Keep as partner integration, not a build."
 MD-01,Hybrid,M1 Entities & Ownership,P1,"Campfire entities = accounting entities. FO layer extends each with legal type (trust, LLC, LP, foundation, individual), tax ID, jurisdiction, trustees, and holds non-booked entities (individuals)."
-MD-02,Build,M1 Entities & Ownership,P1,"Ownership graph: directed edges with % and effective dates; look-through ownership computed recursively."
-MD-03,Build,M1 Entities & Ownership,P1,"Households / family branches / generations as grouping nodes over the ownership graph; drives roll-ups and portal scoping."
-MD-04,Build,M8 Workflow & Alerts,P3,"Entity lifecycle workflow (form/dissolve/restructure) with approval and auto-provisioning of the Campfire entity via API."
-MD-05,Process,Governance,—,"Naming convention + data dictionary deliverable; FO layer enforces with validation rules on entity/holding names."
+MD-02,Build,M1 Entities & Ownership,P1,Ownership graph: directed edges with % and effective dates; look-through ownership computed recursively.
+MD-03,Build,M1 Entities & Ownership,P1,Households / family branches / generations as grouping nodes over the ownership graph; drives roll-ups and portal scoping.
+MD-04,Build,M8 Workflow & Alerts,P3,Entity lifecycle workflow (form/dissolve/restructure) with approval and auto-provisioning of the Campfire entity via API.
+MD-05,Process,Governance,—,Naming convention + data dictionary deliverable; FO layer enforces with validation rules on entity/holding names.
 MD-06,Build,M2 Investments,P1,"Single asset-class taxonomy owned by FO layer, mapped 1:1 to Campfire GL accounts and an Asset Class custom dimension."
-MD-07,Process,Governance,P1,"System-of-record matrix is the architecture itself: Campfire = GL/cash/AP/entities-for-books; FO layer = holdings/ownership/docs/tax. Show as a slide."
-MD-08,Process,Governance,—,"Data-steward assignments per domain; FO layer can show owner on each recon/break."
-ACC-01,Native,Campfire Core,P1,"Multi-entity GL. Validate entity count/pricing at ~100 entities and the multi-book note from third-party reviews."
+MD-07,Process,Governance,P1,System-of-record matrix is the architecture itself: Campfire = GL/cash/AP/entities-for-books; FO layer = holdings/ownership/docs/tax. Show as a slide.
+MD-08,Process,Governance,—,Data-steward assignments per domain; FO layer can show owner on each recon/break.
+ACC-01,Native,Campfire Core,P1,Multi-entity GL. Validate entity count/pricing at ~100 entities and the multi-book note from third-party reviews.
 ACC-02,Configure,Campfire Core,P1,"Family-office chart of accounts template (investment, capital-call receivable, unfunded, K-1 income, etc.) applied across entities."
 ACC-03,Build,M3 GL Bridge,P1,"Posting engine: FO investment activity -> summarized journal entries per entity/period via Campfire JE API, tagged with dimensions and a source reference."
-ACC-04,Native,Campfire Core,P1,"Campfire bank reconciliation for bank accounts. Custodian cash covered by REC-02/REC-04."
-ACC-05,Native,Campfire Core,—,"Intercompany + eliminations native. N/A for First Fam."
-ACC-06,Native,Campfire Core,P1,"Campfire bill pay with AI capture and approval routing."
-ACC-07,Hybrid,M3 GL Bridge,P2,"Campfire recurring/scheduled entries for routine JEs; FO layer generates the year-end K-1 and bond-amortization JEs automatically."
-ACC-08,Native,Campfire Core,P1,"Campfire consolidation across entities."
-ACC-09,Build,M3 GL Bridge,P3,"Partnership capital-account roll-forward in FO layer. N/A for First Fam; needed for a broader FO product."
-ACC-10,Native,Campfire Core,—,"Campfire cost allocations. N/A for First Fam."
+ACC-04,Native,Campfire Core,P1,Campfire bank reconciliation for bank accounts. Custodian cash covered by REC-02/REC-04.
+ACC-05,Native,Campfire Core,P1,"Intercompany + eliminations native. Common across FO entity structures (management company, intra-family loans)."
+ACC-06,Native,Campfire Core,P1,Campfire bill pay with AI capture and approval routing.
+ACC-07,Hybrid,M3 GL Bridge,P2,Campfire recurring/scheduled entries for routine JEs; FO layer generates the year-end K-1 and bond-amortization JEs automatically.
+ACC-08,Native,Campfire Core,P1,Campfire consolidation across entities.
+ACC-09,Build,M3 GL Bridge,P2,"Partnership capital-account roll-forward and allocations in FO app, posting to Campfire equity accounts. Core for FOs with family investment partnerships."
+ACC-10,Native,Campfire Core,P2,Campfire cost allocations for shared FO expenses across entities/families (MFO cost allocation).
 INV-01,Build,M2 Investments,P1,"Unified holdings across custodied, alternative and illiquid assets in one ledger."
 INV-02,Build,M2 Investments,P2,"Performance engine: TWR (daily Modified Dietz chain) and IRR (XIRR) gross/net of fees by holding, entity, household."
 INV-03,Build,M9 Reporting & Portal,P2,"Allocation/exposure views by asset class, geography, sector, currency."
-INV-04,Build,M2 Investments,P3,"Fund look-through to underlying exposures."
-INV-05,Build,M2 Investments,P1,"Commitment register per entity per fund."
+INV-04,Build,M2 Investments,P3,Fund look-through to underlying exposures.
+INV-05,Build,M2 Investments,P1,Commitment register per entity per fund.
 INV-06,Build,M2 Investments,P1,"Capital-call and distribution events per holding, including called/pending status (not received-only)."
-INV-07,Build,M2 Investments,P1,"Unfunded = commitment - contributions + recallable; NAV roll-forward (last NAV + calls - distributions) with stale-NAV flag."
+INV-07,Build,M2 Investments,P1,Unfunded = commitment - contributions + recallable; NAV roll-forward (last NAV + calls - distributions) with stale-NAV flag.
 INV-08,Build,M7 Cash & Liquidity,P2,"Private-markets call/distribution projections (pacing model, e.g. Takahashi-Alexander) replacing assistant Excel."
-INV-09,Build,M2 Investments,P3,"Benchmark series and comparison."
-INV-10,Build,M2 Investments,P2,"Fee/carry tracking with explicit fee vs transfer classification (addresses the fee-column bug class)."
-REC-01,Build,M4 Recon & Data Quality,P2,"Daily custodian-to-ledger position reconciliation."
-REC-02,Build,M4 Recon & Data Quality,P2,"Daily custodian cash reconciliation (bank cash is Campfire-native)."
+INV-09,Build,M2 Investments,P3,Benchmark series and comparison.
+INV-10,Build,M2 Investments,P2,Fee/carry tracking with explicit fee vs transfer classification (addresses the fee-column bug class).
+REC-01,Build,M4 Recon & Data Quality,P2,Daily custodian-to-ledger position reconciliation.
+REC-02,Build,M4 Recon & Data Quality,P2,Daily custodian cash reconciliation (bank cash is Campfire-native).
 REC-03,Build,M4 Recon & Data Quality,P2,"Source-to-source reconciliation (e.g. Arch vs Masttro, or document vs feed)."
-REC-04,Build,M4 Recon & Data Quality,P1,"Subledger-to-GL tie-out: FO ledger balances vs Campfire GL balances per entity/account via API; shows the account that 'never ties' now ties."
+REC-04,Build,M4 Recon & Data Quality,P1,Subledger-to-GL tie-out: FO ledger balances vs Campfire GL balances per entity/account via API; shows the account that 'never ties' now ties.
 REC-05,Build,M4 Recon & Data Quality,P1,"Morning exception ('kick-out') report of all breaks, stale marks and failed ingests."
-REC-06,Build,M4 Recon & Data Quality,P1,"Anomaly rule: large %-change on a valuation (especially document-derived) holds it for review before it posts."
+REC-06,Build,M4 Recon & Data Quality,P1,Anomaly rule: large %-change on a valuation (especially document-derived) holds it for review before it posts.
 REC-07,Build,M4 Recon & Data Quality,P2,"Break workflow: owner, SLA, resolution notes, preparer/reviewer sign-off."
 REC-08,Build,M4 Recon & Data Quality,P2,"Ingestion validation rules (field mapping, sign, fee-vs-transfer, duplicate detection)."
-REC-09,Build,M4 Recon & Data Quality,P3,"Recon scheduler triggered on feed completion rather than clock time."
+REC-09,Build,M4 Recon & Data Quality,P3,Recon scheduler triggered on feed completion rather than clock time.
 REC-10,Build,M4 Recon & Data Quality,P2,"Immutable recon run log with inputs, results and sign-offs."
-INT-01,Integrate,M2 Investments,P1,"Custodian adapter (see DA-01)."
-INT-02,Integrate,M2 Investments,P3,"Arch adapter for alts if client keeps Arch; otherwise notices flow via M5."
+INT-01,Integrate,M2 Investments,P1,Custodian adapter (see DA-01).
+INT-02,Integrate,M2 Investments,P3,Arch adapter for alts if client keeps Arch; otherwise notices flow via M5.
 INT-03,Build,M3 GL Bridge,P1,"Read Campfire entities, cash balances, liabilities and AP via API into FO reporting for net worth."
-INT-04,Build,M3 GL Bridge,P1,"Period-end investment values/unrealized G/L posted to Campfire (same engine as ACC-03)."
-INT-05,Build,M3 GL Bridge,P1,"No re-keying of investment activity into the GL (same engine as ACC-03)."
-INT-06,Build,M6 Tax,P2,"Tax export (CCH-importable layout) of K-1 and realized G/L data."
-INT-07,Build,M5 Documents & AI,P2,"Document vault linked to entity/holding/transaction; links attached to Campfire JEs/bills."
-INT-08,Build,M8 Workflow & Alerts,P1,"Capital call -> Campfire bill via API -> approved/paid in Campfire -> status synced back to the call record."
-INT-09,Native,Campfire Core,P1,"Campfire REST API is the integration layer; FO layer exposes its own API too."
-INT-10,Build,M3 GL Bridge,P1,"Lineage: every posted JE carries source document/feed IDs; drill from GL line to source record and PDF."
-INT-11,Build,M3 GL Bridge,P1,"Outcome of ACC-03 + INT-08 + INT-06 working together."
-REP-01,Build,M9 Reporting & Portal,P1,"Consolidated net-worth: investments (FO ledger) + cash/liabilities/other assets (Campfire) rolled up by ownership."
-REP-02,Hybrid,M9 Reporting & Portal,P1,"Campfire financial statements per entity + FO entity holdings/performance view."
+INT-04,Build,M3 GL Bridge,P1,Period-end investment values/unrealized G/L posted to Campfire (same engine as ACC-03).
+INT-05,Build,M3 GL Bridge,P1,No re-keying of investment activity into the GL (same engine as ACC-03).
+INT-06,Build,M6 Tax,P2,Tax export (CCH-importable layout) of K-1 and realized G/L data.
+INT-07,Build,M5 Documents & AI,P2,Document vault linked to entity/holding/transaction; links attached to Campfire JEs/bills.
+INT-08,Build,M8 Workflow & Alerts,P1,Capital call -> Campfire bill via API -> approved/paid in Campfire -> status synced back to the call record.
+INT-09,Native,Campfire Core,P1,Campfire REST API is the integration layer; FO layer exposes its own API too.
+INT-10,Build,M3 GL Bridge,P1,Lineage: every posted JE carries source document/feed IDs; drill from GL line to source record and PDF.
+INT-11,Build,M3 GL Bridge,P1,Outcome of ACC-03 + INT-08 + INT-06 working together.
+REP-01,Build,M9 Reporting & Portal,P1,Consolidated net-worth: investments (FO ledger) + cash/liabilities/other assets (Campfire) rolled up by ownership.
+REP-02,Hybrid,M9 Reporting & Portal,P1,Campfire financial statements per entity + FO entity holdings/performance view.
 REP-03,Build,M9 Reporting & Portal,P2,"Role-based views (principal, trustee, investment manager, ops)."
-REP-04,Build,M9 Reporting & Portal,P2,"Taxable vs tax-deferred toggle driven by entity/account tax attribute (no manual IRA exclusion)."
-REP-05,Build,M9 Reporting & Portal,P2,"Standard performance package (after-fee)."
-REP-06,Hybrid,M7 Cash & Liquidity,P2,"Campfire cash-flow statement for actuals; FO layer for projections."
-REP-07,Process,M9 Reporting & Portal,P3,"Report package + calendar definition; FO layer schedules it."
-REP-08,Build,M9 Reporting & Portal,P3,"Saved-views / report catalog."
-REP-09,Hybrid,M9 Reporting & Portal,P2,"Campfire custom reports for GL; natural-language query over FO data (LLM) for ad hoc investment questions."
-REP-10,Build,M9 Reporting & Portal,P3,"Scheduled report generation and distribution."
-REP-11,Build,M9 Reporting & Portal,P3,"Family-meeting / board pack generator (PDF)."
+REP-04,Build,M9 Reporting & Portal,P2,Taxable vs tax-deferred toggle driven by entity/account tax attribute (no manual IRA exclusion).
+REP-05,Build,M9 Reporting & Portal,P2,Standard performance package (after-fee).
+REP-06,Hybrid,M7 Cash & Liquidity,P2,Campfire cash-flow statement for actuals; FO layer for projections.
+REP-07,Process,M9 Reporting & Portal,P3,Report package + calendar definition; FO layer schedules it.
+REP-08,Build,M9 Reporting & Portal,P3,Saved-views / report catalog.
+REP-09,Hybrid,M9 Reporting & Portal,P2,Campfire custom reports for GL; natural-language query over FO data (LLM) for ad hoc investment questions.
+REP-10,Build,M9 Reporting & Portal,P3,Scheduled report generation and distribution.
+REP-11,Build,M9 Reporting & Portal,P3,Family-meeting / board pack generator (PDF).
 DASH-01,Build,M9 Reporting & Portal,P1,"Curated dashboards per audience (principal, family branch, ops, tax)."
-DASH-02,Build,M9 Reporting & Portal,P2,"Family portal (read-only web app)."
-DASH-03,Build,M9 Reporting & Portal,P2,"Portal scoping by household/branch via ownership graph (row-level security)."
-DASH-04,Build,M9 Reporting & Portal,P3,"Responsive/mobile layout of portal."
-DASH-05,Hybrid,M9 Reporting & Portal,P1,"Household -> entity -> holding -> transaction -> document drill; GL lines deep-link into Campfire."
-DASH-06,Build,M9 Reporting & Portal,P3,"Next-gen beneficiary views."
-TAX-01,Build,M6 Tax,P2,"K-1 status board (expected / received / extracted / sent to preparer) per entity per year."
+DASH-02,Build,M9 Reporting & Portal,P2,Family portal (read-only web app).
+DASH-03,Build,M9 Reporting & Portal,P2,Portal scoping by household/branch via ownership graph (row-level security).
+DASH-04,Build,M9 Reporting & Portal,P3,Responsive/mobile layout of portal.
+DASH-05,Hybrid,M9 Reporting & Portal,P1,Household -> entity -> holding -> transaction -> document drill; GL lines deep-link into Campfire.
+DASH-06,Build,M9 Reporting & Portal,P3,Next-gen beneficiary views.
+TAX-01,Build,M6 Tax,P2,K-1 status board (expected / received / extracted / sent to preparer) per entity per year.
 TAX-02,Build,M5 Documents & AI,P1,"LLM K-1 extraction (lines 1-20 + footnotes, line 11 reclass) with confidence + reviewer approval."
-TAX-03,Build,M5 Documents & AI,P2,"Tax-document repository (vault filtered to tax docs)."
-TAX-04,Build,M6 Tax,P2,"Realized/unrealized G/L from tax lots in FO ledger."
-TAX-05,Build,M6 Tax,P3,"Estimated-payment tracker; payments themselves run as Campfire bills."
-TAX-06,Build,M6 Tax,P2,"CCH ProSystem fx import file (see INT-06)."
-TAX-07,Build,M8 Workflow & Alerts,P2,"Tax calendar feeding the unified calendar (WF-05)."
-TAX-08,Build,M6 Tax,P3,"State apportionment. Confirm need before building."
-DOC-01,Build,M5 Documents & AI,P1,"Central vault keyed to entity/holding/tax year (Campfire attachments only hang off transactions)."
-DOC-02,Build,M5 Documents & AI,P2,"Auto-file from ingestion (email-in / upload / feed)."
-DOC-03,Build,M5 Documents & AI,P1,"AI classification + metadata tagging."
-DOC-04,Build,M5 Documents & AI,P3,"Bulk export (zip by entity/year)."
-DOC-05,Build,M5 Documents & AI,P2,"Full-text + semantic search."
-DOC-06,Build,M5 Documents & AI,P3,"Versioning + retention policy."
-WF-01,Hybrid,M8 Workflow & Alerts,P1,"Notice -> extract -> review -> Campfire bill (approval + wire in Campfire) -> confirm. Signature demo flow."
+TAX-03,Build,M5 Documents & AI,P2,Tax-document repository (vault filtered to tax docs).
+TAX-04,Build,M6 Tax,P2,Realized/unrealized G/L from tax lots in FO ledger.
+TAX-05,Build,M6 Tax,P3,Estimated-payment tracker; payments themselves run as Campfire bills.
+TAX-06,Build,M6 Tax,P2,CCH ProSystem fx import file (see INT-06).
+TAX-07,Build,M8 Workflow & Alerts,P2,Tax calendar feeding the unified calendar (WF-05).
+TAX-08,Build,M6 Tax,P3,State apportionment. Confirm need before building.
+DOC-01,Build,M5 Documents & AI,P1,Central vault keyed to entity/holding/tax year (Campfire attachments only hang off transactions).
+DOC-02,Build,M5 Documents & AI,P2,Auto-file from ingestion (email-in / upload / feed).
+DOC-03,Build,M5 Documents & AI,P1,AI classification + metadata tagging.
+DOC-04,Build,M5 Documents & AI,P3,Bulk export (zip by entity/year).
+DOC-05,Build,M5 Documents & AI,P2,Full-text + semantic search.
+DOC-06,Build,M5 Documents & AI,P3,Versioning + retention policy.
+WF-01,Hybrid,M8 Workflow & Alerts,P1,Notice -> extract -> review -> Campfire bill (approval + wire in Campfire) -> confirm. Signature demo flow.
 WF-02,Build,M8 Workflow & Alerts,P2,"Daily digest of open items (breaks, calls due, K-1s outstanding)."
-WF-03,Native,Campfire Core,P1,"Campfire AP approval workflows for payments/wires."
-WF-04,Build,M8 Workflow & Alerts,P2,"Alert framework (email/Slack) on events and anomaly rules."
+WF-03,Native,Campfire Core,P1,Campfire AP approval workflows for payments/wires.
+WF-04,Build,M8 Workflow & Alerts,P2,Alert framework (email/Slack) on events and anomaly rules.
 WF-05,Build,M8 Workflow & Alerts,P2,"Unified calendar of calls, distributions, tax dates."
-CASH-01,Hybrid,M7 Cash & Liquidity,P1,"Bank cash from Campfire + custodian cash from FO ledger in one view."
-CASH-02,Build,M7 Cash & Liquidity,P2,"Liquidity forecast: available cash vs projected calls + scheduled AP + tax estimates."
-CASH-03,Build,M7 Cash & Liquidity,P2,"Cash projection (inflows/outflows) combining Campfire AP/AR schedules with projected calls/distributions."
-CASH-04,Native,Campfire Core,P1,"Campfire bill pay / payment execution and tracking."
-SEC-01,Hybrid,Governance,P1,"Campfire roles for GL users; FO layer RBAC + row-level security for portal."
-SEC-02,Process,Governance,—,"Access recertification cadence."
-SEC-03,Process,Governance,—,"On/offboarding procedure."
-SEC-04,Hybrid,Governance,P2,"Campfire audit log + FO layer append-only audit log."
-SEC-05,Hybrid,Governance,P3,"Campfire hosting controls + FO layer encryption at rest/in transit."
-SEC-06,Hybrid,Governance,P2,"Confirm Campfire MFA/SSO; FO layer uses SSO with MFA."
-SEC-07,Hybrid,Governance,P2,"Campfire approval chains + FO preparer/reviewer separation on recon and extraction review."
-SEC-08,Process,Governance,—,"Vendor management."
-SEC-09,Process,Governance,—,"Runbooks + backup admin."
-SEC-10,Process,Governance,—,"License governance."
+CASH-01,Hybrid,M7 Cash & Liquidity,P1,Bank cash from Campfire + custodian cash from FO ledger in one view.
+CASH-02,Build,M7 Cash & Liquidity,P2,Liquidity forecast: available cash vs projected calls + scheduled AP + tax estimates.
+CASH-03,Build,M7 Cash & Liquidity,P2,Cash projection (inflows/outflows) combining Campfire AP/AR schedules with projected calls/distributions.
+CASH-04,Native,Campfire Core,P1,Campfire bill pay / payment execution and tracking.
+SEC-01,Hybrid,Governance,P1,Campfire roles for GL users; FO layer RBAC + row-level security for portal.
+SEC-02,Process,Governance,—,Access recertification cadence.
+SEC-03,Process,Governance,—,On/offboarding procedure.
+SEC-04,Hybrid,Governance,P2,Campfire audit log + FO layer append-only audit log.
+SEC-05,Hybrid,Governance,P3,Campfire hosting controls + FO layer encryption at rest/in transit.
+SEC-06,Hybrid,Governance,P2,Confirm Campfire MFA/SSO; FO layer uses SSO with MFA.
+SEC-07,Hybrid,Governance,P2,Campfire approval chains + FO preparer/reviewer separation on recon and extraction review.
+SEC-08,Process,Governance,—,Vendor management.
+SEC-09,Process,Governance,—,Runbooks + backup admin.
+SEC-10,Process,Governance,—,License governance.

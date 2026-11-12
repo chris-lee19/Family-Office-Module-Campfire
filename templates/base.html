@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Family Office{% endblock %}</title>
+  <style>
+    :root { --bg:#fff; --fg:#1f2328; --muted:#656d76; --line:#e5e7eb; --accent:#ea580c; --warn-bg:#fff7ed; --warn:#9a3412; }
+    * { box-sizing: border-box; }
+    body { margin:0; font:14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif; color:var(--fg); background:var(--bg); }
+    header.top { display:flex; justify-content:space-between; align-items:center; padding:12px 24px; border-bottom:1px solid var(--line); }
+    main { padding:20px 24px; max-width:1200px; }
+    .framed main { padding:16px; max-width:none; }
+    h1 { font-size:20px; margin:0 0 4px; } h2 { font-size:16px; margin:24px 0 8px; }
+    .muted { color:var(--muted); }
+    table { width:100%; border-collapse:collapse; margin-top:8px; }
+    th, td { text-align:left; padding:8px; border-bottom:1px solid var(--line); vertical-align:top; }
+    th { font-weight:600; color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.03em; }
+    .pill { display:inline-block; padding:1px 8px; border-radius:999px; background:#f3f4f6; font-size:12px; }
+    .pill.booked { background:#ffedd5; color:var(--warn); }
+    .issues { background:var(--warn-bg); color:var(--warn); border-radius:6px; padding:8px 12px; margin:8px 0; }
+    ul.plain { list-style:none; margin:0; padding:0; }
+    .btn { display:inline-block; padding:8px 14px; border-radius:6px; background:var(--accent); color:#fff; text-decoration:none; border:0; cursor:pointer; font:inherit; }
+    .btn.secondary { background:#f3f4f6; color:var(--fg); }
+  </style>
+</head>
+<body class="{% if framed %}framed{% endif %}">
+  {% if not framed %}
+  <header class="top">
+    <strong>Family Office</strong>
+    {% if request.session.campfire_user %}
+      <form method="post" action="{% url 'campfire:logout' %}">{% csrf_token %}
+        <span class="muted">{% firstof request.session.campfire_user.name request.session.campfire_user.email "Campfire user" %}{% if workspace %} · {{ workspace }}{% endif %}</span>
+        <button class="btn secondary" type="submit">Sign out</button>
+      </form>
+    {% endif %}
+  </header>
+  {% endif %}
+  <main>{% block content %}{% endblock %}</main>
+</body>
+</html>

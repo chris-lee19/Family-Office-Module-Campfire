@@ -1,2 +1,14 @@
 # Client-provided workbooks and anything generated from them stay local
 docs/client/
+
+# Python / Django
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+db.sqlite3
+staticfiles/
+
+# Secrets and generated Campfire manifest (contains the public app URL)
+.env
+manifest.json

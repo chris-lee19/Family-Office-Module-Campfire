@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Entities & Ownership{% endblock %}
+{% block content %}
+<h1>Entities &amp; Ownership</h1>
+<p class="muted">{{ workspace }} · as of {{ as_of }}</p>
+{% for fv in families %}
+  <h2>{{ fv.family.name }}</h2>
+  {% if fv.issues %}<div class="issues"><strong>Needs attention</strong><ul class="plain">{% for i in fv.issues %}<li>{{ i }}</li>{% endfor %}</ul></div>{% endif %}
+  <table>
+    <thead><tr><th>Entity</th><th>Type / tax</th><th>Direct owners</th><th>Look-through (people)</th></tr></thead>
+    <tbody>
+    {% for row in fv.rows %}
+      <tr>
+        <td><strong>{{ row.entity.name }}</strong><br>
+          {% if row.entity.is_booked %}<span class="pill booked">Books in Campfire</span>{% else %}<span class="pill">Not booked</span>{% endif %}
+          {% if row.entity.jurisdiction %}<span class="pill">{{ row.entity.jurisdiction }}</span>{% endif %}</td>
+        <td>{{ row.entity.get_entity_type_display }}<br><span class="muted">{{ row.entity.get_tax_classification_display }}</span></td>
+        <td><ul class="plain">{% for owner, pct in row.direct_owners %}<li>{{ owner }} — {{ pct }}%</li>{% empty %}<li class="muted">No owners</li>{% endfor %}</ul></td>
+        <td><ul class="plain">{% for name, pct in row.look_through %}<li>{{ name }} — {{ pct }}%</li>{% endfor %}</ul></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+{% empty %}
+  <p class="muted">No families yet. Add one in the admin, or run <code>python manage.py seed_demo --customer-id &lt;id&gt;</code>.</p>
+{% endfor %}
+{% endblock %}

@@ -1,6 +1,6 @@
-# Family Office on Campfire: Demo & Build Plan
+# Family Office on Campfire: Product & Build Plan
 
-Status: planning draft · Source: First Fam Requirements & Gap Matrix (109 requirements, 13 domains) · Mapping: [`campfire_fit_map.csv`](campfire_fit_map.csv)
+Status: planning draft · Product: a family office app for **any** single- or multi-family office, built as a Campfire partner OAuth app · Reference requirements: one client's Requirements & Gap Matrix (109 requirements, 13 domains), used as a validation input, not the spec · Mapping: [`campfire_fit_map.csv`](campfire_fit_map.csv)
 
 ## 1. The short answer: configure Campfire, and build a Campfire OAuth app that lives inside it
 
@@ -13,7 +13,36 @@ So the shape is:
 
 That is essentially what Asseta.ai is: a multi-entity GL with an investments ledger, document AI and family reporting on one data model. The difference is that here the GL is Campfire's.
 
-## 2. What the 109 requirements say
+## 1a. Product scope: every family office, not one client
+
+The reference matrix came from one single-family office (SFO) that already runs Masttro and Arch, so it under-weights things other family offices need. The product is designed for the general case:
+
+**Tenancy.** One Campfire workspace = one tenant (`customer_id`). Inside it, `Family` is a first-class object, so the same app serves:
+- an **SFO**: one workspace, one family;
+- an **MFO**: one workspace, many client families, with staff permissions scoped per family;
+- an **MFO that runs one workspace per family**: many installs, one app.
+
+Every FO record is scoped `workspace → family`.
+
+**Domains beyond the reference matrix** (all optional per tenant):
+
+| Domain | What's needed | Campfire fit | Phase |
+|---|---|---|---|
+| Investment partnerships | Capital accounts, allocations of income/gain by %, contributions/withdrawals, partner statements | Build (posts to Campfire equity accounts) | P2 |
+| Trust / fiduciary accounting | Principal vs income, trustee & beneficiary roles, distributions to beneficiaries | Build + Campfire dimensions | P2 |
+| Philanthropy | Foundation grants (Campfire bills), 5% minimum distribution tracking, DAF tracking | Hybrid | P2 |
+| MFO fee billing | AUM / flat / hourly fee calc per family → **Campfire AR invoices** | Hybrid (Campfire AR native) | P2 |
+| Household & lifestyle | Personal bill pay per family member (Campfire AP), homes, aircraft, art, vehicles, insurance policies | Hybrid | P2 |
+| Real estate & liabilities | Properties, mortgages, lines of credit, loans against portfolios, intra-family loans (AFR) | Build + Campfire GL | P2 |
+| Direct private investments | Cap tables, rounds, SAFEs/notes, valuations | Build | P3 |
+| Digital assets | Wallet/exchange balances, cost basis | Integrate | P3 |
+| Multi-currency / international | FX on positions; non-US entities | Hybrid (Campfire FX native) | P2 |
+| Entity compliance | Annual reports, registered agents, franchise tax, trust Crummey notices | Build (calendar + tasks) | P2 |
+| Family governance | Meeting packs, education / next-gen access | Build | P3 |
+
+**Configurability over customization.** Taxonomies (asset classes, entity types, roles), posting rules, anomaly thresholds and report packs are tenant settings, not code. That way a new family office is onboarded by configuration.
+
+## 2. What the reference matrix says
 
 | Campfire fit | Count | Meaning |
 |---|---:|---|
@@ -26,7 +55,7 @@ That is essentially what Asseta.ai is: a multi-entity GL with an investments led
 
 Must-haves only (39): 21 Build, 6 Hybrid, 4 Integrate, 4 Process, 3 Native, 1 Configure.
 
-Read this correctly: the matrix is investment- and reporting-heavy because First Fam already has Masttro and Arch. The domain where Campfire was named as the "TBD Accounting Tool" (Accounting & GL, Cash, AP) is almost entirely Native. The build work is the investment/FO layer, plus the **bridge** that removes re-keying between investments and the GL (ACC-03, INT-03/04/05, REC-04). That bridge is the single most valuable thing to demo.
+Read this correctly: the reference matrix is investment- and reporting-heavy because that client already has Masttro and Arch. The domain where Campfire was named as the "TBD Accounting Tool" (Accounting & GL, Cash, AP) is almost entirely Native. The build work is the investment/FO layer, plus the **bridge** that removes re-keying between investments and the GL (ACC-03, INT-03/04/05, REC-04). That bridge is the single most valuable thing to demo.
 
 ## 3. Architecture
 
@@ -135,7 +164,7 @@ Recommendation: demo replacement in P1 using a Pershing-style file and real-look
 
 ## 6. Demo storyline (Phase 1)
 
-Each scene shows Campfire and the FO layer working as one, and closes a named First Fam finding.
+Each scene shows Campfire and the FO layer working as one. The demo uses a fictional family; the finding references (F-codes) are from the reference client's matrix and show how a prospect's pain maps to a scene.
 
 1. **"One family, one picture."** Household → branch → entity → holding drill-down. Net worth combines investments (FO) with cash and liabilities pulled live from Campfire. *(REP-01, MD-01/02/03, DASH-01/05, CASH-01, INT-03)*
 2. **"A capital call, start to finish."** Drop a capital-call PDF. AI extracts fund, amount and due date, and an anomaly check runs. Reviewer approves. A **Campfire bill** is created via API → approved and paid in Campfire → status syncs back, and unfunded commitment updates. *(DA-04, WF-01, INT-08, WF-03, CASH-04, INV-05/06/07)*
@@ -148,10 +177,11 @@ Each scene shows Campfire and the FO layer working as one, and closes a named Fi
 
 | Phase | Scope | Reqs |
 |---|---|---:|
-| P1 · Core demo | Campfire config + M1, core M2 (holdings, alts, commitments), M3 bridge, M5 extraction, REC-04/05/06, net-worth dashboard, cap-call flow | 41 |
-| P2 · Extended demo | Performance (TWR/IRR), pricing, recon suite, K-1 board + CCH export, liquidity forecast, family portal with scoped access, alerts and digest | 40 |
-| P3 · Product roadmap | Look-through, benchmarks, capital accounts, entity lifecycle, report scheduling and meeting packs, next-gen views, retention | 19 |
-| Process | Governance deliverables (SoR matrix, data dictionary, stewardship, access reviews, runbooks) | 9 |
+| P0 · Foundation | Django app, Campfire OAuth connect + OIDC sign-in, signed events, in-Campfire frame pages, manifest, tenancy, M1 entity & ownership model | — |
+| P1 · Core demo | Campfire config + M1 UI, core M2 (holdings, alts, commitments), M3 bridge, M5 extraction, REC-04/05/06, net-worth dashboard, cap-call flow | 42 |
+| P2 · Extended demo | Performance (TWR/IRR), pricing, recon suite, K-1 board + CCH export, liquidity forecast, family portal with scoped access, alerts and digest, capital accounts, plus the section 1a domains marked P2 | 43 |
+| P3 · Product roadmap | Look-through, benchmarks, entity lifecycle, report scheduling and meeting packs, next-gen views, retention | 17 |
+| Process | Governance deliverables (SoR matrix, data dictionary, stewardship, access reviews, runbooks) | 7 |
 
 Phase is per requirement in `campfire_fit_map.csv`. Edit that file and rerun `scripts/annotate_matrix.py` to refresh counts.
 
@@ -176,10 +206,10 @@ Still open:
 | # | Decision | Status |
 |---|---|---|
 | 1 | Shape: Campfire = books; FO app as a Campfire OAuth app with in-product extensions | **Agreed** |
-| 2 | Demo vs product: build the data model as a product (book of record + pluggable source adapters); P1 demo shows replacement of Masttro/Arch; Masttro/Arch adapters in P2 if needed | Recommended |
-| 3 | Stack aligned to Campfire's backend: **Python / Django + Django REST Framework, Postgres** (row-level security for portal scoping), **React (Vite)** for the iframe pages styled to Campfire, Claude API for document/K-1 extraction, a typed Campfire client modeled on the sample app's (`campfire.py`: PKCE, refresh, scope-aware calls, signature + `cf_ctx` verification) | Recommended |
-| 4 | Demo data: synthetic family modeled on First Fam's structure, anonymized | Recommended |
-| 5 | Hosting for dev: public HTTPS dev instance or ngrok so Campfire can call webhooks and frames | To decide |
+| 2 | Product for all family offices (SFO + MFO tenancy), book of record with pluggable source adapters; Masttro/Arch adapters only on client demand | **Agreed** |
+| 3 | Stack aligned to Campfire's backend: **Python / Django + Django REST Framework, Postgres** (row-level security for portal scoping), **React (Vite)** for the iframe pages styled to Campfire, Claude API for document/K-1 extraction, a typed Campfire client modeled on the sample app's (`campfire.py`: PKCE, refresh, scope-aware calls, signature + `cf_ctx` verification) | **Agreed** (Django) |
+| 4 | Demo data: fictional families (no client names or figures) | Recommended |
+| 5 | Dev hosting: **ngrok** tunnel to local Django | **Agreed** |
 
 ## 10. Credentials & access (never share a Campfire login)
 
