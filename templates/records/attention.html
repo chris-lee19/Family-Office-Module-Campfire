@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% load money %}
+{% block title %}Home{% endblock %}
+{% block content %}
+<h1>{% if counts.urgent or counts.todo %}{{ counts.urgent|add:counts.todo }} thing{{ counts.urgent|add:counts.todo|pluralize }} need{{ counts.urgent|add:counts.todo|pluralize:"s," }} attention{% else %}All clear{% endif %}</h1>
+<p class="muted">{{ workspace }} · {{ today|date:"l, F j, Y" }}</p>
+
+<div class="cards">
+  <div class="card"><div class="label">Investments ({{ head.families }} famil{{ head.families|pluralize:"y,ies" }})</div><div class="value"><a href="{{ links.investments }}">{{ head.total|money }}</a></div></div>
+  <div class="card"><div class="label">Unfunded commitments</div><div class="value">{{ head.unfunded|money }}</div></div>
+  <div class="card"><div class="label">Capital calls due in 30 days</div><div class="value"><a href="{{ links.calls }}">{{ head.calls_due_30|money }}</a></div></div>
+  <div class="card"><div class="label">Urgent · to do · FYI</div><div class="value">{{ counts.urgent }} · {{ counts.todo }} · {{ counts.info }}</div></div>
+</div>
+
+{% if rows %}
+<table class="attention">
+  <tbody>
+  {% for i, url in rows %}
+    <tr class="sev-row-{{ i.severity }}">
+      <td class="nowrap"><span class="pill att-{{ i.severity }}">{% if i.severity == "urgent" %}Urgent{% elif i.severity == "todo" %}To do{% else %}FYI{% endif %}</span></td>
+      <td class="muted small nowrap">{{ i.area }}</td>
+      <td><strong>{{ i.title }}</strong><br><span class="muted small">{{ i.detail }}</span></td>
+      <td class="num"><a class="btn {% if i.severity != 'urgent' %}secondary {% endif %}small" href="{{ url }}">{{ i.action }}</a></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% elif head.families %}
+<p class="muted">Nothing is waiting: marks reviewed, calls handled, the GL up to date and last month closed.</p>
+{% else %}
+<p class="muted">No families yet. Onboard one on the Records page.</p>
+{% include "includes/demo_button.html" %}
+{% endif %}
+{% endblock %}

@@ -53,11 +53,13 @@ found by vendor + q; test bill deleted, GET then 404); `Bill.*` events in the ma
 (202 draft) → billed → paid; `Commitment.campfire_vendor_id` · Phase A5 month-end close (`gl/services/close.py`, sidebar
 "Month-end close"): `MonthClose` per (workspace, Campfire entity, month); reviewed/posted/approved derived, data and
 sign-off confirmed, tie-out stored and stale once something posts later; posting can be limited to one entity
-(`send(..., campfire_entity_id=)`), JournalPosting.created_by_id for sign-off ≠ sender. 116 tests passing.
+(`send(..., campfire_entity_id=)`), JournalPosting.created_by_id for sign-off ≠ sender · Phase A6 Home
+(`records/attention.py`, first sidebar item; standalone "/" when signed in; entities moved to /fo/entities): items
+urgent / to do / FYI with target page. **Phase A complete.** 120 tests passing.
 
-## Next steps (in order) — roadmap Phase A (usable without us), then B (native feel), then C (differentiators)
-- A6 "needs attention" home. B: panels on Campfire JE/bill records, net worth incl. Campfire cash/liabilities,
-  roles + per-user connections. C: documents & AI, family reports, FMV JEs, liquidity.
+## Next steps (in order) — Phase A (usable without us) is done; then B (native feel), then C (differentiators)
+- B: panels on Campfire JE/bill records, net worth incl. Campfire cash/liabilities, roles + per-user connections.
+  C: documents & AI, family reports, FMV JEs, liquidity.
 1. GL follow-ups: period-end unrealized gain (FMV) entries; FX for non-USD accounts; lock-period check before sending
    (`lock_periods:read`); tie-out drill-down to GL lines (`transactions:read`).
 2. Importer follow-ups: confirm the Pershing-style columns/codes against a real extract; positions file for

@@ -74,10 +74,13 @@ def entities_page(request: HttpRequest, workspace: Workspace, framed: bool) -> H
 
 
 def home(request: HttpRequest) -> HttpResponse:
-    workspace = session_workspace(request)
-    if workspace is None:
+    """Signed in: what needs attention. Otherwise: sign in with Campfire."""
+    if session_workspace(request) is None:
         return render(request, "campfire/login.html")
-    return entities_page(request, workspace, False)
+    from records.attention_views import standalone_attention
+
+    return standalone_attention(request)
 
 
 frame_entities = pages.framed(entities_page)
+standalone_entities = pages.standalone(entities_page)

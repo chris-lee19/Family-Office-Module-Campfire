@@ -12,6 +12,7 @@ APP_NAME = "Family Office"
 
 # Sidebar section in Campfire: (key, label, icon, path). Each page is a framed view.
 NAV_PAGES: list[tuple[str, str, str, str]] = [
+    ("home", "Home", "home", "/fo/frame/home"),
     ("investments", "Investments", "chart-pie", "/fo/frame/investments"),
     ("entities", "Entities & Ownership", "users", "/fo/frame/entities"),
     ("imports", "Imports", "upload", "/fo/frame/imports"),
