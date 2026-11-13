@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% load money %}
+{% block title %}Family Office{% endblock %}
+{% block content %}
+{% if error %}<div class="issues">{{ error }}</div>{% endif %}
+{% if posting %}
+  <h2 style="margin-top:0">From Family Office: {{ posting.ref_number }}</h2>
+  <p class="muted small">{{ posting.memo }} · {{ posting.entity_label }} · sent {{ posting.created_at|date:"Y-m-d" }}{% if posting.created_by %} by {{ posting.created_by }}{% endif %} · <span class="pill posting-{{ posting.status }}">{{ posting.get_status_display }}</span></p>
+  <h3>Lines</h3>
+  <table><thead><tr><th>Account</th><th class="num">Debit</th><th class="num">Credit</th></tr></thead><tbody>
+  {% for ln in posting.lines %}<tr><td>{{ ln.account_label }}<br><span class="muted small">{{ ln.description }}</span></td><td class="num">{% if ln.debit != "0.00" %}{{ ln.debit }}{% endif %}</td><td class="num">{% if ln.credit != "0.00" %}{{ ln.credit }}{% endif %}</td></tr>{% endfor %}
+  </tbody></table>
+  <h3>Behind it: {{ items|length }} transaction{{ items|pluralize }}</h3>
+  <table><thead><tr><th>Date</th><th>Account</th><th>Type</th><th>Security</th><th class="num">Amount</th><th>Source</th></tr></thead><tbody>
+  {% for it in items %}{% with t=it.transaction %}<tr><td class="nowrap">{{ t.trade_date|date:"Y-m-d" }}</td><td>{{ t.account }}</td><td>{{ t.get_txn_type_display }}</td><td>{{ t.instrument|default:"" }}</td>
+    <td class="num">{{ t.amount|floatformat:"2g" }}</td><td class="small">{% if t.batch %}{{ t.batch.source_label }}{% if t.batch.file_name %}: {{ t.batch.file_name }}{% endif %}{% else %}Entered by hand{% endif %}{% if t.source_ref %}<br><span class="muted">{{ t.source_ref }}</span>{% endif %}</td></tr>{% endwith %}{% endfor %}
+  </tbody></table>
+  <p class="small"><a href="{{ gl_url }}">General ledger in Family Office</a></p>
+{% else %}
+  <p class="muted">This journal entry wasn't created by Family Office.</p>
+{% endif %}
+{% endblock %}

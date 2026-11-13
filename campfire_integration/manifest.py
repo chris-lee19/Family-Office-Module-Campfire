@@ -23,6 +23,20 @@ NAV_PAGES: list[tuple[str, str, str, str]] = [
     ("records", "Records", "database", "/fo/frame/records"),
 ]
 
+# Buttons and tabs on Campfire's own records. Campfire shows them where it supports them today (bill page header,
+# bill list and edit form); the journal-entry ones appear when Campfire adds extensions to that page.
+# (key, label, icon, object_type, url path)
+RECORD_BUTTONS: list[tuple[str, str, str, str, str]] = [
+    ("fo-bill", "Family Office", "landmark", "bill", "/fo/frame/bill/{{record.id}}"),
+    ("fo-journal-entry", "Family Office", "landmark", "journal_entry", "/fo/frame/journal-entry/{{record.id}}"),
+]
+# (key, label, icon, object_type, placements, url path)
+RECORD_PANELS: list[tuple[str, str, str, str, list[str], str]] = [
+    ("fo-bill-tab", "Family Office", "landmark", "bill", ["detail", "edit"], "/fo/frame/bill/{{record.id}}"),
+    ("fo-bills-tab", "Capital calls", "landmark", "bill", ["list"], "/fo/frame/bills"),
+    ("fo-journal-entry-tab", "Family Office", "landmark", "journal_entry", ["detail", "edit"], "/fo/frame/journal-entry/{{record.id}}"),
+]
+
 # Event topics to receive at /campfire/events (each needs a read scope in allowed_scopes). Add a topic only
 # when a handler exists for it (gl/handlers.py).
 EVENT_TOPICS: list[str] = [
@@ -57,8 +71,17 @@ def build_manifest() -> dict[str, Any]:
             "manage_url": app_url + "/campfire/manage",
         },
         "allowed_domains": [urlparse(app_url).hostname],
-        "slots": [],
-        "panels": [],
+        "slots": [
+            {"key": key, "label": label, "icon": icon, "object_type": obj, "surface": "detail_header", "requested_variant": "secondary",
+             "action_type": "iframe", "action_config": {"url_template": app_url + path, "presentation": "drawer", "width": "lg"},
+             "visible_when": [], "confirm_text": "", "order": n, "is_active": True}
+            for n, (key, label, icon, obj, path) in enumerate(RECORD_BUTTONS)
+        ],
+        "panels": [
+            {"key": key, "label": label, "icon": icon, "object_type": obj, "placements": placements, "url_template": app_url + path,
+             "visible_when": [], "order": n, "is_active": True}
+            for n, (key, label, icon, obj, placements, path) in enumerate(RECORD_PANELS)
+        ],
         "navigation": [
             {
                 "key": "family-office",

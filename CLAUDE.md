@@ -55,10 +55,13 @@ found by vendor + q; test bill deleted, GET then 404); `Bill.*` events in the ma
 sign-off confirmed, tie-out stored and stale once something posts later; posting can be limited to one entity
 (`send(..., campfire_entity_id=)`), JournalPosting.created_by_id for sign-off ≠ sender · Phase A6 Home
 (`records/attention.py`, first sidebar item; standalone "/" when signed in; entities moved to /fo/entities): items
-urgent / to do / FYI with target page. **Phase A complete.** 120 tests passing.
+urgent / to do / FYI with target page. **Phase A complete.** · Phase B1 panels (`gl/panel_views.py`; manifest
+`RECORD_BUTTONS` / `RECORD_PANELS`): bill drawer + bill edit tab + bill list tab work today; journal-entry tab/button
+are declared and show once Campfire adds extensions to that page (docs: buttons today on invoice page, invoice list,
+bill page; panels on invoices and bill list/edit). `pages.record_framed` binds the frame to `{{record.id}}`. 126 tests passing. 120 tests passing.
 
 ## Next steps (in order) — Phase A (usable without us) is done; then B (native feel), then C (differentiators)
-- B: panels on Campfire JE/bill records, net worth incl. Campfire cash/liabilities, roles + per-user connections.
+- B (remaining): net worth incl. Campfire cash/liabilities; roles + per-user connections.
   C: documents & AI, family reports, FMV JEs, liquidity.
 1. GL follow-ups: period-end unrealized gain (FMV) entries; FX for non-USD accounts; lock-period check before sending
    (`lock_periods:read`); tie-out drill-down to GL lines (`transactions:read`).

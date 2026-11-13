@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% load money %}
+{% block title %}Capital calls{% endblock %}
+{% block content %}
+<h2 style="margin-top:0">Capital calls</h2>
+{% if with_campfire %}
+<table><thead><tr><th>Fund</th><th class="num">Amount</th><th>Due</th><th>Status</th></tr></thead><tbody>
+{% for c in with_campfire %}<tr><td>{{ c.commitment.instrument }}<br><span class="muted small">{{ c.commitment.account.owner }}</span></td><td class="num">{{ c.amount|money }}</td>
+  <td class="nowrap">{{ c.due_date|date:"Y-m-d" }}{% if c.due_date < today %} <span class="pill status-rejected">Overdue</span>{% endif %}</td>
+  <td><span class="pill call-{{ c.status }}">{{ c.get_status_display }}</span>{% if c.campfire_bill_id %}<br><span class="muted small">bill #{{ c.campfire_bill_id }}</span>{% endif %}</td></tr>{% endfor %}
+</tbody></table>
+{% else %}<p class="muted">No capital-call bills open.</p>{% endif %}
+{% if not_sent %}<p class="small">{{ not_sent|length }} call{{ not_sent|pluralize }} not sent as bills yet: <a href="{{ calls_url }}">send them</a>.</p>{% endif %}
+{% endblock %}

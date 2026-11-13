@@ -1,6 +1,6 @@
 from django.urls import path
 
-from gl import call_views, close_views, views
+from gl import call_views, close_views, panel_views, views
 
 app_name = "gl"
 
@@ -9,6 +9,10 @@ urlpatterns = [
     path("gl", views.standalone_gl, name="gl"),
     path("frame/calls", call_views.frame_calls, name="frame_calls"),
     path("calls", call_views.standalone_calls, name="calls"),
+    # Inside Campfire's own records (panels and drawer buttons); always framed.
+    path("frame/bill/<int:record_id>", panel_views.bill_panel, name="frame_bill_panel"),
+    path("frame/bills", panel_views.bills_list_panel, name="frame_bills_panel"),
+    path("frame/journal-entry/<int:record_id>", panel_views.journal_panel, name="frame_journal_panel"),
     path("frame/close", close_views.frame_close, name="frame_close"),
     path("close", close_views.standalone_close, name="close"),
 ]

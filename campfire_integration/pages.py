@@ -70,6 +70,33 @@ def framed(page: Page, surfaces: tuple[str, ...] = ("nav",)) -> Callable[..., Ht
     return view
 
 
+def record_framed(page: Page, *, object_type: str, surfaces: tuple[str, ...]) -> Callable[..., HttpResponse]:
+    """A page about one Campfire record (a panel or an iframe button on a bill or journal entry). The first request
+    carries a `cf_ctx` that must name this record; follow-up requests in the frame carry the frame token."""
+
+    @csrf_exempt
+    @campfire_frame
+    def view(request: HttpRequest, record_id: int, **kwargs: Any) -> HttpResponse:
+        try:
+            if request.method == "GET" and request.GET.get("cf_ctx"):
+                ctx = verify_frame_request(request, surfaces=surfaces, object_type=object_type, object_id=str(record_id))
+                workspace, user_id = ctx.workspace, ctx.claims.get("user_id")
+                token = issue_frame_token(workspace, ctx.claims)
+            else:
+                token = request.POST.get(FRAME_TOKEN_PARAM) or request.GET.get(FRAME_TOKEN_PARAM, "")
+                if not token:
+                    raise FrameAuthError("Open this from Campfire.")
+                workspace, data = verify_frame_token(token)
+                user_id = data.get("u")
+        except FrameAuthError as e:
+            return render(request, "campfire/message.html", {"title": "Cannot open this", "message": str(e), "framed": True}, status=e.status)
+        request.fo_frame_token = token  # type: ignore[attr-defined]
+        request.fo_actor, request.fo_actor_id = actor_for(workspace, user_id)  # type: ignore[attr-defined]
+        return page(request, workspace, True, record_id=record_id, **kwargs)
+
+    return view
+
+
 def standalone(page: Page) -> Callable[..., HttpResponse]:
     def view(request: HttpRequest, **kwargs: Any) -> HttpResponse:
         workspace = session_workspace(request)

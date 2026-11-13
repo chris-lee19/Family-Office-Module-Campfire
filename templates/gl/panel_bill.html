@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% load money %}
+{% block title %}Family Office{% endblock %}
+{% block content %}
+{% if message %}<div class="notice">{{ message }}</div>{% endif %}
+{% if error %}<div class="issues">{{ error }}</div>{% endif %}
+{% if call %}
+  <h2 style="margin-top:0">Capital call: {{ call.commitment.instrument }}</h2>
+  <p class="muted small">{{ call.commitment.account }} · {{ call.commitment.account.owner }}</p>
+  <div class="cards">
+    <div class="card"><div class="label">This call</div><div class="value">{{ call.amount|money }}</div></div>
+    <div class="card"><div class="label">Status</div><div class="value small"><span class="pill call-{{ call.status }}">{{ call.get_status_display }}</span></div></div>
+    <div class="card"><div class="label">Commitment</div><div class="value">{{ call.commitment.amount|money }}</div></div>
+    <div class="card"><div class="label">Unfunded after paid calls</div><div class="value">{{ summary.unfunded|money }}</div></div>
+  </div>
+  <table><tbody>
+    <tr><td>Notice</td><td>{{ call.notice_date|date:"Y-m-d" }}{% if call.source_ref %} · {{ call.source_ref }}{% endif %}</td></tr>
+    <tr><td>Due</td><td>{{ call.due_date|date:"Y-m-d" }}</td></tr>
+    <tr><td>Called to date</td><td>{{ summary.contributed|money }} ({{ summary.pct_called|floatformat:0 }}%)</td></tr>
+    {% if call.paid_on %}<tr><td>Paid</td><td>{{ call.paid_on|date:"Y-m-d" }}; contribution booked in Family Office</td></tr>{% endif %}
+    {% if call.bill_note %}<tr><td>Note</td><td>{{ call.bill_note }}</td></tr>{% endif %}
+  </tbody></table>
+  {% if call.status != "paid" %}
+  <form method="post" action="{{ action }}" class="actions">{% csrf_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">
+    <button class="btn secondary small" type="submit" name="action" value="sync">Check payment</button></form>
+  {% endif %}
+  <p class="small"><a href="{{ calls_url }}">All capital calls</a></p>
+{% elif candidates %}
+  <h2 style="margin-top:0">A bill from a fund's GP</h2>
+  <p><span class="muted">Funds managed by {{ bill.vendor_name|default:"this vendor" }}:</span> {% for c in candidates %}{{ c.instrument }}{% if not forloop.last %}; {% endif %}{% endfor %}</p>
+  <p class="muted">Record this bill as a capital call so that paying it books the contribution and lowers the unfunded commitment.</p>
+  <form method="post" action="{{ action }}" class="record-form">{% csrf_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">
+    <div class="fields">
+      <div class="field"><label>Fund</label><select name="commitment">{% for c in candidates %}<option value="{{ c.pk }}">{{ c.instrument }} ({{ c.account }})</option>{% endfor %}</select></div>
+      <div class="field"><label>Amount</label><span>{{ bill.total_amount|default:bill.amount_due|money }}, due {{ bill.due_date }}</span></div>
+    </div>
+    <div class="actions"><button class="btn small" type="submit" name="action" value="link">Record as a capital call</button></div>
+  </form>
+{% elif bill %}
+  <p class="muted">This bill isn't a capital call: its vendor isn't the GP of a fund in Family Office.</p>
+  <p class="small"><a href="{{ calls_url }}">Capital calls</a></p>
+{% else %}
+  <p class="muted">No capital call is linked to this bill.</p>
+{% endif %}
+{% endblock %}
