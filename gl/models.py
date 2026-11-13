@@ -303,3 +303,45 @@ class BillRequest(models.Model):
     @property
     def source_id(self) -> str:
         return f"fo-bill-{self.pk}"
+
+
+class JournalRequest(models.Model):
+    """A manual journal entry (or a transfer between two entities) entered in the app. It waits for approval here,
+    then goes to Campfire's ledger: one entry per entity."""
+
+    class Kind(models.TextChoices):
+        MANUAL = "manual", "Journal entry"
+        TRANSFER = "transfer", "Transfer between entities"
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Waiting for approval"
+        SENT = "sent", "In Campfire"
+        AWAITING = "awaiting", "Approved here; awaiting approval in Campfire"
+        REJECTED = "rejected", "Rejected"
+
+    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE, related_name="journal_requests")
+    kind = models.CharField(max_length=10, choices=Kind.choices, default=Kind.MANUAL)
+    date = models.DateField()
+    memo = models.CharField(max_length=255)
+    # [{entity_id, entity, campfire_id (once sent), lines: [{account_id, account, debit, credit, description}]}]
+    entries = models.JSONField(default=list)
+    total = models.DecimalField(**MONEY, help_text="Total debits")
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING)
+    created_by = models.CharField(max_length=255, blank=True)
+    created_by_id = models.CharField(max_length=64, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    decided_by = models.CharField(max_length=255, blank=True)
+    decided_by_id = models.CharField(max_length=64, blank=True)
+    decided_at = models.DateTimeField(null=True, blank=True)
+    note = models.CharField(max_length=255, blank=True)
+    error = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+
+    def __str__(self) -> str:
+        return f"{self.get_kind_display()} {self.date} {self.memo} ({self.get_status_display()})"
+
+    @property
+    def ref_number(self) -> str:
+        return f"FO-JE-{self.pk}"

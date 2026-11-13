@@ -192,6 +192,23 @@
   });
   unfold(location.hash);
 
+  /* ---- a journal entry form shows its totals and whether it balances ---- */
+  d.querySelectorAll("table[data-balance]").forEach(function (table) {
+    var num = function (el) { var v = parseFloat((el.value || "").replace(/[$,\s]/g, "")); return isNaN(v) ? 0 : v; };
+    var fmt = function (v) { return v ? v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "–"; };
+    var update = function () {
+      var dr = 0, cr = 0;
+      table.querySelectorAll("[data-debit]").forEach(function (i) { dr += num(i); });
+      table.querySelectorAll("[data-credit]").forEach(function (i) { cr += num(i); });
+      table.querySelector("[data-total-debit]").textContent = fmt(dr);
+      table.querySelector("[data-total-credit]").textContent = fmt(cr);
+      var note = table.querySelector("[data-balance-note]"), diff = Math.round((dr - cr) * 100) / 100;
+      note.textContent = !dr && !cr ? "Debits and credits must be equal." : diff === 0 ? "Balanced." : "Out of balance by " + fmt(Math.abs(diff)) + ".";
+      note.classList.toggle("err", diff !== 0);
+    };
+    table.addEventListener("input", update); update();
+  });
+
   /* ---- a filter bar applies itself when a choice changes ---- */
   d.querySelectorAll("form[data-autosubmit]").forEach(function (form) {
     form.addEventListener("change", function (e) { if (e.target.tagName === "SELECT") form.submit(); });

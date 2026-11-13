@@ -37,8 +37,11 @@ IS = {"headers": {"2026-09-01": ["Total"], "2026-10-01": ["Total"], "Total": ["T
     {"account_number": "6999", "account_name": "Never used", "hierarchy": ["OPERATING_EXPENSES", "52"], "2026-09-01_Total": 0.0, "2026-10-01_Total": 0.0, "Total": 0.0},
     {"display_name": "Net Income", "hierarchy": ["NET_INCOME"], "2026-09-01_Total": 59.0, "2026-10-01_Total": 17.5, "Total": 76.5}]}
 TB = {"trial_balance": {"accounts": [
-    {"id": "11", "number": "1040", "name": "Operating cash", "beginning_balances": {"debits": 80, "credits": 0}, "activity": {"debits": 62, "credits": 42},
-     "ending_balances": {"debits": 100, "credits": 0}},
+    {"id": "11", "number": "1040", "name": "Operating cash", "account_type": "ASSET", "beginning_balances": {"debits": 80, "credits": 0},
+     "activity": {"debits": 62, "credits": 42}, "ending_balances": {"debits": 100, "credits": 0}},
+    {"id": "12", "number": "1600", "name": "Real estate", "account_type": "ASSET", "beginning_balances": {"debits": 873.5, "credits": 0}, "ending_balances": {"debits": 900, "credits": 0}},
+    {"id": "21", "number": "2600", "name": "Mortgage payable", "account_type": "LIABILITY", "beginning_balances": {"debits": 0, "credits": 400}, "ending_balances": {"debits": 0, "credits": 400}},
+    {"id": "32", "number": "3940", "name": "Distributions to owners", "account_type": "EQUITY", "activity": {"debits": 30, "credits": 0}, "ending_balances": {"debits": 30, "credits": 0}},
     {"id": "41", "number": "7400", "name": "Rental income", "beginning_balances": {}, "activity": {"debits": 0, "credits": 62}, "ending_balances": {"debits": 0, "credits": 62}},
     {"id": "total", "name": "Total", "activity": {"debits": 62, "credits": 104}, "ending_balances": {"debits": 100, "credits": 62}}]}}
 LEDGER = {"count": 2, "next": None, "results": [
@@ -79,16 +82,21 @@ def test_balance_sheet_and_income_statement_in_reading_order() -> None:
     assert [(r.kind, r.label, r.values[0]) for r in bs.rows] == [
         ("section", "Assets", None), ("account", "Operating cash", Decimal("100.00")), ("account", "Real estate", Decimal("900.00")),
         ("total", "Total assets", Decimal("1000.00")), ("section", "Liabilities", None), ("account", "Mortgage payable", Decimal("400.00")),
-        ("total", "Total liabilities", Decimal("400.00")), ("section", "Equity", None), ("account", "Members' capital", Decimal("550.00")),
-        ("account", "Net income, year to date", Decimal("50.00")), ("total", "Total equity", Decimal("600.00")),
-        ("grand", "Total liabilities and equity", Decimal("1000.00"))]
+        ("total", "Total liabilities", Decimal("400.00")), ("section", "Net worth", None), ("account", "Members' capital", Decimal("550.00")),
+        ("account", "Income less expenses, year to date", Decimal("50.00")), ("total", "Net worth", Decimal("600.00")),
+        ("grand", "Total liabilities and net worth", Decimal("1000.00"))]
     assert bs.rows[1].account_id == 11 and bs.rows[9].account_id is None and not bs.note
 
     monthly = st.income_statement(cf, scope, date(2026, 9, 1), date(2026, 10, 31), "monthly")  # type: ignore[arg-type]
     assert monthly.columns == ["Sep 2026", "Oct 2026", "Total"]
-    assert [r.label for r in monthly.rows] == ["Investment and other income", "Rental income", "Total investment and other income", "Expenses",
-                                               "Property taxes and maintenance", "Total expenses", "Net income"]  # empty sections and accounts left out
-    assert monthly.rows[-1].values == [Decimal("59.00"), Decimal("17.50"), Decimal("76.50")]
+    assert [r.label for r in monthly.rows][:7] == ["Investment and other income", "Rental income", "Total investment and other income", "Expenses",
+                                                   "Property taxes and maintenance", "Total expenses", "Excess of income over expenses"]  # empty ones left out
+    assert monthly.rows[6].values == [Decimal("59.00"), Decimal("17.50"), Decimal("76.50")]
+    # Then the bridge to net worth, for the whole period: contributions and distributions, opening and closing net worth.
+    bridge = {r.label: r.values for r in monthly.rows[7:]}
+    assert bridge["Distributions to owners"] == [None, None, Decimal("-30.00")] and bridge["Change in net worth"] == [None, None, Decimal("46.50")]
+    assert bridge["Net worth, Sep 1, 2026"][-1] == Decimal("553.50") and monthly.rows[-1].label == "Net worth, Oct 31, 2026"
+    assert monthly.rows[-1].values[-1] == Decimal("600.00") and monthly.rows[-1].kind == "grand" and "Other changes" not in bridge
     assert st.income_statement(cf, scope, date(2026, 9, 1), date(2026, 10, 31), "total").columns == ["Total"]  # type: ignore[arg-type]
 
 
@@ -96,7 +104,7 @@ def test_trial_balance_and_ledger() -> None:
     cf, scope = FakeCampfire(), st.Scope(2, False, "ARE")
     tb = st.trial_balance(cf, scope, date(2026, 10, 1), date(2026, 10, 31))  # type: ignore[arg-type]
     assert tb.rows[0].values == [Decimal("80.00"), Decimal("62.00"), Decimal("42.00"), Decimal("100.00"), Decimal("0.00")]
-    assert tb.rows[-1].kind == "grand" and tb.rows[-1].values[0] is None
+    assert tb.rows[-1].kind == "grand" and tb.rows[-1].values[0] is None and len(tb.rows) == 6
     label, lines, total = st.ledger(cf, 41, scope, date(2026, 9, 1), date(2026, 10, 31))  # type: ignore[arg-type]
     assert (label, total) == ("7400 - Rental income", 2) and [ln.posted for ln in lines] == ["2026-09-30", "2026-10-31"]
     assert lines[0].credit == Decimal("62.00") and lines[1].balance == Decimal("124.00")
@@ -112,11 +120,11 @@ def test_statements_pages(client, workspace: Workspace) -> None:  # type: ignore
     cf = FakeCampfire()
     with mock.patch("gl.statement_views.CampfireClient", return_value=cf):
         page = client.get(f"/fo/frame/statements?cf_ctx={context_token(customer_id=workspace.customer_id, surface='nav', user_id=3)}").content.decode()
-        assert "Total liabilities and equity" in page and "Alder Family (Consolidated): all entities" in page and "1,000" in page
+        assert "Total liabilities and net worth" in page and "Statement of net worth" in page and "Alder Family (Consolidated): all entities" in page and "1,000" in page
         assert "/fo/frame/statements/account/11?" in page and "view=is" in page and "Download CSV" in page
         token = unquote(page.split('name="fo_t" value="')[1].split('"')[0])
         income = client.get("/fo/frame/statements", {"fo_t": token, "view": "is", "entity": "2", "cols": "monthly"}).content.decode()
-        assert "Net income" in income and "Oct 2026" in income and "Alder Real Estate Holdings LLC" in income
+        assert "Excess of income over expenses" in income and "Change in net worth" in income and "Oct 2026" in income and "Alder Real Estate Holdings LLC" in income
         sheet = client.get("/fo/frame/statements", {"fo_t": token, "view": "tb", "format": "csv"})
         assert sheet["Content-Type"] == "text/csv" and "1040,Operating cash,80.00,62.00,42.00,100.00,0.00" in sheet.content.decode()
         ledger = client.get("/fo/frame/statements/account/41", {"fo_t": token, "entity": "2", "start": "2026-09-01", "end": "2026-10-31"}).content.decode()

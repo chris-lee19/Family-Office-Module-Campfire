@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% load money %}
+{% block title %}Journal entries{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Journal entries</h1>
+    <p class="muted">{{ workspace }} · write → approve → posted to the ledger · as of {{ today|date:"M j, Y" }}</p>
+  </div>
+  <div class="page-actions">
+    <a class="btn secondary" href="#transfer" data-open="#transfer">Transfer between entities</a>
+    <a class="btn" href="#enter" data-open="#enter">Write an entry</a>
+  </div>
+</div>
+{% if message %}<div class="notice" data-toast="success">{{ message }}</div>{% endif %}
+{% if error %}<div class="issues">{{ error }}</div>{% endif %}
+
+<div class="kpis">
+  <div class="kpi"><div class="label">Waiting for approval</div><div class="value">{{ pending|length }}</div><div class="sub">{% if pending %}Written here, not in the ledger yet{% else %}Nothing to approve{% endif %}</div></div>
+  <div class="kpi"><div class="label">Entries, last {{ lookback }} days</div><div class="value">{{ entries|length }}</div><div class="sub">In the ledger, every source</div></div>
+  <div class="kpi"><div class="label">From this app</div><div class="value">{{ by_source }}</div><div class="sub">Investment activity, bills and manual entries</div></div>
+</div>
+
+{% if pending %}
+<h2>To approve <span class="count-chip">{{ pending|length }}</span></h2>
+{% for j in pending %}
+<article class="box decision">
+  <div class="decision-main">
+    <div class="decision-title"><strong>{{ j.memo }}</strong><span class="pill plain">{{ j.get_kind_display }}</span>{% if j.error %}<span class="pill sev-error">Campfire refused it</span>{% endif %}</div>
+    <div class="muted small">{{ j.ref_number }} · dated {{ j.date|date:"M j, Y" }} · written by {{ j.created_by|default:"—" }}{% if j.error %} · {{ j.error|truncatechars:160 }}{% endif %}</div>
+    {% for e in j.entries %}
+    <table class="inner je-lines"><thead><tr><th>{{ e.entity }}</th><th></th><th class="num">Debit</th><th class="num">Credit</th></tr></thead><tbody>
+      {% for ln in e.lines %}<tr><td>{{ ln.account }}</td><td class="muted">{{ ln.description }}</td><td class="num">{% if ln.debit != "0" and ln.debit != "0.00" %}{{ ln.debit }}{% endif %}</td><td class="num">{% if ln.credit != "0" and ln.credit != "0.00" %}{{ ln.credit }}{% endif %}</td></tr>{% endfor %}
+    </tbody></table>
+    {% endfor %}
+  </div>
+  <div class="decision-actions">
+    {% if j.created_by_id and j.created_by_id == me %}<p class="small muted">You wrote this entry. Someone else approves it (preparer ≠ approver).</p>{% endif %}
+    <form method="post" action="{{ action }}" class="decide">
+      {% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}<input type="hidden" name="entry" value="{{ j.pk }}">
+      <input class="input" name="note" placeholder="Note (required to reject)" aria-label="Note">
+      <div class="actions">
+        <button class="btn small" type="submit" name="action" value="approve">Approve and post</button>
+        <button class="btn secondary small" type="submit" name="action" value="reject">Reject</button>
+      </div>
+    </form>
+  </div>
+</article>
+{% endfor %}
+{% endif %}
+
+<details class="settings" id="enter"{% if retry == "enter" %} open{% endif %}>
+  <summary>Write an entry</summary>
+  <form method="post" action="{{ action }}" class="record-form flat">
+    {% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}<input type="hidden" name="action" value="enter">
+    <div class="fields">
+      <div class="field"><label>Entity <span class="req">*</span></label><select name="entity" required><option value="">Choose</option>{% for id, name in ref.entities.items %}<option value="{{ id }}" {% if typed.entity == id|stringformat:"s" %}selected{% endif %}>{{ name }}</option>{% endfor %}</select></div>
+      <div class="field"><label>Date <span class="req">*</span></label><input type="date" name="date" value="{{ typed.date|default:today|date:'Y-m-d'|default:typed.date }}" required></div>
+      <div class="field"><label>What it is for <span class="req">*</span></label><input name="memo" value="{{ typed.memo }}" required></div>
+    </div>
+    <table class="inner je-entry" data-balance>
+      <thead><tr><th>Account</th><th>Description</th><th class="num">Debit</th><th class="num">Credit</th></tr></thead>
+      <tbody>
+      {% for r in rows %}<tr>
+        <td><select name="account_{{ r.n }}" aria-label="Account, line {{ r.n }}"><option value=""></option>{% for id, name in ref.accounts.items %}<option value="{{ id }}" {% if r.account == id|stringformat:"s" %}selected{% endif %}>{{ name }}</option>{% endfor %}</select></td>
+        <td><input name="description_{{ r.n }}" value="{{ r.description }}" aria-label="Description, line {{ r.n }}"></td>
+        <td><input name="debit_{{ r.n }}" value="{{ r.debit }}" inputmode="decimal" class="num" data-debit aria-label="Debit, line {{ r.n }}"></td>
+        <td><input name="credit_{{ r.n }}" value="{{ r.credit }}" inputmode="decimal" class="num" data-credit aria-label="Credit, line {{ r.n }}"></td>
+      </tr>{% endfor %}
+      </tbody>
+      <tfoot><tr><td colspan="2" class="muted small" data-balance-note>Debits and credits must be equal.</td><td class="num"><strong data-total-debit>–</strong></td><td class="num"><strong data-total-credit>–</strong></td></tr></tfoot>
+    </table>
+    <div class="actions"><button class="btn" type="submit">Write for approval</button><span class="muted small">Nothing reaches the ledger until someone approves it.</span></div>
+  </form>
+</details>
+
+<details class="settings" id="transfer"{% if retry == "transfer" %} open{% endif %}>
+  <summary>Transfer between entities</summary>
+  <form method="post" action="{{ action }}" class="record-form flat">
+    {% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}<input type="hidden" name="action" value="transfer">
+    <div class="fields">
+      <div class="field"><label>From (pays) <span class="req">*</span></label><select name="from" required><option value="">Choose</option>{% for id, name in ref.entities.items %}<option value="{{ id }}" {% if typed.from == id|stringformat:"s" %}selected{% endif %}>{{ name }}</option>{% endfor %}</select></div>
+      <div class="field"><label>To (receives) <span class="req">*</span></label><select name="to" required><option value="">Choose</option>{% for id, name in ref.entities.items %}<option value="{{ id }}" {% if typed.to == id|stringformat:"s" %}selected{% endif %}>{{ name }}</option>{% endfor %}</select></div>
+      <div class="field"><label>Amount <span class="req">*</span></label><input name="amount" inputmode="decimal" value="{{ typed.amount }}" required></div>
+      <div class="field"><label>Date <span class="req">*</span></label><input type="date" name="date" value="{{ today|date:'Y-m-d' }}" required></div>
+      <div class="field"><label>What it is for <span class="req">*</span></label><input name="memo" value="{{ typed.memo }}" required></div>
+    </div>
+    <div class="actions"><button class="btn" type="submit">Write for approval</button><span class="muted small">Books both sides: the payer gets a receivable from the other entity, the receiver a payable.</span></div>
+  </form>
+</details>
+
+<section class="box">
+  <div class="box-head"><h2>In the ledger, last {{ lookback }} days</h2>
+    {% if entries %}<div class="aside"><input type="search" placeholder="Filter entries" aria-label="Filter entries" data-filter="#ledger-entries"></div>{% endif %}</div>
+  {% if entries %}
+  <table data-sort id="ledger-entries">
+    <thead><tr><th>Date</th><th>Entry</th><th>Entity</th><th>Type</th><th>Source</th><th class="num">Amount</th></tr></thead>
+    <tbody>
+    {% for e in entries %}
+      <tr><td class="nowrap">{{ e.posted }}</td>
+        <td>{{ e.memo|default:"(no memo)" }}<span class="muted small"> · {{ e.number }}</span>
+          <details><summary>{{ e.lines|length }} line{{ e.lines|length|pluralize }}</summary><table class="inner"><tbody>
+            {% for ln in e.lines %}<tr><td>{{ ln.account }}</td><td class="muted">{{ ln.description }}</td><td class="num">{% if ln.debit %}{{ ln.debit|acct:2 }}{% endif %}</td><td class="num">{% if ln.credit %}{{ ln.credit|acct:2 }}{% endif %}</td></tr>{% endfor %}
+          </tbody></table></details></td>
+        <td>{{ e.entity }}</td><td class="small">{{ e.kind|capfirst }}</td><td class="small muted">{{ e.source|default:"Campfire" }}</td><td class="num">{{ e.total|acct:2 }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<div class="empty"><strong>No entries in the last {{ lookback }} days</strong>Entries appear here once they are posted.</div>{% endif %}
+</section>
+
+{% if recent %}
+<section class="box">
+  <div class="box-head"><h2>Recently decided here</h2></div>
+  <ul class="rows">
+    {% for j in recent %}<li><div><strong>{{ j.memo }} · {{ j.ref_number }}</strong><span class="small muted">{{ j.get_status_display }}{% if j.decided_by %} by {{ j.decided_by }}{% endif %}{% if j.note %} · {{ j.note }}{% endif %}</span></div><span class="amount">{{ j.total|acct:2 }}</span></li>{% endfor %}
+  </ul>
+</section>
+{% endif %}
+{% endblock %}

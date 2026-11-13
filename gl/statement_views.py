@@ -43,7 +43,12 @@ def _scope(options: list[svc.Scope], value: str) -> svc.Scope | None:
 def _headline(statement: svc.Statement) -> list[tuple[str, Any]]:
     """The totals of a statement as headline figures (last column: the latest balance, or the period total)."""
     totals = [(r.label, r.values[-1], r.kind) for r in statement.rows if r.kind in ("total", "grand") and r.values and r.values[-1] is not None]
-    grand = [t[:2] for t in totals if t[2] == "grand"][:2]  # the answer first: net income, cash at the end, total assets
+    by_label = {label: value for label, value, _ in totals}
+    for wanted in (("Net worth", "Total assets", "Total liabilities"),  # the answer first
+                   ("Change in net worth", "Excess of income over expenses", "Total contributions and distributions")):
+        if all(w in by_label for w in wanted[:2]):
+            return [(w, by_label[w]) for w in wanted if w in by_label]
+    grand = [t[:2] for t in totals if t[2] == "grand"][:2]
     return (grand + [t[:2] for t in totals if t[2] == "total"])[:4]
 
 

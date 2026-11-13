@@ -1,6 +1,6 @@
 from django.urls import path
 
-from gl import bill_views, call_views, cash_views, close_views, panel_views, statement_views, views
+from gl import bill_views, call_views, cash_views, journal_views, close_views, panel_views, statement_views, views
 
 app_name = "gl"
 
@@ -17,6 +17,8 @@ urlpatterns = [
     path("cash", cash_views.standalone_cash, name="cash"),
     path("frame/bills-page", bill_views.frame_bills, name="frame_bills"),
     path("bills", bill_views.standalone_bills, name="bills"),
+    path("frame/journals", journal_views.frame_journals, name="frame_journals"),
+    path("journals", journal_views.standalone_journals, name="journals"),
     path("frame/statements", statement_views.frame_statements, name="frame_statements"),
     path("statements", statement_views.standalone_statements, name="statements"),
     path("frame/statements/account/<int:account_id>", statement_views.frame_ledger, name="frame_ledger"),

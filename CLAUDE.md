@@ -163,8 +163,9 @@ end. Held marks aren't used; non-USD accounts are skipped. Securities without a 
    consolidated; drill-down). API: `/ca/api/get_balance_sheet`, `get_income_statement`, `get_cash_flow`,
    `get_trial_balance`, `/coa/api/general-ledger`, `/coa/api/transaction`.
 3. ~~Cash~~ (page done 2026-11-13, see below; bank reconciliation `/coa/api/v2/reconciliation` still to do).
-4. ~~Bills and payments~~ (page done 2026-11-13, see below). 5. Journal entries
-   (`/coa/api/journal_entry`, `intercompany-journal-entry`). 6. Approvals in the app. 7. Roles and per-user access.
+4. ~~Bills and payments~~ (done). 5. ~~Journal entries~~ (done, see below). Agreed next (user 2026-11-13, in this order):
+   partnership accounting and K-1s -> Connectors page -> roles and per-user access -> bank reconciliation -> liquidity
+   forecast -> family reporting pack.
    Later: budgets, fixed assets (property, art), documents/K-1s, liquidity, reporting pack.
 - Added by the user 2026-11-13 (don't lose): **partnership accounting and K-1s** (capital accounts per partner,
   allocations of income/gain, K-1 tracking and figures by entity and person) and a **Connectors page** to bring in
@@ -221,6 +222,22 @@ end. Held marks aren't used; non-USD accounts are skipped. Securities without a 
 - Branding (user: make it feel like Campfire, "Family Office on Campfire"): sidebar brand, sign-in card, page titles
   "<page> · Family Office on Campfire"; light theme uses warm neutrals like Campfire's interface (cream sidebar).
   Campfire's logo is not used. 154 tests.
+
+## Family-office vocabulary and Journal entries (2026-11-13)
+- User: "speak family office". Statements follow personal-financial-statement terms: tabs Net worth / Changes in net
+  worth / Cash flow / Trial balance; "Statement of net worth" (equity section = "Net worth", "Total liabilities and
+  net worth"); "Statement of changes in net worth" = income and expense sections, "Excess of income over expenses",
+  then a bridge from the trial balance: contributions and distributions (movements on equity accounts), bank lines not
+  categorized, "Other changes" only if it doesn't foot, change in net worth, net worth at start and end. Verified to
+  foot on the sandbox. Use these words in new pages (payee, net worth, contributions/distributions), not corporate ones.
+- Journal entries page (`gl/services/journals.py`, `gl/journal_views.py`, `gl:journals`): ledger entries of the last
+  120 days with their lines; "Write an entry" (8 lines, live balance check) and "Transfer between entities" (two
+  entries: payer Dr due from related / Cr operating cash; receiver Dr operating cash / Cr due to related; accounts
+  found by name) -> `JournalRequest` -> approval in the app by a second person -> `POST /coa/api/journal_entry` per
+  entity (source "Family Office", source_id `fo-journal-<pk>-<n>`, ref `FO-JE-<pk>`); a refusal keeps what was posted
+  and approving again sends the rest. Campfire's intercompany endpoint is not used (write shape unclear).
+- Lesson from the write test: removing a bill payment (DELETE .../payment/<id>/void) leaves the payment's entry behind
+  as an uncategorized entry; delete that journal entry too. 158 tests.
 
 ## Sign-in and new permissions (lesson, 2026-11-13)
 - Adding `transactions:write` to the defaults broke sign-in for everyone: Campfire answers `invalid_scope` ("This app may

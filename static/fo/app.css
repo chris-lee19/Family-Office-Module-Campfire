@@ -441,3 +441,10 @@ form.decide.pay { grid-template-columns: 1fr; min-width: 220px; margin-top: 8px;
 .on-campfire { color: var(--muted); font-weight: 500; }
 .side a.nav.active { background: var(--surface-3); }
 details#enter { margin: 16px 0; }
+
+/* ---- journal entries ---- */
+table.je-entry { margin: 4px 0 12px; } table.je-entry td { padding: 3px 6px 3px 0; } table.je-entry select, table.je-entry input { width: 100%; max-width: none; height: 32px; font-size: 13px; }
+table.je-entry td:nth-child(1) { width: 34%; } table.je-entry td:nth-child(3), table.je-entry td:nth-child(4) { width: 15%; } table.je-entry input.num { text-align: right; }
+table.je-entry tfoot td { padding-top: 8px; border-top: 1px solid var(--line-strong); }
+table.je-lines { margin-top: 10px; } table.je-lines th { text-transform: none; letter-spacing: 0; font-size: 12.5px; color: var(--fg-2); }
+details#transfer { margin: 0 0 16px; }

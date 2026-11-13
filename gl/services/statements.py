@@ -20,7 +20,8 @@ TRIAL_BALANCE_PATH = "/ca/api/get_trial_balance"
 LEDGER_PATH = "/coa/api/transaction"
 ENTITY_PATH = "/coa/api/entity"
 ZERO = Decimal(0)
-VIEWS = {"bs": "Balance sheet", "is": "Income statement", "cf": "Cash flow", "tb": "Trial balance"}
+# Family-office names (personal financial statements): net worth, and what changed it.
+VIEWS = {"bs": "Net worth", "is": "Changes in net worth", "cf": "Cash flow", "tb": "Trial balance"}
 COLUMNS = {"total": "One column", "monthly": "By month", "quarterly": "By quarter"}
 PERIODS = {"ytd": "This year to date", "month": "Last month", "quarter": "Last quarter", "year": "Last year", "custom": "Custom dates"}
 
@@ -142,7 +143,7 @@ def balance_sheet(client: CampfireClient, scope: Scope, start: date, end: date, 
     rows = data.get("balance_sheet", [])
     value = lambda r: [_dec(r.get(f"{k}_Total")) for k in keys]  # noqa: E731
     le = "LIABILITIES_AND_EQUITY"
-    out = Statement("Balance sheet", [_label(k, cadence, True, end) for k in keys])
+    out = Statement("Statement of net worth", [_label(k, cadence, True, end) for k in keys])
     add = out.rows.append
     add(Row("Assets", [None] * len(keys), "section"))
     out.rows += _account_rows(rows, ["ASSET"], value)
@@ -150,14 +151,14 @@ def balance_sheet(client: CampfireClient, scope: Scope, start: date, end: date, 
     add(Row("Liabilities", [None] * len(keys), "section"))
     out.rows += _account_rows(rows, [le, "LIABILITY"], value)
     add(Row("Total liabilities", value(_group(rows, [le, "LIABILITY"])), "total"))
-    add(Row("Equity", [None] * len(keys), "section"))
+    add(Row("Net worth", [None] * len(keys), "section"))
     out.rows += _account_rows(rows, [le, "EQUITY"], value)
-    for key, label in (("RETAINED_EARNINGS", "Retained earnings (prior years)"), ("NET_INCOME", "Net income, year to date")):
+    for key, label in (("RETAINED_EARNINGS", "Accumulated from prior years"), ("NET_INCOME", "Income less expenses, year to date")):
         extra = Row(label, value(_group(rows, [le, "EQUITY", key])), "account", level=1)
         if _nonzero(extra):
             add(extra)
-    add(Row("Total equity", value(_group(rows, [le, "EQUITY"])), "total"))
-    add(Row("Total liabilities and equity", value(_group(rows, [le])), "grand"))
+    add(Row("Net worth", value(_group(rows, [le, "EQUITY"])), "total"))
+    add(Row("Total liabilities and net worth", value(_group(rows, [le])), "grand"))
     uncategorized = Row("Uncategorized (bank lines waiting to be categorized)", value(_group(rows, ["UNCATEGORIZED_TOTAL"])), "account")
     if _nonzero(uncategorized):
         add(uncategorized)
@@ -170,9 +171,9 @@ def income_statement(client: CampfireClient, scope: Scope, start: date, end: dat
     rows = data.get("income_statement", [])
     show = [] if columns == "total" else keys
     value = lambda r: [_dec(r.get(f"{k}_Total")) for k in show] + [_dec(r.get("Total"))]  # noqa: E731
-    out = Statement("Income statement", [_label(k, cadence, False, end) for k in show] + ["Total"])
+    out = Statement("Statement of changes in net worth", [_label(k, cadence, False, end) for k in show] + ["Total"])
     blank: list[Decimal | None] = [None] * (len(show) + 1)
-    sections = (("REVENUE", "Revenue", "Total revenue"), ("COGS", "Cost of sales", "Total cost of sales"),
+    sections = (("REVENUE", "Fee and operating income", "Total fee and operating income"), ("COGS", "Direct costs", "Total direct costs"),
                 ("OTHER_INCOME", "Investment and other income", "Total investment and other income"),
                 ("OPERATING_EXPENSES", "Expenses", "Total expenses"), ("OTHER_EXPENSE", "Interest, taxes and other", "Total interest, taxes and other"))
     for key, title, total in sections:
@@ -182,14 +183,53 @@ def income_statement(client: CampfireClient, scope: Scope, start: date, end: dat
         out.rows.append(Row(title, blank, "section"))
         out.rows += accounts
         out.rows.append(Row(total, value(_group(rows, [key])), "total"))
-    out.rows.append(Row("Net income", value(_group(rows, ["NET_INCOME"])), "grand"))
+    net_income = value(_group(rows, ["NET_INCOME"]))
+    out.rows.append(Row("Excess of income over expenses", net_income, "total"))
+    out.rows += _net_worth_bridge(client, scope, start, end, net_income[-1] or ZERO, len(show))
+    return out
+
+
+def _net_worth_bridge(client: CampfireClient, scope: Scope, start: date, end: date, net_income: Decimal, blanks: int) -> list[Row]:
+    """From income less expenses to the change in net worth: contributions and distributions (movements on the equity
+    accounts), bank lines not categorized yet, then net worth at the start and the end. For the whole period only."""
+    data = client.get_json(TRIAL_BALANCE_PATH, params={**scope.params(), "start_date": start.isoformat(), "end_date": end.isoformat()})
+    accounts = [a for a in data.get("trial_balance", {}).get("accounts", []) if a.get("id") != "total"]
+    net = lambda b: _dec((b or {}).get("debits")) - _dec((b or {}).get("credits"))  # noqa: E731  (debit positive)
+    pad: list[Decimal | None] = [None] * blanks
+    opening = closing = uncategorized = ZERO
+    movements: list[Row] = []
+    for a in sorted(accounts, key=lambda a: str(a.get("number") or "~")):
+        kind = a.get("account_type")
+        if kind in ("ASSET", "LIABILITY"):
+            opening += net(a.get("beginning_balances"))
+            closing += net(a.get("ending_balances"))
+        elif kind == "EQUITY":
+            change = -net(a.get("activity"))  # a credit to an equity account adds to net worth
+            if change:
+                movements.append(Row(a.get("name") or "", [*pad, change], "account", str(a.get("number") or ""), 1,
+                                     int(a["id"]) if str(a.get("id")).isdigit() else None))
+        elif kind and kind.startswith("UNCATEGORIZED"):
+            uncategorized += -net(a.get("activity"))
+    out: list[Row] = []
+    if movements:
+        out.append(Row("Contributions and distributions", [*pad, None], "section"))
+        out += movements
+        out.append(Row("Total contributions and distributions", [*pad, sum((m.values[-1] or ZERO for m in movements), ZERO)], "total"))
+    if uncategorized:
+        out.append(Row("Bank lines not categorized yet", [*pad, uncategorized], "account"))
+    other = closing - opening - net_income - sum((m.values[-1] or ZERO for m in movements), ZERO) - uncategorized
+    if abs(other) >= Decimal("0.01"):
+        out.append(Row("Other changes", [*pad, other], "account"))
+    out.append(Row("Change in net worth", [*pad, closing - opening], "total"))
+    out.append(Row(f"Net worth, {start:%b %-d, %Y}", [*pad, opening], "account"))
+    out.append(Row(f"Net worth, {end:%b %-d, %Y}", [*pad, closing], "grand"))
     return out
 
 
 def cash_flow(client: CampfireClient, scope: Scope, start: date, end: date, columns: str) -> Statement:
     data, keys, cadence = _fetch(client, CASH_FLOW_PATH, scope, start, end, columns)
     show = [] if columns == "total" else keys
-    out = Statement("Cash flow", [_label(k, cadence, False, end) for k in show] + ["Total"])
+    out = Statement("Statement of cash flows", [_label(k, cadence, False, end) for k in show] + ["Total"])
     labels = {"OPERATING": "Cash from operations", "INVESTING": "Cash from investing", "FINANCING": "Cash from financing",
               "TOTAL_NET_CASH_FLOW": "Net change in cash", "CASH_BALANCE_BEGINNING_PERIOD": "Cash at the start",
               "CASH_BALANCE_ENDING_PERIOD": "Cash at the end"}
