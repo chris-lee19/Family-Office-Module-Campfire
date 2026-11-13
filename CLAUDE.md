@@ -24,20 +24,27 @@ A family-office product built as a **Campfire partner OAuth app** (we are a Camp
 ## State (as of 2026-11-13)
 Done: P0 foundation (OAuth/OIDC, signed events, single-use `cf_ctx` frames, manifest builder, encrypted tokens) ·
 M1 Entities & Ownership (look-through ownership) · M2 Investments core (ledger replay with FIFO lots, valuation with
-NAV roll-forward + stale flags + anomaly hold, private-fund metrics incl. IRR, capital calls, net worth roll-ups).
-Two sidebar pages: Investments, Entities & Ownership. 34 tests passing.
+NAV roll-forward + stale flags + anomaly hold, private-fund metrics incl. IRR, capital calls, net worth roll-ups) ·
+Custodian file importer (`investments/importers/`: presets + per-workspace `CustodianFormat` overrides; staged
+validate → commit, all or nothing; REC-08 checks; `source_ref` de-dup; workspace-scoped `ImportBatch` + `ImportIssue`).
+Three sidebar pages: Investments, Entities & Ownership, Imports. Framed pages that navigate or POST carry a signed
+frame token (`fo_t`, `campfire_integration/pages.py`) issued after the `cf_ctx` check. 65 tests passing.
 
 ## Next steps (in order)
-1. **Custodian file importer** (no Campfire dependency): configurable column mapping per custodian (Pershing-style first),
-   `ImportBatch` + `source_ref` de-duplication, validation rules (REC-08), into `investments.Transaction` / `Price`.
-2. **GL bridge (M3)**: posting rules → summarized, tag-dimensioned journal entries in Campfire as drafts, with lineage
+1. **GL bridge (M3)**: posting rules → summarized, tag-dimensioned journal entries in Campfire as drafts, with lineage
    (custom fields `FO Source Ref` / `FO Batch ID`); subledger-to-GL tie-out (REC-04). Needs the API key and real scope names.
-3. **Capital call → Campfire bill** (draft) → bill-paid event → `investments.services.privates.mark_call_paid`.
+2. **Capital call → Campfire bill** (draft) → bill-paid event → `investments.services.privates.mark_call_paid`.
+3. Importer follow-ups: confirm the Pershing-style columns/codes against a real extract; positions file for
+   custody position reconciliation (REC-02); withholding on dividends; reverting a committed batch (needs the GL bridge
+   to reverse its JEs too).
+
+## Available
+- `CAMPFIRE_API_KEY` (sandbox) is set as an environment secret and `api.meetcampfire.com` / `docs.campfire.ai` are
+  reachable (verified 2026-11-13). Inspect real payloads (JEs, bills, accounts, tags, entities) before building the
+  GL bridge. Header: `Authorization: Token <key>`; base URL `https://api.meetcampfire.com`; docs index
+  `https://docs.campfire.ai/llms.txt`. Read-only calls only until the user says otherwise.
 
 ## Waiting on the user
-- `CAMPFIRE_API_KEY` (sandbox, view-only to start) as an environment secret, plus `api.meetcampfire.com` and
-  `docs.campfire.ai` in the environment's allowed domains. Use it to inspect real payloads (JEs, bills, accounts, tags,
-  entities) before building step 2. Header: `Authorization: Token <key>`; base URL `https://api.meetcampfire.com`.
 - The exact OAuth scope strings: the `allowed_scopes` list from the app's Manifest tab in Campfire (UI labels ≠ scope
   names; e.g. "Chart of Accounts" = `accounts:write`). Then set the default `CAMPFIRE_SCOPES` so `build_manifest` matches.
 - From the Campfire partner contact: `oauth_app_extensions` flag on the sandbox; which object types accept slots/panels
@@ -49,4 +56,4 @@ Two sidebar pages: Investments, Entities & Ownership. 34 tests passing.
 - Money `Decimal` with 2 dp; amounts on transactions are gross/positive, direction from the type.
 - Every page is served framed in Campfire and standalone via `campfire_integration/pages.py`; add new sidebar pages to
   `campfire_integration/manifest.py` `NAV_PAGES`.
-- Work on branch `claude/loving-cray-nibgy2`; commit with clear messages; never commit `.env`, `manifest.json` or `docs/client/`.
+- Work on the branch the session names (currently `claude/epic-mayer-dri74n`); commit with clear messages; never commit `.env`, `manifest.json` or `docs/client/`.

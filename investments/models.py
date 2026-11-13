@@ -135,15 +135,103 @@ class Account(models.Model):
 
 
 class ImportBatch(models.Model):
-    """One load from a source (a custodian file, an extracted document, a manual entry session). Lineage root."""
+    """One load from a source (a custodian file, an extracted document, a manual entry session). Lineage root.
 
-    family = models.ForeignKey(Family, on_delete=models.CASCADE, related_name="import_batches")
-    source = models.CharField(max_length=40)
+    A custodian file can hold accounts of several families (a multi-family office's master account), so a
+    batch belongs to the workspace; `family` is set when everything in it belongs to one family.
+    File imports go validated -> committed (or rejected); other sources create batches already committed.
+    """
+
+    class Kind(models.TextChoices):
+        TRANSACTIONS = "transactions", "Transactions"
+        PRICES = "prices", "Prices"
+        OTHER = "other", "Other"
+
+    class Status(models.TextChoices):
+        VALIDATED = "validated", "Validated, not yet imported"
+        COMMITTED = "committed", "Imported"
+        REJECTED = "rejected", "Rejected"
+        DISCARDED = "discarded", "Discarded"
+
+    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE, related_name="import_batches")
+    family = models.ForeignKey(Family, null=True, blank=True, on_delete=models.CASCADE, related_name="import_batches")
+    source = models.CharField(max_length=40, help_text="Adapter: custodian_file, document_ai, manual, demo, ...")
     reference = models.CharField(max_length=255, blank=True, help_text="File name, document id, ...")
+    kind = models.CharField(max_length=16, choices=Kind.choices, default=Kind.OTHER)
+    status = models.CharField(max_length=12, choices=Status.choices, default=Status.COMMITTED)
+    file_format = models.CharField(max_length=60, blank=True, help_text="Code of the file layout used")
+    file_name = models.CharField(max_length=255, blank=True)
+    file_sha256 = models.CharField(max_length=64, blank=True, db_index=True)
+    content = models.TextField(blank=True, help_text="The file as received, kept for re-validation and audit")
+    options = models.JSONField(default=dict, blank=True)
+    rows_total = models.PositiveIntegerField(default=0)
+    rows_new = models.PositiveIntegerField(default=0)
+    rows_duplicate = models.PositiveIntegerField(default=0)
+    rows_ignored = models.PositiveIntegerField(default=0)
+    created_by = models.CharField(max_length=255, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    committed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
 
     def __str__(self) -> str:
         return f"{self.source} {self.reference}".strip()
+
+    def clean(self) -> None:
+        if self.family_id and self.family.workspace_id != self.workspace_id:
+            raise ValidationError("The batch's family must belong to its workspace.")
+
+
+class ImportIssue(models.Model):
+    """A validation finding on an import batch (REC-08). Errors block the import; warnings don't."""
+
+    class Severity(models.TextChoices):
+        ERROR = "error", "Error"
+        WARNING = "warning", "Warning"
+        INFO = "info", "Info"
+
+    batch = models.ForeignKey(ImportBatch, on_delete=models.CASCADE, related_name="issues")
+    row_number = models.PositiveIntegerField(null=True, blank=True, help_text="Line in the file; empty for file-level findings")
+    severity = models.CharField(max_length=8, choices=Severity.choices)
+    code = models.CharField(max_length=40)
+    message = models.CharField(max_length=500)
+
+    class Meta:
+        ordering = ["batch", "id"]
+
+    def __str__(self) -> str:
+        where = f"line {self.row_number}: " if self.row_number else ""
+        return f"{self.severity} {where}{self.message}"
+
+
+class CustodianFormat(models.Model):
+    """A workspace's own file layout: a built-in preset plus overrides (columns, codes, date format, keywords).
+
+    See investments.importers.formats for the keys `config` accepts.
+    """
+
+    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE, related_name="custodian_formats")
+    code = models.SlugField(max_length=60)
+    name = models.CharField(max_length=120)
+    preset = models.CharField(max_length=60, help_text="Built-in layout this one starts from")
+    config = models.JSONField(default=dict, blank=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["workspace", "name"]
+        constraints = [models.UniqueConstraint(fields=["workspace", "code"], name="custodian_format_code_unique")]
+
+    def __str__(self) -> str:
+        return self.name
+
+    def clean(self) -> None:
+        from investments.importers.formats import FormatError, from_model
+
+        try:
+            from_model(self)
+        except FormatError as e:
+            raise ValidationError(str(e)) from e
 
 
 class Transaction(models.Model):
@@ -209,6 +297,7 @@ class Price(models.Model):
     as_of = models.DateField()
     price = models.DecimalField(**QTY)
     source = models.CharField(max_length=40, default="manual")
+    batch = models.ForeignKey(ImportBatch, null=True, blank=True, on_delete=models.SET_NULL, related_name="prices")
 
     class Meta:
         ordering = ["instrument", "-as_of"]

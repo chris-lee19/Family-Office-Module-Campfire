@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% load money %}
+{% block title %}Import {{ batch.pk }}{% endblock %}
+{% block content %}
+<p><a href="{{ back }}">← Imports</a></p>
+<h1>{{ batch.file_name|default:batch.reference|default:"Import" }} <span class="pill status-{{ batch.status }}">{{ batch.get_status_display }}</span></h1>
+<p class="muted">Batch {{ batch.pk }} · {{ batch.file_format }} · uploaded {{ batch.created_at|date:"Y-m-d H:i" }}{% if batch.created_by %} by {{ batch.created_by }}{% endif %}{% if batch.committed_at %} · imported {{ batch.committed_at|date:"Y-m-d H:i" }}{% endif %}</p>
+{% if message %}<div class="notice">{{ message }}</div>{% endif %}
+
+<div class="cards">
+  <div class="card"><div class="label">Rows in file</div><div class="value">{{ batch.rows_total }}</div></div>
+  <div class="card"><div class="label">{% if batch.status == "committed" %}Imported{% elif batch.status == "rejected" %}Passed checks{% else %}To import{% endif %}</div><div class="value">{{ batch.rows_new }}</div></div>
+  <div class="card"><div class="label">Already imported (skipped)</div><div class="value">{{ batch.rows_duplicate }}</div></div>
+  <div class="card"><div class="label">Ignored</div><div class="value">{{ batch.rows_ignored }}</div></div>
+  <div class="card"><div class="label">Errors</div><div class="value">{{ error_count }}</div></div>
+</div>
+
+{% if batch.status == "validated" %}
+<form method="post" action="{{ action }}" class="actions">
+  {% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
+  <button class="btn" type="submit" name="action" value="commit">Import {{ batch.rows_new }} row{{ batch.rows_new|pluralize }}</button>
+  <button class="btn secondary" type="submit" name="action" value="discard">Discard</button>
+  <span class="muted">Checks run again when you import.</span>
+</form>
+{% elif batch.status == "rejected" %}
+<div class="issues">Nothing was imported. Fix the errors below (in the file, or in the account, security or layout setup) and upload the file again.</div>
+{% endif %}
+
+{% if issues %}
+<h2>Findings</h2>
+<table>
+  <thead><tr><th>Severity</th><th>Line</th><th>Finding</th></tr></thead>
+  <tbody>
+  {% for i in issues %}
+    <tr><td><span class="pill sev-{{ i.severity }}">{{ i.get_severity_display }}</span></td><td>{{ i.row_number|default:"" }}</td><td>{{ i.message }}<br><span class="muted">{{ i.code }}</span></td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+{% if rows %}
+<h2>{% if batch.status == "committed" %}Imported{% else %}Will import{% endif %}{% if row_count > preview_limit %} (first {{ preview_limit }} of {{ row_count }}){% endif %}</h2>
+<table>
+  <thead><tr><th>Line</th><th>Date</th><th>Account</th><th>Type</th><th>Security</th><th class="num">Quantity</th><th class="num">Amount</th><th class="num">Fees</th></tr></thead>
+  <tbody>
+  {% for r in rows %}
+    <tr><td>{{ r.line|default:"" }}</td><td>{{ r.trade_date|date:"Y-m-d" }}</td><td>{{ r.account }}</td><td>{{ r.kind }}</td><td>{{ r.security }}</td>
+      <td class="num">{% if r.quantity is not None %}{{ r.quantity|floatformat:"-4g" }}{% endif %}</td>
+      <td class="num">{{ r.amount|floatformat:"2g" }}</td><td class="num">{% if r.fees %}{{ r.fees|floatformat:"2g" }}{% endif %}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}

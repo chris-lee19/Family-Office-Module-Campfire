@@ -9,6 +9,8 @@ What the data is built to show:
 - A directly held property whose appraisal is older than the stale threshold.
 """
 
+import csv
+import io
 from datetime import date, timedelta
 from decimal import Decimal
 
@@ -54,7 +56,7 @@ def seed_alder_investments(family: Family, today: date) -> None:
 
     entity = {e.name: e for e in Entity.objects.filter(family=family)}
     person = {p.first_name: p for p in Person.objects.filter(family=family)}
-    batch = ImportBatch.objects.create(family=family, source="demo", reference="Alder demo seed")
+    batch = ImportBatch.objects.create(workspace=ws, family=family, source="demo", reference="Alder demo seed")
 
     def account(name: str, owner: Entity | Person, kind: str, tax: str = TT.TAXABLE, tracks_cash: bool = True, **kw) -> Account:  # type: ignore[no-untyped-def]
         return Account.objects.create(
@@ -71,7 +73,7 @@ def seed_alder_investments(family: Family, today: date) -> None:
         )
 
     # Robert's revocable trust: taxable custody account.
-    rrt = account("Robert Alder RT – Custody", entity["Robert Alder Revocable Trust"], A.BROKERAGE, custodian=CUSTODIAN, account_number_last4="4417")
+    rrt = account("Robert Alder RT – Custody", entity["Robert Alder Revocable Trust"], A.BROKERAGE, custodian=CUSTODIAN, account_number_last4="4417", external_id="4BX-104417")
     txn(rrt, T.DEPOSIT, -900, "2000000")
     txn(rrt, T.BUY, -899, "1260000", ustm, "6000")
     txn(rrt, T.BUY, -899, "440000", intd, "8000")
@@ -81,12 +83,12 @@ def seed_alder_investments(family: Family, today: date) -> None:
     txn(rrt, T.SELL, -200, "530000", ustm, "2000", fees=D("25"))
 
     # Eleanor's IRA: owned by a person, tax-deferred.
-    ira = account("Eleanor Alder – IRA", person["Eleanor"], A.RETIREMENT, TT.TAX_DEFERRED, custodian=CUSTODIAN, account_number_last4="8802")
+    ira = account("Eleanor Alder – IRA", person["Eleanor"], A.RETIREMENT, TT.TAX_DEFERRED, custodian=CUSTODIAN, account_number_last4="8802", external_id="4BX-208802")
     txn(ira, T.TRANSFER_IN, -1200, "180000", ustm, "1500", acquired_on=day(-2400))
     txn(ira, T.DEPOSIT, -1200, "25000")
 
     # Dynasty trust: bonds and equity.
-    dyn = account("Alder 2012 Dynasty Trust – Custody", entity["Alder 2012 Dynasty Trust"], A.BROKERAGE, custodian=CUSTODIAN, account_number_last4="1290")
+    dyn = account("Alder 2012 Dynasty Trust – Custody", entity["Alder 2012 Dynasty Trust"], A.BROKERAGE, custodian=CUSTODIAN, account_number_last4="1290", external_id="4BX-301290")
     txn(dyn, T.DEPOSIT, -1000, "3000000")
     txn(dyn, T.BUY, -990, "1470000", bond, "1500")
     txn(dyn, T.BUY, -990, "920000", ustm, "4000")
@@ -97,7 +99,7 @@ def seed_alder_investments(family: Family, today: date) -> None:
     txn(dyn, T.INTEREST, -80, "31875", bond)
 
     # Foundation: tax-exempt.
-    fdn = account("Alder Family Foundation – Custody", entity["Alder Family Foundation"], A.BROKERAGE, TT.TAX_EXEMPT, custodian=CUSTODIAN, account_number_last4="5530")
+    fdn = account("Alder Family Foundation – Custody", entity["Alder Family Foundation"], A.BROKERAGE, TT.TAX_EXEMPT, custodian=CUSTODIAN, account_number_last4="5530", external_id="4BX-405530")
     txn(fdn, T.DEPOSIT, -700, "1500000")
     txn(fdn, T.BUY, -690, "560000", intd, "10000")
     txn(fdn, T.BUY, -690, "900000", mmf, "900000")
@@ -129,3 +131,57 @@ def seed_alder_investments(family: Family, today: date) -> None:
     re_acct = account("ARE LLC – Harbor Street Property", entity["Alder Real Estate Holdings LLC"], A.REAL_ASSET, tracks_cash=False)
     txn(re_acct, T.BUY, -1500, "8500000", harbor, fees=D("120000"))
     record_valuation(account=re_acct, instrument=harbor, as_of=day(-500), value=D("10200000"), method=Valuation.Method.APPRAISAL, batch=batch)
+
+
+# ------------------------------------------------------------------ sample custodian files (Pershing-style)
+
+ACTIVITY_HEADER = [
+    "Account Number", "Trade Date", "Settlement Date", "Transaction Code", "Description", "CUSIP", "Symbol",
+    "Security Description", "Security Type", "Quantity", "Price", "Principal Amount", "Commission", "Fees",
+    "Net Amount", "Cost Basis", "Original Acquisition Date", "Transaction ID",
+]
+
+
+def _csv(header: list[str], rows: list[list[str]]) -> str:
+    out = io.StringIO()
+    writer = csv.writer(out, lineterminator="\n")
+    writer.writerow(header)
+    writer.writerows(rows)
+    return out.getvalue()
+
+
+def alder_activity_file(today: date) -> str:
+    """Last month's activity for the Alder custody accounts, as the custodian would send it.
+
+    Built to show the checks: an advisory fee arriving as a cash journal (booked as a fee), a security not
+    yet set up (created when allowed), a memo line (ignored), and signed amounts that tie out.
+    """
+
+    def d(offset: int) -> str:
+        return (today + timedelta(days=offset)).strftime("%m/%d/%Y")
+
+    rows = [
+        ["4BX-104417", d(-24), d(-24), "DIV", "CASH DIVIDEND RECEIVED", "", "USTM", "US Total Market Index ETF", "ETF", "", "", "4850.00", "", "", "4850.00", "", "", "BX-0001"],
+        ["4BX-104417", d(-20), d(-19), "BUY", "BOUGHT INTD", "", "INTD", "International Developed Equity ETF", "ETF", "2000", "61.00", "122000.00", "15.00", "", "-122015.00", "", "", "BX-0002"],
+        ["4BX-104417", d(-15), d(-15), "JNL", "ADVISORY FEE QTR END", "", "", "", "", "", "", "", "", "", "-6250.00", "", "", "BX-0003"],
+        ["4BX-301290", d(-18), d(-18), "INT", "INTEREST RECEIVED", "", "UST30", "US Treasury 4.25% 2030", "FI", "", "", "31875.00", "", "", "31875.00", "", "", "BX-0004"],
+        ["4BX-301290", d(-12), d(-12), "WD", "WIRE TO TRUST OPERATING ACCOUNT", "", "", "", "", "", "", "", "", "", "-50000.00", "", "", "BX-0005"],
+        ["4BX-301290", d(-10), d(-9), "BUY", "BOUGHT STTR", "", "STTR", "Short-Term Treasury ETF", "ETF", "4000", "50.10", "200400.00", "0.00", "", "-200400.00", "", "", "BX-0006"],
+        ["4BX-405530", d(-6), d(-6), "DIV", "MONEY MARKET DIVIDEND", "", "GOVMM", "Government Money Market Fund", "MM", "", "", "3120.44", "", "", "3120.44", "", "", "BX-0007"],
+        ["4BX-405530", d(-6), d(-6), "MEMO", "STATEMENT MESSAGE: NO ACTION REQUIRED", "", "", "", "", "", "", "", "", "", "", "", "", "BX-0008"],
+        ["4BX-208802", d(-4), d(-4), "DEP", "IRA CONTRIBUTION CURRENT YEAR", "", "", "", "", "", "", "", "", "", "7000.00", "", "", "BX-0009"],
+    ]
+    return _csv(ACTIVITY_HEADER, rows)
+
+
+def alder_price_file(today: date) -> str:
+    as_of = (today - timedelta(days=1)).strftime("%m/%d/%Y")
+    rows = [
+        ["", "USTM", as_of, "274.85"],
+        ["", "INTD", as_of, "61.40"],
+        ["", "UST30", as_of, "993.40"],
+        ["", "GOVMM", as_of, "1.00"],
+        ["", "STTR", as_of, "50.12"],
+        ["", "ZQXV", as_of, "18.20"],  # a security no Alder account holds: skipped
+    ]
+    return _csv(["CUSIP", "Symbol", "Price Date", "Price"], rows)

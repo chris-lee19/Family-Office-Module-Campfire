@@ -14,6 +14,7 @@ APP_NAME = "Family Office"
 NAV_PAGES: list[tuple[str, str, str, str]] = [
     ("investments", "Investments", "chart-pie", "/fo/frame/investments"),
     ("entities", "Entities & Ownership", "users", "/fo/frame/entities"),
+    ("imports", "Imports", "upload", "/fo/frame/imports"),
 ]
 
 # Event topics to receive at /campfire/events. Filled in as handlers are added

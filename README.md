@@ -4,7 +4,7 @@ A Campfire partner app that adds family-office operations to Campfire's general 
 
 Plan and requirement mapping: [`docs/PLAN.md`](docs/PLAN.md), [`docs/campfire_fit_map.csv`](docs/campfire_fit_map.csv).
 
-## What exists today (P0 foundation + core of M2 Investments)
+## What exists today (P0 foundation, M1, M2 Investments, custodian file import)
 
 | Area | Where |
 |---|---|
@@ -22,6 +22,8 @@ Plan and requirement mapping: [`docs/PLAN.md`](docs/PLAN.md), [`docs/campfire_fi
 | Private funds: called, distributed, recallable, unfunded, DPI / RVPI / TVPI, IRR; paying a capital call books the contribution once | `investments/services/privates.py` |
 | Net worth by person (look-through), owner, asset class, liquidity, tax treatment | `investments/services/portfolio.py` |
 | "Investments" page in Campfire's sidebar | `/fo/frame/investments` (standalone: `/fo/investments`) |
+| Custodian file import: layouts as presets (Pershing-style activity and price files, generic spreadsheet) with per-workspace overrides (`CustodianFormat`, edited in `/admin`); validate → review → import, all or nothing; REC-08 checks (field mapping, signs, principal/fees/net tie-out, fee vs transfer, duplicates by `source_ref`, ledger replay refuses oversells); every row keeps its batch and source reference | `investments/importers/` |
+| "Imports" page in Campfire's sidebar: upload, findings, preview, import or discard | `/fo/frame/imports` (standalone: `/fo/imports`) |
 | Fictional demo family with entities and investments (dates relative to today) | `python manage.py seed_demo` |
 
 ## Local development
@@ -68,6 +70,23 @@ A reserved ngrok domain keeps `APP_URL` stable. Otherwise every new URL means re
    ```
 3. In Campfire, open **Family Office → Entities & Ownership** in the sidebar.
 
+### 4. Import a custodian file
+
+On **Family Office → Imports**, choose a layout, upload the file and review the findings; nothing is posted until
+you click **Import**. The demo family's sample files are linked on that page. From the command line:
+
+```bash
+.venv/bin/python manage.py import_custodian_file --write-sample activity activity.csv
+.venv/bin/python manage.py import_custodian_file --customer-id <id> activity.csv --create-securities           # validate only
+.venv/bin/python manage.py import_custodian_file --customer-id <id> activity.csv --create-securities --commit  # import
+.venv/bin/python manage.py import_custodian_file --customer-id <id> --list-formats
+```
+
+Custodian rows are matched to accounts by the account's **external ID** (the custodian account number) and to
+securities by CUSIP, then symbol. Re-importing a file, or a file that overlaps an earlier one, only adds rows not
+already in the book. The Pershing-style layout is illustrative; check its columns and activity codes against a real
+extract and adjust the preset or add a workspace layout.
+
 ## Permissions (scopes)
 
 `CAMPFIRE_SCOPES` (default `openid email profile`) feeds both the manifest's `allowed_scopes` and the scope requested at connect time, so they always match. Add data scopes as features need them, e.g. journal entries and bills for the GL bridge and capital-call flow. When a new scope is added, rebuild and re-paste the manifest, then reconnect the workspace so the token carries it.
@@ -83,7 +102,8 @@ config/                 Django settings and URLs
 core/                   encryption, framing helpers
 campfire_integration/   OAuth, API client, security, events, manifest
 entities/               M1: families, branches, people, entities, ownership, roles
-investments/            M2: instruments, accounts, transactions, marks, commitments; ledger, valuation, privates, portfolio
+investments/            M2: instruments, accounts, transactions, marks, commitments; ledger, valuation, privates, portfolio;
+                        importers/ (custodian file layouts, parsing, validation and import)
 templates/              server-rendered pages (frames + standalone)
 tests/                  pytest
 docs/                   plan and requirement mapping (client workbooks stay in docs/client/, gitignored)

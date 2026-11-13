@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Imports{% endblock %}
+{% block content %}
+<h1>Imports</h1>
+<p class="muted">{{ workspace }} · custodian activity and price files into the investment book of record</p>
+
+<h2>Upload a file</h2>
+{% if error %}<div class="issues">{{ error }}</div>{% endif %}
+<form method="post" action="{{ action }}" enctype="multipart/form-data" class="stack">
+  {% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
+  <label>Layout
+    <select name="format">
+      {% for f in formats %}<option value="{{ f.code }}">{{ f.name }} ({{ f.kind }})</option>{% endfor %}
+    </select>
+  </label>
+  <label>File <input type="file" name="file" accept=".csv,.txt,text/csv" required></label>
+  <label class="check"><input type="checkbox" name="create_securities"> Create securities the file names that aren't set up yet</label>
+  <div><button class="btn" type="submit">Validate</button> <span class="muted">Nothing is imported until you review the results and confirm.</span></div>
+</form>
+{% if samples %}<p class="muted">Demo: {% for label, url in samples %}<a href="{{ url }}">{{ label }}</a>{% if not forloop.last %} · {% endif %}{% endfor %} (fictional Alder family accounts)</p>{% endif %}
+
+<h2>Recent imports</h2>
+{% if batches %}
+<table>
+  <thead><tr><th>Uploaded</th><th>File</th><th>Layout</th><th>Status</th><th class="num">Rows</th><th class="num">New</th><th class="num">Already imported</th><th class="num">Ignored</th></tr></thead>
+  <tbody>
+  {% for b in batches %}
+    <tr>
+      <td><a href="{{ b.url }}">{{ b.created_at|date:"Y-m-d H:i" }}</a><br><span class="muted">{{ b.created_by }}</span></td>
+      <td>{{ b.file_name|default:b.reference }}{% if b.family %}<br><span class="muted">{{ b.family }}</span>{% endif %}</td>
+      <td>{{ b.file_format }}</td>
+      <td><span class="pill status-{{ b.status }}">{{ b.get_status_display }}</span></td>
+      <td class="num">{{ b.rows_total }}</td>
+      <td class="num">{% if b.status == "rejected" %}–{% else %}{{ b.rows_new }}{% endif %}</td>
+      <td class="num">{{ b.rows_duplicate }}</td>
+      <td class="num">{{ b.rows_ignored }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="muted">No files imported yet.</p>
+{% endif %}
+{% endblock %}

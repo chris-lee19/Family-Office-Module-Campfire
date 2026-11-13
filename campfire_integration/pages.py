@@ -1,35 +1,90 @@
 """Every Family Office page is served two ways: framed inside Campfire (verified `cf_ctx`) and standalone
-for someone signed in with Campfire. A page is a function (request, workspace, framed) -> response."""
+for someone signed in with Campfire. A page is a function (request, workspace, framed, **url_kwargs) -> response.
+
+Inside a frame, Campfire's `cf_ctx` is single use, and cookies in a third-party iframe are unreliable. So
+when a frame opens, the app issues its own short-lived signed frame token (`fo_t`), bound to the workspace,
+and every link and form inside the frame carries it. Framed views accept a fresh `cf_ctx` or a valid `fo_t`.
+Framed POSTs are exempt from Django's cookie-based CSRF check because the token in the form, which a
+third-party site cannot read, does that job.
+"""
 
 from collections.abc import Callable
+from typing import Any
+from urllib.parse import urlencode
 
+from django.core import signing
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
+from django.urls import reverse
+from django.views.decorators.csrf import csrf_exempt
 
-from campfire_integration.frames import FrameAuthError, session_workspace, verify_frame_request
+from campfire_integration.frames import SESSION_USER, FrameAuthError, session_workspace, verify_frame_request
 from campfire_integration.models import Workspace
 from core.framing import campfire_frame
 
-Page = Callable[[HttpRequest, Workspace, bool], HttpResponse]
+Page = Callable[..., HttpResponse]
+
+FRAME_TOKEN_PARAM = "fo_t"
+FRAME_TOKEN_SALT = "fo.frame-session"
+FRAME_TOKEN_MAX_AGE = 60 * 60  # seconds; reopening the page from Campfire's sidebar issues a new one
 
 
-def framed(page: Page, surfaces: tuple[str, ...] = ("nav",)) -> Callable[[HttpRequest], HttpResponse]:
+def issue_frame_token(workspace: Workspace, claims: dict[str, Any]) -> str:
+    return signing.dumps({"w": workspace.pk, "c": workspace.customer_id, "u": claims.get("user_id")}, salt=FRAME_TOKEN_SALT)
+
+
+def verify_frame_token(token: str) -> tuple[Workspace, dict[str, Any]]:
+    try:
+        data = signing.loads(token, salt=FRAME_TOKEN_SALT, max_age=FRAME_TOKEN_MAX_AGE)
+    except signing.SignatureExpired as e:
+        raise FrameAuthError("This page has been open too long. Open it again from Campfire.") from e
+    except signing.BadSignature as e:
+        raise FrameAuthError("Open this page from Campfire.") from e
+    workspace = Workspace.objects.filter(pk=data.get("w"), customer_id=data.get("c")).first()
+    if workspace is None or not workspace.is_connected:
+        raise FrameAuthError("This Campfire workspace has not connected the Family Office app.", status=403)
+    return workspace, data
+
+
+def framed(page: Page, surfaces: tuple[str, ...] = ("nav",)) -> Callable[..., HttpResponse]:
+    @csrf_exempt
     @campfire_frame
-    def view(request: HttpRequest) -> HttpResponse:
+    def view(request: HttpRequest, **kwargs: Any) -> HttpResponse:
         try:
-            ctx = verify_frame_request(request, surfaces=surfaces)
+            if request.method == "GET" and request.GET.get("cf_ctx"):
+                ctx = verify_frame_request(request, surfaces=surfaces)
+                workspace, user_id = ctx.workspace, ctx.claims.get("user_id")
+                token = issue_frame_token(workspace, ctx.claims)
+            else:
+                token = request.POST.get(FRAME_TOKEN_PARAM) or request.GET.get(FRAME_TOKEN_PARAM, "")
+                if not token:
+                    raise FrameAuthError("Open this page from Campfire.")
+                workspace, data = verify_frame_token(token)
+                user_id = data.get("u")
         except FrameAuthError as e:
             return render(request, "campfire/message.html", {"title": "Cannot open this page", "message": str(e), "framed": True}, status=e.status)
-        return page(request, ctx.workspace, True)
+        request.fo_frame_token = token  # type: ignore[attr-defined]
+        request.fo_actor = f"Campfire user {user_id}" if user_id else "Campfire user"  # type: ignore[attr-defined]
+        return page(request, workspace, True, **kwargs)
 
     return view
 
 
-def standalone(page: Page) -> Callable[[HttpRequest], HttpResponse]:
-    def view(request: HttpRequest) -> HttpResponse:
+def standalone(page: Page) -> Callable[..., HttpResponse]:
+    def view(request: HttpRequest, **kwargs: Any) -> HttpResponse:
         workspace = session_workspace(request)
         if workspace is None:
             return redirect("home")
-        return page(request, workspace, False)
+        user = request.session.get(SESSION_USER) or {}
+        request.fo_actor = user.get("email") or user.get("name") or "Campfire user"  # type: ignore[attr-defined]
+        return page(request, workspace, False, **kwargs)
 
     return view
+
+
+def page_url(request: HttpRequest, framed: bool, name: str, *args: Any) -> str:
+    """URL of another page in the same mode: `app:frame_<name>` + frame token inside Campfire, else `app:<name>`."""
+    app, _, view = name.rpartition(":")
+    url = reverse(f"{app}:frame_{view}" if framed else name, args=args)
+    token = getattr(request, "fo_frame_token", None)
+    return f"{url}?{urlencode({FRAME_TOKEN_PARAM: token})}" if framed and token else url
