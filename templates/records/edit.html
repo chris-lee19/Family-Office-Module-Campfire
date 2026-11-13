@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{% if obj %}{{ obj }}{% else %}New {{ kind.label|lower }}{% endif %}{% endblock %}
 {% block content %}
-<p><a href="{{ list_url }}">← {{ kind.plural }}</a></p>
+<p class="crumb"><a href="{{ list_url }}">← {{ kind.plural }}</a></p>
 <h1>{% if obj %}{{ obj }}{% else %}New {{ kind.label|lower }}{% endif %}</h1>
 {% if lock %}<div class="notice">{{ lock }}</div>{% endif %}
 {% if error %}<div class="issues">{{ error }}</div>{% endif %}

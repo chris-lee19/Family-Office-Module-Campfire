@@ -68,6 +68,9 @@ def close_page(request: HttpRequest, workspace: Workspace, framed: bool) -> Http
         return HttpResponseNotAllowed(["GET", "POST"])
 
     rows = svc.month_status(workspace, month)
+    steps = [s for r in rows for s in r.steps]
+    done = sum(1 for s in steps if s.done)
+    progress = {"done": done, "total": len(steps), "pct": round(done * 100 / len(steps)) if steps else 0, "closed": sum(1 for r in rows if r.closed)}
     base = pages.page_url(request, framed, "gl:close")
     sep = "&" if "?" in base else "?"
     nav = {"prev": f"{base}{sep}month={svc.previous_month(month):%Y-%m}",
@@ -79,6 +82,7 @@ def close_page(request: HttpRequest, workspace: Workspace, framed: bool) -> Http
         "links": {"data": pages.page_url(request, framed, "investments:imports"), "review": pages.page_url(request, framed, "records:review"),
                   "gl": pages.page_url(request, framed, "gl:gl")},
         "all_closed": bool(rows) and all(r.closed for r in rows),
+        "progress": progress,
     })
 
 

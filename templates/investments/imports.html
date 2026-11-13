@@ -1,44 +1,74 @@
 {% extends "base.html" %}
 {% block title %}Imports{% endblock %}
 {% block content %}
-<h1>Imports</h1>
-<p class="muted">{{ workspace }} · custodian activity and price files into the investment book of record</p>
-
-<h2>Upload a file</h2>
+<div class="page-head">
+  <div>
+    <h1>Imports</h1>
+    <p class="muted">{{ workspace }} · custodian activity and price files into the investment book of record</p>
+  </div>
+</div>
 {% if error %}<div class="issues">{{ error }}</div>{% endif %}
-<form method="post" action="{{ action }}" enctype="multipart/form-data" class="stack">
-  {% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
-  <label>Layout
-    <select name="format">
-      {% for f in formats %}<option value="{{ f.code }}">{{ f.name }} ({{ f.kind }})</option>{% endfor %}
-    </select>
-  </label>
-  <label>File <input type="file" name="file" accept=".csv,.txt,text/csv" required></label>
-  <label class="check"><input type="checkbox" name="create_securities"> Create securities the file names that aren't set up yet</label>
-  <div><button class="btn" type="submit">Validate</button> <span class="muted">Nothing is imported until you review the results and confirm.</span></div>
-</form>
-{% if samples %}<p class="muted">Demo: {% for label, url in samples %}<a href="{{ url }}">{{ label }}</a>{% if not forloop.last %} · {% endif %}{% endfor %} (fictional Alder family accounts)</p>{% endif %}
 
-<h2>Recent imports</h2>
-{% if batches %}
-<table>
-  <thead><tr><th>Uploaded</th><th>File</th><th>Layout</th><th>Status</th><th class="num">Rows</th><th class="num">New</th><th class="num">Already imported</th><th class="num">Ignored</th></tr></thead>
-  <tbody>
-  {% for b in batches %}
-    <tr>
-      <td><a href="{{ b.url }}">{{ b.created_at|date:"Y-m-d H:i" }}</a><br><span class="muted">{{ b.created_by }}</span></td>
-      <td>{{ b.file_name|default:b.reference }}{% if b.family %}<br><span class="muted">{{ b.family }}</span>{% endif %}</td>
-      <td>{{ b.file_format }}</td>
-      <td><span class="pill status-{{ b.status }}">{{ b.get_status_display }}</span></td>
-      <td class="num">{{ b.rows_total }}</td>
-      <td class="num">{% if b.status == "rejected" %}–{% else %}{{ b.rows_new }}{% endif %}</td>
-      <td class="num">{{ b.rows_duplicate }}</td>
-      <td class="num">{{ b.rows_ignored }}</td>
-    </tr>
-  {% endfor %}
-  </tbody>
-</table>
-{% else %}
-<p class="muted">No files imported yet.</p>
-{% endif %}
+<div class="split">
+  <section class="box">
+    <div class="box-head"><h2>Upload a file</h2></div>
+    <form method="post" action="{{ action }}" enctype="multipart/form-data" class="box-body upload">
+      {% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
+      <label class="dropzone" data-dropzone>
+        <input type="file" name="file" accept=".csv,.txt,text/csv" required>
+        <span class="dropzone-icon" aria-hidden="true">↑</span>
+        <strong data-dropzone-name>Drop the file here, or click to choose</strong>
+        <span class="muted small">CSV from your custodian: activity, prices or positions</span>
+      </label>
+      <label class="field-row">Layout
+        <select name="format">
+          {% for f in formats %}<option value="{{ f.code }}">{{ f.name }} ({{ f.kind }})</option>{% endfor %}
+        </select>
+      </label>
+      <label class="checkline"><input type="checkbox" name="create_securities"> Create securities the file names that aren't set up yet</label>
+      <div class="actions"><button class="btn" type="submit">Validate</button> <span class="muted small">Nothing is imported until you review the results and confirm.</span></div>
+    </form>
+  </section>
+
+  <section class="box">
+    <div class="box-head"><h2>How an import works</h2></div>
+    <div class="box-body">
+      <ol class="howto">
+        <li><strong>Upload</strong><span>The file is read and held; nothing changes yet.</span></li>
+        <li><strong>Check</strong><span>Every row is validated: accounts, securities, amounts, duplicates. Errors stop the import; warnings are listed.</span></li>
+        <li><strong>Import</strong><span>All rows go in together or none do. Imports with warnings wait for a second person on Review.</span></li>
+      </ol>
+      {% if samples %}<p class="muted small">Demo: {% for label, url in samples %}<a href="{{ url }}">{{ label }}</a>{% if not forloop.last %} · {% endif %}{% endfor %} (fictional Alder family accounts)</p>{% endif %}
+    </div>
+  </section>
+</div>
+
+<section class="box">
+  <div class="box-head"><h2>Recent imports</h2>
+    {% if batches %}<div class="aside">
+      {% if stats.waiting %}<span class="pill status-validated">{{ stats.waiting }} waiting</span>{% endif %}
+      {% if stats.rejected %}<span class="pill status-rejected">{{ stats.rejected }} rejected</span>{% endif %}
+      <input type="search" placeholder="Filter imports" aria-label="Filter imports" data-filter="#imports-table"></div>{% endif %}</div>
+  {% if batches %}
+  <table data-sort id="imports-table">
+    <thead><tr><th>Uploaded</th><th>File</th><th>Layout</th><th>Status</th><th class="num">Rows</th><th class="num">New</th><th class="num">Already imported</th><th class="num">Ignored</th></tr></thead>
+    <tbody>
+    {% for b in batches %}
+      <tr>
+        <td><a href="{{ b.url }}">{{ b.created_at|date:"Y-m-d H:i" }}</a><br><span class="muted small">{{ b.created_by }}</span></td>
+        <td>{{ b.file_name|default:b.reference }}{% if b.family %}<br><span class="muted small">{{ b.family }}</span>{% endif %}</td>
+        <td>{{ b.file_format }}</td>
+        <td><span class="pill status-{{ b.status }}">{{ b.get_status_display }}</span></td>
+        <td class="num">{{ b.rows_total }}</td>
+        <td class="num">{% if b.status == "rejected" %}–{% else %}{{ b.rows_new }}{% endif %}</td>
+        <td class="num">{{ b.rows_duplicate }}</td>
+        <td class="num">{{ b.rows_ignored }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty"><strong>No files imported yet</strong>Upload your first custodian file above.</div>
+  {% endif %}
+</section>
 {% endblock %}

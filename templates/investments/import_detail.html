@@ -2,7 +2,7 @@
 {% load money %}
 {% block title %}Import {{ batch.pk }}{% endblock %}
 {% block content %}
-<p><a href="{{ back }}">← Imports</a></p>
+<p class="crumb"><a href="{{ back }}">← Imports</a></p>
 <h1>{{ batch.file_name|default:batch.reference|default:"Import" }} <span class="pill status-{{ batch.status }}">{{ batch.get_status_display }}</span></h1>
 <p class="muted">Batch {{ batch.pk }} · {{ batch.file_format }} · uploaded {{ batch.created_at|date:"Y-m-d H:i" }}{% if batch.created_by %} by {{ batch.created_by }}{% endif %}{% if batch.committed_at %} · imported {{ batch.committed_at|date:"Y-m-d H:i" }}{% endif %}</p>
 {% if message %}<div class="notice" data-toast="success">{{ message }}</div>{% endif %}

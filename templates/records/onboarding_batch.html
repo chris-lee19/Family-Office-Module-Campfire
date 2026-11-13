@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Onboarding {{ batch.file_name }}{% endblock %}
 {% block content %}
-<p><a href="{{ back }}">← Onboard a family</a></p>
+<p class="crumb"><a href="{{ back }}">← Onboard a family</a></p>
 <h1>{{ batch.file_name }} <span class="pill status-{{ batch.status }}">{{ batch.get_status_display }}</span></h1>
 <p class="muted">{% if batch.family %}{{ batch.family }} · {% endif %}opening balances as of {{ as_of }} · uploaded {{ batch.created_at|date:"Y-m-d H:i" }}{% if batch.created_by %} by {{ batch.created_by }}{% endif %}</p>
 {% if message %}<div class="notice" data-toast="success">{{ message }}</div>{% endif %}

@@ -82,6 +82,11 @@ must post). Home = dashboard (`records/attention_views.py`; `Headline` has by_as
 Charts: `{% alloc rows %}` (`investments/templatetags/viz.py`, stacked bar + legend-as-table, colours by label not rank,
 palette `--s1..--s8` validated light/dark). Primary buttons are ink (`--primary`), orange is the accent. The dev
 server caches templates with `--noreload`; restart it after template edits. 133 tests passing.
+Remaining pages reworked (2026-11-13): Review = one decision card per held mark / import (expected → reported → change,
+actions beside it), empty sections hidden, control in a collapsed block · Month-end close = overall progress + a card
+per entity with a step tracker and the next action · Imports = drop zone (`[data-dropzone]`) + how it works + filterable
+table · Entities = KPIs, ownership as bars, filter, links to the entity record · Records = a tile per record type
+(`[data-filter-cards]`), sortable lists. Every page checked at phone width (no sideways scroll).
 
 ## Next steps (in order) — Phase A (usable without us) is done; then B (native feel), then C (differentiators)
 - Agreed order (user, 2026-11-13): ~~fold Month-end close into Campfire Close~~ (done as far as the API allows)

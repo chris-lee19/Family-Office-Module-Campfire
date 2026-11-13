@@ -65,11 +65,20 @@ def entities_page(request: HttpRequest, workspace: Workspace, framed: bool) -> H
     as_of = timezone.localdate()
     from investments.views import demo_url
 
+    views = family_views(workspace, as_of)
+    rows = [r for v in views for r in v.rows]
+
     return render(
         request,
         "entities/overview.html",
-        {"workspace": workspace, "families": family_views(workspace, as_of), "as_of": as_of, "framed": framed,
-         "demo_url": demo_url(request, workspace, framed)},
+        {"workspace": workspace, "families": views, "as_of": as_of, "framed": framed,
+         "demo_url": demo_url(request, workspace, framed),
+         "stats": {"entities": len(rows), "booked": sum(1 for r in rows if r.entity.is_booked),
+                   "people": Person.objects.filter(family__workspace=workspace).count(), "issues": sum(len(v.issues) for v in views)},
+         "links": {"new_entity": pages.page_url(request, framed, "records:new", "entities"),
+                   "new_ownership": pages.page_url(request, framed, "records:new", "ownership"),
+                   "gl": pages.page_url(request, framed, "gl:gl")},
+         "edit_urls": {r.entity.pk: pages.page_url(request, framed, "records:edit", "entities", r.entity.pk) for r in rows}},
     )
 
 

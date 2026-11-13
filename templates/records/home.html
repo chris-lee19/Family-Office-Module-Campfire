@@ -1,38 +1,49 @@
 {% extends "base.html" %}
 {% block title %}Records{% endblock %}
 {% block content %}
-<h1>Records</h1>
-<p class="muted">{{ workspace }} · set up and maintain the family's structure, accounts and holdings. Every change is audited.</p>
-
-<div class="notice small">
-  <strong>Setting up a family?</strong> Work down the lists: family → branches and people → entities → ownership and roles →
-  securities and funds → accounts (with the custodian account number) → opening positions (transactions: transfers in with
-  cost basis) → commitments and NAV statements. Custodian files and the demo button can fill much of this for you.
+<div class="page-head">
+  <div>
+    <h1>Records</h1>
+    <p class="muted">{{ workspace }} · set up and maintain the family's structure, accounts and holdings. Every change is audited.</p>
+  </div>
+  <div class="page-actions">
+    <input type="search" placeholder="Find a record type" aria-label="Find a record type" data-filter-cards=".tile">
+    <a class="btn" href="{{ onboarding_url }}">Onboard a family from a spreadsheet</a>
+  </div>
 </div>
 
-<p><a class="btn" href="{{ onboarding_url }}">Onboard a family from a spreadsheet</a> <span class="muted">Structure, accounts and opening positions in one Excel workbook.</span></p>
+<details class="settings guide">
+  <summary>Setting up a family? The order to work in</summary>
+  <ol class="howto inline">
+    <li><strong>Family</strong><span>then branches and people</span></li>
+    <li><strong>Entities</strong><span>then ownership and roles</span></li>
+    <li><strong>Securities and funds</strong><span>what the family holds</span></li>
+    <li><strong>Accounts</strong><span>with the custodian account number</span></li>
+    <li><strong>Opening positions</strong><span>transactions: transfers in with cost basis</span></li>
+    <li><strong>Commitments and NAV statements</strong><span>for private funds</span></li>
+  </ol>
+  <p class="muted small">Custodian files and the onboarding spreadsheet (structure, accounts and opening positions in one Excel workbook) can fill much of this for you.</p>
+</details>
 
-<div class="grid2">
 {% for group, kinds in groups %}
-  <div>
-    <h2>{{ group }}</h2>
-    <table><tbody>
-    {% for k, count, list_url, new_url in kinds %}
-      <tr>
-        <td><a href="{{ list_url }}"><strong>{{ k.plural }}</strong></a>{% if k.help %}<br><span class="muted small">{{ k.help }}</span>{% endif %}</td>
-        <td class="num">{{ count }}</td>
-        <td class="num"><a class="btn secondary small" href="{{ new_url }}">Add</a></td>
-      </tr>
-    {% endfor %}
-    </tbody></table>
+  <h2>{{ group }}</h2>
+  <div class="tiles">
+  {% for k, count, list_url, new_url in kinds %}
+    <div class="tile">
+      <a class="tile-main" href="{{ list_url }}"><strong>{{ k.plural }}</strong><span class="tile-count">{{ count }}</span>
+        {% if k.help %}<span class="muted small">{{ k.help }}</span>{% endif %}</a>
+      <a class="btn secondary small" href="{{ new_url }}">Add</a>
+    </div>
+  {% endfor %}
   </div>
 {% endfor %}
-</div>
 
-<h2>Recent changes</h2>
-{% if recent %}
-<table><tbody>
-{% for a in recent %}<tr><td class="nowrap">{{ a.at|date:"Y-m-d H:i" }}</td><td>{{ a.actor }}</td><td>{{ a.get_action_display }}</td><td>{{ a.object_repr }}<br><span class="muted small">{{ a.kind }}</span></td></tr>{% endfor %}
-</tbody></table>
-{% else %}<p class="muted">No changes yet.</p>{% endif %}
+<section class="box recent">
+  <div class="box-head"><h2>Recent changes</h2></div>
+  {% if recent %}
+  <table data-sort><thead><tr><th>When</th><th>Who</th><th>What</th><th>Record</th></tr></thead><tbody>
+  {% for a in recent %}<tr><td class="nowrap">{{ a.at|date:"Y-m-d H:i" }}</td><td>{{ a.actor }}</td><td>{{ a.get_action_display }}</td><td>{{ a.object_repr }}<br><span class="muted small">{{ a.kind }}</span></td></tr>{% endfor %}
+  </tbody></table>
+  {% else %}<div class="empty">No changes yet.</div>{% endif %}
+</section>
 {% endblock %}

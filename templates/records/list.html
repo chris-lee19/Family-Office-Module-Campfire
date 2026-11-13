@@ -1,18 +1,24 @@
 {% extends "base.html" %}
 {% block title %}{{ kind.plural }}{% endblock %}
 {% block content %}
-<p><a href="{{ home_url }}">← Records</a></p>
-<h1>{{ kind.plural }}</h1>
-{% if kind.help %}<p class="muted">{{ kind.help }}</p>{% endif %}
+<div class="page-head">
+  <div>
+    <p class="crumb"><a href="{{ home_url }}">← Records</a></p>
+    <h1>{{ kind.plural }}</h1>
+    {% if kind.help %}<p class="muted">{{ kind.help }}</p>{% endif %}
+  </div>
+  <div class="page-actions"><a class="btn" href="{{ new_url }}">Add {{ kind.label|lower }}</a></div>
+</div>
+{% if kind.search or families|length > 1 %}
 <form method="get" action="{{ list_url }}" class="actions">
   {% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
-  {% if kind.search %}<input type="search" name="q" value="{{ q }}" placeholder="Search" class="input">{% endif %}
+  {% if kind.search %}<input type="search" name="q" value="{{ q }}" placeholder="Search {{ kind.plural|lower }}" class="input">{% endif %}
   {% if families|length > 1 %}<select name="family"><option value="">All families</option>{% for fam in families %}<option value="{{ fam.pk }}" {% if fam.pk|stringformat:"s" == family %}selected{% endif %}>{{ fam }}</option>{% endfor %}</select>{% endif %}
-  {% if kind.search or families|length > 1 %}<button class="btn secondary" type="submit">Filter</button>{% endif %}
-  <a class="btn" href="{{ new_url }}">Add {{ kind.label|lower }}</a>
+  <button class="btn secondary" type="submit">Filter</button>
 </form>
+{% endif %}
 {% if rows %}
-<table>
+<table data-sort>
   <thead><tr>{% for header, _ in kind.columns %}<th>{{ header }}</th>{% endfor %}</tr></thead>
   <tbody>
   {% for obj, cells, url in rows %}
@@ -22,6 +28,6 @@
 </table>
 {% if total > limit %}<p class="muted">Showing {{ limit }} of {{ total }}; search or filter to narrow it down.</p>{% endif %}
 {% else %}
-<p class="muted">{% if q or family %}Nothing matches.{% else %}None yet.{% endif %}</p>
+<section class="box"><div class="empty"><strong>{% if q or family %}Nothing matches.{% else %}None yet.{% endif %}</strong>{% if not q and not family %}<a href="{{ new_url }}">Add the first {{ kind.label|lower }}</a>{% endif %}</div></section>
 {% endif %}
 {% endblock %}

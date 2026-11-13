@@ -157,6 +157,26 @@
     });
   });
 
+  /* ---- filter a grid of tiles; show the chosen file's name in a drop zone ---- */
+  d.querySelectorAll("input[data-filter-cards]").forEach(function (box) {
+    var cards = d.querySelectorAll(box.getAttribute("data-filter-cards"));
+    box.addEventListener("input", function () {
+      var q = box.value.trim().toLowerCase();
+      cards.forEach(function (c) { c.hidden = q !== "" && c.textContent.toLowerCase().indexOf(q) < 0; });
+    });
+  });
+  d.querySelectorAll("[data-dropzone]").forEach(function (zone) {
+    var file = zone.querySelector("input[type=file]"), name = zone.querySelector("[data-dropzone-name]");
+    if (!file || !name) return;
+    var initial = name.textContent;
+    file.addEventListener("change", function () {
+      name.textContent = file.files && file.files.length ? file.files[0].name : initial;
+      zone.classList.toggle("has-file", !!(file.files && file.files.length));
+    });
+    ["dragenter", "dragover"].forEach(function (ev) { zone.addEventListener(ev, function () { zone.classList.add("over"); }); });
+    ["dragleave", "drop"].forEach(function (ev) { zone.addEventListener(ev, function () { zone.classList.remove("over"); }); });
+  });
+
   /* ---- a submitted button shows it is working (not disabled: its name and value must still be sent) ---- */
   d.addEventListener("submit", function (e) {
     var b = e.submitter;

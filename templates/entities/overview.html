@@ -1,28 +1,51 @@
 {% extends "base.html" %}
+{% load gl_extras %}
 {% block title %}Entities & Ownership{% endblock %}
 {% block content %}
-<h1>Entities &amp; Ownership</h1>
-<p class="muted">{{ workspace }} · as of {{ as_of }}</p>
+<div class="page-head">
+  <div>
+    <h1>Entities &amp; Ownership</h1>
+    <p class="muted">{{ workspace }} · as of {{ as_of }}</p>
+  </div>
+  {% if families %}<div class="page-actions">
+    <a class="btn secondary" href="{{ links.new_ownership }}">Add ownership</a>
+    <a class="btn" href="{{ links.new_entity }}">Add entity</a>
+  </div>{% endif %}
+</div>
+
+{% if families %}
+<div class="kpis">
+  <div class="kpi"><div class="label">Entities</div><div class="value">{{ stats.entities }}</div><div class="sub">Trusts, partnerships, LLCs, foundations</div></div>
+  <div class="kpi"><div class="label">Booked in Campfire</div><div class="value">{{ stats.booked }}</div><div class="sub">{% if stats.booked < stats.entities %}<a href="{{ links.gl }}">Link the others</a> on General ledger{% else %}Every entity has books{% endif %}</div></div>
+  <div class="kpi"><div class="label">People</div><div class="value">{{ stats.people }}</div><div class="sub">Family members in the ownership chain</div></div>
+  <div class="kpi"><div class="label">Ownership issues</div><div class="value">{{ stats.issues }}</div><div class="sub">{% if stats.issues %}<span class="err">Owners don't total 100%</span>{% else %}Every entity totals 100%{% endif %}</div></div>
+</div>
+{% endif %}
+
 {% for fv in families %}
-  <h2>{{ fv.family.name }}</h2>
   {% if fv.issues %}<div class="issues"><strong>Needs attention</strong><ul class="plain">{% for i in fv.issues %}<li>{{ i }}</li>{% endfor %}</ul></div>{% endif %}
-  <table>
-    <thead><tr><th>Entity</th><th>Type / tax</th><th>Direct owners</th><th>Look-through (people)</th></tr></thead>
-    <tbody>
-    {% for row in fv.rows %}
-      <tr>
-        <td><strong>{{ row.entity.name }}</strong><br>
-          {% if row.entity.is_booked %}<span class="pill booked">Books in Campfire</span>{% else %}<span class="pill">Not booked</span>{% endif %}
-          {% if row.entity.jurisdiction %}<span class="pill">{{ row.entity.jurisdiction }}</span>{% endif %}</td>
-        <td>{{ row.entity.get_entity_type_display }}<br><span class="muted">{{ row.entity.get_tax_classification_display }}</span></td>
-        <td><ul class="plain">{% for owner, pct in row.direct_owners %}<li>{{ owner }} — {{ pct }}%</li>{% empty %}<li class="muted">No owners</li>{% endfor %}</ul></td>
-        <td><ul class="plain">{% for name, pct in row.look_through %}<li>{{ name }} — {{ pct }}%</li>{% endfor %}</ul></td>
-      </tr>
-    {% endfor %}
-    </tbody>
-  </table>
+  <section class="box">
+    <div class="box-head"><h2>{{ fv.family.name }}</h2>
+      <div class="aside">{{ fv.rows|length }} entit{{ fv.rows|length|pluralize:"y,ies" }}
+        <input type="search" placeholder="Filter entities or people" aria-label="Filter entities" data-filter="#entities-{{ fv.family.pk }}"></div></div>
+    <table data-sort id="entities-{{ fv.family.pk }}">
+      <thead><tr><th>Entity</th><th>Type / tax</th><th>Direct owners</th><th>Look-through (people)</th></tr></thead>
+      <tbody>
+      {% for row in fv.rows %}
+        <tr>
+          <td><a href="{{ edit_urls|get_item:row.entity.pk }}"><strong>{{ row.entity.name }}</strong></a><br>
+            {% if row.entity.is_booked %}<span class="pill booked">Books in Campfire</span>{% else %}<span class="pill">Not booked</span>{% endif %}
+            {% if row.entity.jurisdiction %}<span class="pill plain">{{ row.entity.jurisdiction }}</span>{% endif %}</td>
+          <td>{{ row.entity.get_entity_type_display }}<br><span class="muted small">{{ row.entity.get_tax_classification_display }}</span></td>
+          <td><ul class="shares">{% for owner, pct in row.direct_owners %}<li><span>{{ owner }}</span><span class="num">{{ pct }}%</span><div class="bar"><span style="width:{{ pct }}%"></span></div></li>{% empty %}<li class="muted">No owners</li>{% endfor %}</ul></td>
+          <td><ul class="shares">{% for name, pct in row.look_through %}<li><span>{{ name }}</span><span class="num">{{ pct }}%</span><div class="bar"><span style="width:{{ pct }}%"></span></div></li>{% endfor %}</ul></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </section>
 {% empty %}
-  <p class="muted">No families yet.</p>
-  {% include "includes/demo_button.html" %}
+  <section class="box"><div class="empty"><strong>No families yet</strong>Onboard one on the Records page, or load the demo family to look around.</div>
+    <div class="box-body">{% include "includes/demo_button.html" %}</div></section>
 {% endfor %}
 {% endblock %}

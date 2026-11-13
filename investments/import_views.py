@@ -72,6 +72,8 @@ def imports_page(request: HttpRequest, workspace: Workspace, framed: bool) -> Ht
     return render(request, "investments/imports.html", {
         "workspace": workspace, "framed": framed, "formats": formats, "batches": batches, "error": error,
         "samples": samples, "action": pages.page_url(request, framed, "investments:imports"),
+        "stats": {"waiting": sum(1 for b in batches if b.status == ImportBatch.Status.VALIDATED),
+                  "rejected": sum(1 for b in batches if b.status == ImportBatch.Status.REJECTED)},
         "frame_token": getattr(request, "fo_frame_token", ""),
     }, status=400 if error else 200)
 
