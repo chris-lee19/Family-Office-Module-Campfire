@@ -37,12 +37,20 @@
       <td class="nowrap">{{ j.je_date|date:"Y-m-d" }}</td>
       <td>{% firstof cf_entity_names|get_item:j.campfire_entity_id j.campfire_entity_id %}</td>
       <td>{{ j.entity_label }}</td>
-      <td class="num">{{ j.transactions|length }}</td>
+      <td class="num">{% if j.is_fair_value %}{{ j.fair_values|length }} holding{{ j.fair_values|length|pluralize }}{% else %}{{ j.transactions|length }}{% endif %}</td>
       <td class="num">{{ j.total|money }}</td>
       <td>
         {% if j.ok %}<span class="pill status-committed">Ready</span>{% else %}<span class="pill status-rejected">Held back</span>{% endif %}
+        {% if j.is_fair_value %}<span class="pill plain">Market value</span>{% endif %}
         {% for e in j.errors %}<div class="small err">{{ e }}</div>{% endfor %}
         {% for w in j.warnings %}<div class="small muted">No tag for {{ w }}</div>{% endfor %}
+        {% if j.is_fair_value and j.fair_values %}
+        <details><summary class="small">Holdings</summary>
+          <table class="inner"><thead><tr><th>Holding</th><th class="num">Cost</th><th class="num">Market value</th><th class="num">Unrealized</th><th class="num">This entry</th></tr></thead><tbody>
+          {% for v in j.fair_values %}<tr><td>{{ v.instrument.name }}<br><span class="muted">{{ v.account.name }}</span></td><td class="num">{{ v.cost_basis|money }}</td><td class="num">{{ v.market_value|money }}</td><td class="num">{{ v.unrealized|money }}</td><td class="num">{{ v.adjustment|money }}</td></tr>{% endfor %}
+          </tbody></table>
+        </details>
+        {% endif %}
         {% if j.ok %}
         <details><summary class="small">Lines</summary>
           <table class="inner"><tbody>
@@ -75,7 +83,7 @@
   <tbody>
   {% for po in postings %}
     <tr>
-      <td>{{ po.ref_number }}<br><span class="muted small">{{ po.created_at|date:"Y-m-d H:i" }}{% if po.created_by %} · {{ po.created_by }}{% endif %}</span></td>
+      <td>{{ po.ref_number }}{% if po.kind == "fair_value" %} <span class="pill plain">Market value</span>{% endif %}<br><span class="muted small">{{ po.created_at|date:"Y-m-d H:i" }}{% if po.created_by %} · {{ po.created_by }}{% endif %}</span></td>
       <td class="nowrap">{{ po.je_date|date:"Y-m-d" }}</td>
       <td>{{ po.entity_label }}</td>
       <td class="num">{{ po.total|money }}</td>
@@ -123,6 +131,12 @@
   <label>Post activity from <input type="date" name="post_from" value="{{ gl_settings.post_from|date:'Y-m-d' }}"></label>
   <button class="btn secondary" type="submit" name="action" value="post_from">Save</button>
   <span class="muted">Your go-live date: earlier activity is already in the GL through opening balances.</span>
+</form>
+<form method="post" action="{{ action }}" class="actions">
+  {% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
+  <label>Book market value from <input type="date" name="fair_value_from" value="{{ gl_settings.fair_value_from|date:'Y-m-d' }}"></label>
+  <button class="btn secondary" type="submit" name="action" value="fair_value_from">Save</button>
+  <span class="muted">{% if gl_settings.fair_value_from %}Each month end from {{ gl_settings.fair_value_from|date:"F Y" }} gets an entry for unrealized gain or loss. Clear the date to keep the books at cost.{% else %}Empty: the books stay at cost. Set a date to add a month-end entry that brings investments to market value (unrealized gain or loss).{% endif %}</span>
 </form>
 <form method="post" action="{{ action }}" class="actions">
   {% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}

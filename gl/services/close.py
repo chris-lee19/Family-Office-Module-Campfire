@@ -131,7 +131,9 @@ def _posted_step(workspace: Workspace, cf_entity: int, end: date) -> Step:
     ready = preview.ready
     ev = []
     if ready:
-        ev.append(f"{len(ready)} entr{'ies' if len(ready) != 1 else 'y'} ready to send ({sum(len(j.transactions) for j in ready)} transactions).")
+        market = sum(1 for j in ready if j.is_fair_value)
+        ev.append(f"{len(ready)} entr{'ies' if len(ready) != 1 else 'y'} ready to send ({sum(len(j.transactions) for j in ready)} transactions"
+                  + (f", {market} market value adjustment{'s' if market != 1 else ''}" if market else "") + ").")
     by_problem: dict[str, list[str]] = defaultdict(list)  # the same problem in several months is listed once
     for j in held_back:
         for e in j.errors:

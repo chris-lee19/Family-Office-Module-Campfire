@@ -92,14 +92,23 @@ sidebar is Campfire's and a framed app can't control it): framed pages show `.fr
 NAV) so moving between pages stays inside the frame. Trade-off: Campfire's highlighted sidebar item and its page title
 above the frame don't follow in-frame moves. Never call scrollIntoView on load in a frame (it can scroll Campfire).
 Frame token still lasts 1 h (not renewed on in-frame navigation). Partner ask: keep the sidebar scroll on navigation.
+Market value in the GL (2026-11-13, `gl/services/fairvalue.py`): accounting policy `GLSettings.fair_value_from` (empty =
+books stay at cost; set on General ledger → Setup). From that month, each month end gets one entry per Campfire entity
+(`JournalPosting.kind` = fair_value, memo "market value adjustment"): Dr/Cr UNREALIZED (1630) vs UNREALIZED_GAIN (7300)
+per holding for (market − cost at month end) − what open entries already booked (`FairValueItem`, summed over
+OPEN_STATUSES). So the first entry is the catch-up, a sold holding reverses, a released/failed month is re-booked, a
+month with no change has no entry. Proposals come through `build_preview` (after the month's activity), so Send, the
+close's "Posted to GL" step and Home include them; a held month blocks that entity's later months; one live entry per
+entity+month (conditional unique constraint). Tie-out adds the unrealized account, compared as of the latest month
+end. Held marks aren't used; non-USD accounts are skipped. Securities without a price on the date value at cost. 140 tests.
 
 ## Next steps (in order) — Phase A (usable without us) is done; then B (native feel), then C (differentiators)
 - Agreed order (user, 2026-11-13): ~~fold Month-end close into Campfire Close~~ (done as far as the API allows)
-  → FMV / unrealized entries into the GL → roles + per-user connections.
+  → ~~FMV / unrealized entries into the GL~~ (done) → roles + per-user connections.
 - Seamless Campfire (user question): FO staff roles without Revenue/AR; a clean sandbox workspace for the demo; ask the
   partner contact for per-workspace module switches, an app page as landing page, and app widgets on Campfire Home.
   C: documents & AI, family reports, FMV JEs, liquidity.
-1. GL follow-ups: period-end unrealized gain (FMV) entries; FX for non-USD accounts; lock-period check before sending
+1. GL follow-ups: FX for non-USD accounts; lock-period check before sending
    (`lock_periods:read`); tie-out drill-down to GL lines (`transactions:read`).
 2. Importer follow-ups: confirm the Pershing-style columns/codes against a real extract; positions file for
    custody position reconciliation (REC-02); withholding on dividends; reverting a committed batch (needs the GL bridge

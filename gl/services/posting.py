@@ -32,7 +32,7 @@ from django.utils import timezone
 
 from campfire_integration.client import CampfireClient, CampfireError, NotConnected
 from campfire_integration.models import Workspace
-from gl.models import INSTRUMENT_ROLES, SOURCE, AccountMapping, DimensionTag, GLSettings, JournalPosting, PostedTransaction, Role
+from gl.models import INSTRUMENT_ROLES, SOURCE, AccountMapping, DimensionTag, FairValueItem, GLSettings, JournalPosting, PostedTransaction, Role
 from gl.services.rules import Leg, RuleError, legs_for
 from investments.models import Account, Transaction
 from investments.services.ledger import LedgerError, replay
@@ -134,6 +134,12 @@ class ProposedJournal:
     legs: list[tuple[Leg, AccountMapping | None, tuple[int, ...]]] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
     warnings: set[str] = field(default_factory=set)
+    kind: str = JournalPosting.Kind.ACTIVITY
+    fair_values: list[Any] = field(default_factory=list)  # gl.services.fairvalue.FairValueLine, for a market value entry
+
+    @property
+    def is_fair_value(self) -> bool:
+        return self.kind == JournalPosting.Kind.FAIR_VALUE
 
     @property
     def lines(self) -> list[Line]:
@@ -158,6 +164,9 @@ class ProposedJournal:
 
     @property
     def memo(self) -> str:
+        if self.is_fair_value:
+            n = len(self.fair_values)
+            return f"Family office market value adjustment, {self.period_end:%B %Y} ({n} holding{'s' if n != 1 else ''})"
         return f"Family office investment activity, {self.period_end:%B %Y} ({len(self.transactions)} transactions)"
 
     @property
@@ -252,7 +261,13 @@ def build_preview(workspace: Workspace, *, through: date, campfire_entity_id: in
         j.errors = list(dict.fromkeys(j.errors))  # de-duplicate, keep order
         if j.ok and sum((ln.amount for ln in j.lines), ZERO) != ZERO:
             j.errors.append("The entry doesn't balance.")
-    ordered = sorted(journals.values(), key=lambda j: (j.period_end, j.entity_label))
+    from gl.services import fairvalue
+
+    market = fairvalue.proposals(workspace, through=through, mappings=mappings, tags=tags, campfire_entity_id=campfire_entity_id)
+    for j in market:
+        j.errors = list(dict.fromkeys(j.errors))
+    # Within a month, activity first: the market value entry is the last thing booked.
+    ordered = sorted(list(journals.values()) + market, key=lambda j: (j.period_end, j.is_fair_value, j.entity_label))
     return Preview(through, ordered, dict(not_linked), billed, post_from, before_start)
 
 
@@ -287,7 +302,7 @@ def _create_posting(workspace: Workspace, j: ProposedJournal, created_by: str, c
         posting = JournalPosting.objects.create(
             workspace=workspace, campfire_entity_id=j.campfire_entity_id, entity_label=j.entity_label[:255],
             period_end=j.period_end, je_date=j.je_date, memo=j.memo[:255], total=j.total, status=S.UNCERTAIN,
-            transaction_ids=[t.pk for t in j.transactions], created_by=created_by, created_by_id=created_by_id,
+            transaction_ids=[t.pk for t in j.transactions], created_by=created_by, created_by_id=created_by_id, kind=j.kind,
         )
         posting.lines = [
             {"account": ln.campfire_account_id, "account_label": ln.account_label, "debit": str(ln.debit), "credit": str(ln.credit),
@@ -297,6 +312,9 @@ def _create_posting(workspace: Workspace, j: ProposedJournal, created_by: str, c
         posting.save(update_fields=["lines"])
         # The one-to-one on the transaction refuses a second posting of it (two people clicking at once).
         PostedTransaction.objects.bulk_create([PostedTransaction(posting=posting, transaction=t) for t in j.transactions])
+        FairValueItem.objects.bulk_create([
+            FairValueItem(posting=posting, account=v.account, instrument=v.instrument, cost_basis=v.cost_basis, market_value=v.market_value,
+                          unrealized=v.unrealized, adjustment=v.adjustment) for v in j.fair_values])
     return posting
 
 
@@ -324,6 +342,7 @@ def submit(posting: JournalPosting, client: CampfireClient) -> JournalPosting:
         posting.status, posting.error = S.FAILED, f"Campfire answered {r.status_code}: {r.text[:1000]}"
         posting.save()
         posting.items.all().delete()  # nothing reached the GL; the transactions post with the next run
+        posting.fair_value_items.all().delete()
         return posting
     posting.save()
     return posting
@@ -333,12 +352,17 @@ def send(workspace: Workspace, *, through: date, client: CampfireClient, created
          campfire_entity_id: int | None = None) -> list[JournalPosting]:
     preview = build_preview(workspace, through=through, campfire_entity_id=campfire_entity_id)
     postings = []
+    stopped: set[int] = set()  # entities whose market value entry didn't go: later months build on it
     for j in preview.ready:
+        if j.is_fair_value and j.campfire_entity_id in stopped:
+            continue
         try:
             posting = _create_posting(workspace, j, created_by, created_by_id)
         except IntegrityError:
             continue  # another run took these transactions meanwhile
         postings.append(submit(posting, client))
+        if j.is_fair_value and posting.status not in JournalPosting.OPEN_STATUSES:
+            stopped.add(j.campfire_entity_id)
     return postings
 
 
@@ -360,6 +384,7 @@ def release(posting: JournalPosting, reason: str) -> JournalPosting:
     """The entry is not (or no longer) in Campfire: free its transactions so the next run posts them again."""
     with transaction.atomic():
         posting.items.all().delete()
+        posting.fair_value_items.all().delete()  # the next market value entry books the difference again
         posting.status = S.RELEASED
         posting.error = reason
         posting.save(update_fields=["status", "error"])

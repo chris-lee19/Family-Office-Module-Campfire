@@ -83,6 +83,11 @@ def fo_balances(workspace: Workspace, as_of: date) -> tuple[dict[tuple[int, int]
             add(cf_entity, Role.CASH, account, None, state.cash)  # type: ignore[arg-type]
         for instrument_id, instrument in Instrument.objects.in_bulk(state.instrument_ids()).items():
             add(cf_entity, Role.INVESTMENTS, account, instrument.asset_class_id, state.cost_basis(instrument_id))  # type: ignore[arg-type]
+    from gl.services import fairvalue
+
+    # Books at market value: unrealized appreciation as of the latest month end (that is when it is booked).
+    for cf_entity, account, instrument, amount in fairvalue.balances(workspace, as_of):
+        add(cf_entity, Role.UNREALIZED, account, instrument.asset_class_id, amount)
     return rows, list(dict.fromkeys(errors))
 
 
@@ -97,7 +102,7 @@ def gl_balances(client: CampfireClient, cf_entity: int, as_of: date) -> dict[int
 
 def tie_out(workspace: Workspace, as_of: date, client: CampfireClient) -> TieOut:
     rows, errors = fo_balances(workspace, as_of)
-    tied_roles = {str(r) for r in TIED_OUT_ROLES}
+    tied_roles = {str(r) for r in TIED_OUT_ROLES} | {str(Role.UNREALIZED)}
 
     # Not in the GL yet: unposted activity, and entries awaiting approval.
     preview = build_preview(workspace, through=as_of)

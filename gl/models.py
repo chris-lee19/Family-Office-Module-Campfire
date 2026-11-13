@@ -35,7 +35,8 @@ class Role(models.TextChoices):
 # Roles whose balances the tie-out compares with the GL (REC-04). The others are clearing or P&L accounts.
 TIED_OUT_ROLES = (Role.CASH, Role.INVESTMENTS)
 # Lines in these roles carry the asset-class and holding dimensions.
-INSTRUMENT_ROLES = {Role.INVESTMENTS, Role.DIVIDEND_INCOME, Role.INTEREST_INCOME, Role.FUND_INCOME, Role.REALIZED_GAIN, Role.INVESTMENT_FEES}
+INSTRUMENT_ROLES = {Role.INVESTMENTS, Role.DIVIDEND_INCOME, Role.INTEREST_INCOME, Role.FUND_INCOME, Role.REALIZED_GAIN, Role.INVESTMENT_FEES,
+                    Role.UNREALIZED, Role.UNREALIZED_GAIN}
 
 
 class GLSettings(models.Model):
@@ -44,6 +45,9 @@ class GLSettings(models.Model):
     workspace = models.OneToOneField(Workspace, on_delete=models.CASCADE, related_name="gl_settings")
     # Activity before this date is already in the GL (opening balances at go-live) and is never posted.
     post_from = models.DateField(null=True, blank=True)
+    # Accounting policy: empty keeps the books at cost. A date books investments at market value from that month on,
+    # with a month-end entry that brings unrealized appreciation to market value less cost.
+    fair_value_from = models.DateField(null=True, blank=True)
 
     class Meta:
         verbose_name_plural = "GL settings"
@@ -126,9 +130,14 @@ class JournalPosting(models.Model):
         UNCERTAIN = "uncertain", "No answer from Campfire"
         RELEASED = "released", "Released (deleted or rejected in Campfire)"
 
+    class Kind(models.TextChoices):
+        ACTIVITY = "activity", "Investment activity"
+        FAIR_VALUE = "fair_value", "Market value adjustment"
+
     OPEN_STATUSES = (Status.SUBMITTED, Status.POSTED, Status.UNCERTAIN)  # its transactions count as posted
 
     workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE, related_name="journal_postings")
+    kind = models.CharField(max_length=12, choices=Kind.choices, default=Kind.ACTIVITY)
     campfire_entity_id = models.BigIntegerField()
     entity_label = models.CharField(max_length=255, blank=True, help_text="FO entities booked in this Campfire entity")
     period_end = models.DateField()
@@ -150,6 +159,11 @@ class JournalPosting(models.Model):
 
     class Meta:
         ordering = ["-created_at", "-id"]
+        constraints = [
+            # One live market value entry per entity and month (two people clicking Send at once).
+            models.UniqueConstraint(fields=["workspace", "campfire_entity_id", "period_end"], name="fair_value_posting_unique",
+                                    condition=models.Q(kind="fair_value", status__in=["submitted", "posted", "uncertain"])),
+        ]
 
     def __str__(self) -> str:
         return f"{self.source_id} {self.je_date} {self.entity_label} ({self.get_status_display()})"
@@ -171,6 +185,25 @@ class PostedTransaction(models.Model):
 
     def __str__(self) -> str:
         return f"{self.posting.source_id}: {self.transaction}"
+
+
+class FairValueItem(models.Model):
+    """One holding's share of a market value adjustment: what the entry moved, and the unrealized balance it left.
+    The unrealized amount in the GL for a holding is the sum of its items on entries that are still open."""
+
+    posting = models.ForeignKey(JournalPosting, on_delete=models.CASCADE, related_name="fair_value_items")
+    account = models.ForeignKey(Account, on_delete=models.CASCADE, related_name="+")
+    instrument = models.ForeignKey("investments.Instrument", on_delete=models.CASCADE, related_name="+")
+    cost_basis = models.DecimalField(**MONEY)
+    market_value = models.DecimalField(**MONEY)
+    unrealized = models.DecimalField(**MONEY, help_text="Market value less cost at the period end")
+    adjustment = models.DecimalField(**MONEY, help_text="Change booked by this entry (debit to unrealized appreciation positive)")
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["posting", "account", "instrument"], name="fair_value_item_unique")]
+
+    def __str__(self) -> str:
+        return f"{self.posting.source_id}: {self.instrument} {self.adjustment}"
 
 
 class MonthClose(models.Model):

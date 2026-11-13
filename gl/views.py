@@ -78,6 +78,20 @@ def _handle_post(request: HttpRequest, workspace: Workspace) -> tuple[str, Any]:
             return "Enter the date as YYYY-MM-DD.", None
         gl_settings.save()
         return (f"Activity before {gl_settings.post_from} won't be posted." if gl_settings.post_from else "All activity will be posted."), None
+    if action == "fair_value_from":
+        gl_settings = GLSettings.for_workspace(workspace)
+        raw = request.POST.get("fair_value_from", "").strip()
+        try:
+            gl_settings.fair_value_from = date.fromisoformat(raw) if raw else None
+        except ValueError:
+            return "Enter the date as YYYY-MM-DD.", None
+        gl_settings.save()
+        if gl_settings.fair_value_from:
+            return (f"Investments are booked at market value from {gl_settings.fair_value_from:%B %Y}: each month end gets an entry "
+                    "that brings unrealized appreciation to market value less cost."), None
+        sent = JournalPosting.objects.filter(workspace=workspace, kind=JournalPosting.Kind.FAIR_VALUE, status__in=JournalPosting.OPEN_STATUSES).exists()
+        return ("The books stay at cost: no more market value entries." + (" The ones already sent stay in Campfire; reverse them there if "
+                "the books should go back to cost." if sent else "")), None
     if action in ("setup_preview", "setup_create"):
         create = action == "setup_create"
         steps = setup_accounts(workspace, client, create=create) + setup_dimensions(workspace, client, create=create)
