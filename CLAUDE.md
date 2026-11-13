@@ -207,8 +207,11 @@ end. Held marks aren't used; non-USD accounts are skipped. Securities without a 
 - Adding `transactions:write` to the defaults broke sign-in for everyone: Campfire answers `invalid_scope` ("This app may
   not request: ...") for a scope that is only in the app's development version. Fixed: the callback retries the
   authorization without the refused scopes (`SESSION_REFUSED_SCOPES`, `client.connect_scopes(without=)`), once per new
-  refusal; pages that need the scope say "Reconnect". Keep the `:read` scope next to a new `:write` so reading still
-  works before the promote. Never ship a new scope assuming it is promoted. 150 tests.
+  refusal; pages that need the scope say "Reconnect". Never ship a new scope assuming it is promoted: push the manifest
+  and have it promoted BEFORE the deploy that requests it. State now: production version v3 (promoted 2026-11-13) allows
+  `transactions:write` and no longer `transactions:read`; the app requests write only (Campfire's tiers read < draft <
+  write look cumulative: the app already reads bills and entries with draft scopes; if ledger reads fail, re-add read).
+  150 tests.
 
 ## Sandbox clean-up and demo books (2026-11-13, user: "OK to delete, and add the data needed to operate as a family office")
 - Removed (sample data on Entity 1/2/3, nothing refused): 115 invoices, 91 bills, 10 intercompany entries, 168 journal

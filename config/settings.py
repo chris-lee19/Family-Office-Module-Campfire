@@ -133,7 +133,7 @@ ALLOW_DEMO_DATA = (env("ALLOW_DEMO_DATA") or ("1" if DEBUG else "0")) == "1"
 
 DEFAULT_CAMPFIRE_SCOPES = [
     "openid", "email", "profile",
-    "journal_entries:write", "transactions:read", "transactions:write", "bills:write", "bill_payments:read", "reports:read",
+    "journal_entries:write", "transactions:write", "bills:write", "bill_payments:read", "reports:read",
     "bank_accounts:read", "bank_transactions:read", "entities:read", "accounts:write", "tags:write",
     "vendors:write", "lock_periods:read",
 ]
