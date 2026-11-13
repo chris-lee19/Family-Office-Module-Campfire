@@ -58,7 +58,7 @@ sign-off confirmed, tie-out stored and stale once something posts later; posting
 urgent / to do / FYI with target page. **Phase A complete.** · Phase B1 panels (`gl/panel_views.py`; manifest
 `RECORD_BUTTONS` / `RECORD_PANELS`): bill drawer + bill edit tab + bill list tab work today; journal-entry tab/button
 are declared and show once Campfire adds extensions to that page (docs: buttons today on invoice page, invoice list,
-bill page; panels on invoices and bill list/edit). `pages.record_framed` binds the frame to `{{record.id}}`. 126 tests passing. 120 tests passing.
+bill page; panels on invoices and bill list/edit). `pages.record_framed` binds the frame to `{{record.id}}`. 126 tests passing.
 
 ## Next steps (in order) — Phase A (usable without us) is done; then B (native feel), then C (differentiators)
 - B (remaining): net worth incl. Campfire cash/liabilities; roles + per-user connections.
