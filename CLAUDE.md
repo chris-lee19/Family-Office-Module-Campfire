@@ -73,9 +73,10 @@ manifest over the API (API key). Render deploy (`render.yaml`) + "Load the demo 
   with the P1 scopes; v1 (production) had no redirect URL / URLs / extensions yet.
 
 ## Waiting on the user
-- Render deploy (README "Shared test environment on Render"): create the Render account and Blueprint, enter the four
-  Campfire values. Then `push_manifest` with the onrender URL (from the Render Shell, or from a session with
-  `APP_URL=https://<service>.onrender.com`), Promote in Campfire (also carries the v2 scopes), Connect, load demo data.
+- Render: live at `https://family-office-wl37.onrender.com` (2026-11-13). `push_manifest` applied for that URL:
+  allowed domain, 4 sidebar pages and JournalEntry events are live; redirect/connect/manage URLs + P1 scopes sit in
+  v2 (development) until the user clicks Promote. Then: Connect, load demo data, GL setup; confirm the first draft JE
+  returns 202. This cloud session can't reach onrender.com (network policy) unless the host is allowed.
 - Known limit for testers: one stored connection per workspace (the last connector's permissions); no per-user
   access control yet, so demo data only.
 - From the Campfire partner contact: whether the `oauth_app_extensions` flag is still needed on the sandbox.
