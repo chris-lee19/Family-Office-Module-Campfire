@@ -53,7 +53,8 @@ def imports_page(request: HttpRequest, workspace: Workspace, framed: bool) -> Ht
             else:
                 batch = stage(
                     workspace, fmt=fmt, content=upload.read(), file_name=upload.name[:255],
-                    created_by=getattr(request, "fo_actor", ""), create_securities=request.POST.get("create_securities") == "on",
+                    created_by=getattr(request, "fo_actor", ""), created_by_id=getattr(request, "fo_actor_id", ""),
+                    create_securities=request.POST.get("create_securities") == "on",
                 )
                 return redirect(pages.page_url(request, framed, "investments:import_detail", batch.pk))
     elif request.method != "GET":

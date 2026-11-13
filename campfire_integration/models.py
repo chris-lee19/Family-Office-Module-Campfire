@@ -86,3 +86,20 @@ class CampfireEvent(models.Model):
 
     def __str__(self) -> str:
         return f"{self.topic} {self.object_id} ({self.customer_id})"
+
+
+class CampfireUser(models.Model):
+    """People seen signing in, per workspace: lets records made inside a Campfire frame (which carries only the
+    user id) show a name in audit trails and review screens."""
+
+    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE, related_name="users")
+    campfire_user_id = models.BigIntegerField()
+    name = models.CharField(max_length=255, blank=True)
+    email = models.EmailField(blank=True)
+    last_seen_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["workspace", "campfire_user_id"], name="campfire_user_unique")]
+
+    def __str__(self) -> str:
+        return self.name or self.email or f"Campfire user {self.campfire_user_id}"

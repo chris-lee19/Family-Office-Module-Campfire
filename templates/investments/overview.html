@@ -20,7 +20,7 @@
   <div class="issues">
     <strong>Needs attention</strong>
     <ul class="plain">
-      {% for v in fi.held %}<li><span class="pill held">Held</span> {{ v.instrument.name }}: {{ v.get_method_display }} of {{ v.value|money }} as of {{ v.as_of }} is {{ v.change_pct }}% vs expected. Not booked until reviewed.</li>{% endfor %}
+      {% for v in fi.held %}<li><span class="pill held">Held</span> {{ v.instrument.name }}: {{ v.get_method_display }} of {{ v.value|money }} as of {{ v.as_of }} is {{ v.change_pct }}% vs expected. Not booked until <a href="{{ review_url }}">reviewed</a>.</li>{% endfor %}
       {% for c in fi.calls %}<li><span class="pill">Capital call</span> {{ c.commitment.instrument.name }}: {{ c.amount|money }} due {{ c.due_date }} ({{ c.get_status_display|lower }})</li>{% endfor %}
       {% for h in p.stale %}<li><span class="pill stale">Stale</span> {{ h.name }} in {{ h.account.name }}: last {% if h.method == "cost" %}valued at cost (no mark){% else %}{{ h.method_label }} mark {{ h.value_date }}{% endif %}</li>{% endfor %}
     </ul>

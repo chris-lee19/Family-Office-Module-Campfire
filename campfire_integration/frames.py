@@ -67,6 +67,33 @@ def sign_in(request: HttpRequest, *, workspace: Workspace, user: dict[str, Any])
     request.session.cycle_key()
     request.session[SESSION_WORKSPACE] = workspace.pk
     request.session[SESSION_USER] = {"name": "", "email": "", **user}
+    remember_user(workspace, user)
+
+
+def remember_user(workspace: Workspace, user: dict[str, Any]) -> None:
+    from campfire_integration.models import CampfireUser
+
+    uid = user.get("campfire_user_id")
+    if not uid:
+        return
+    known, _ = CampfireUser.objects.get_or_create(workspace=workspace, campfire_user_id=int(uid))
+    changed = [f for f in ("name", "email") if user.get(f) and getattr(known, f) != user[f]]
+    for f in changed:
+        setattr(known, f, user[f])
+    known.save()
+
+
+def actor_for(workspace: Workspace, user_id: Any, *, name: str = "", email: str = "", sub: str = "") -> tuple[str, str]:
+    """(display name, stable id) for the person making a request. The id is the Campfire user id when known."""
+    from campfire_integration.models import CampfireUser
+
+    if user_id:
+        known = CampfireUser.objects.filter(workspace=workspace, campfire_user_id=int(user_id)).first()
+        label = name or email or (str(known) if known else f"Campfire user {user_id}")
+        return label, f"cfu:{int(user_id)}"
+    if sub:
+        return name or email or "Campfire user", f"sub:{sub}"
+    return name or email or "Campfire user", ""
 
 
 def session_workspace(request: HttpRequest) -> Workspace | None:

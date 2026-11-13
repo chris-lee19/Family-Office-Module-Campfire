@@ -30,6 +30,7 @@ Plan and requirement mapping: [`docs/PLAN.md`](docs/PLAN.md), [`docs/campfire_fi
 | "General ledger" page in Campfire's sidebar | `/fo/frame/gl` (standalone: `/fo/gl`) |
 | "Records" page: set up and maintain families, branches, people, entities, ownership, roles, asset classes, securities, accounts, commitments, capital calls, transactions (incl. opening positions), NAV statements and prices. Choices scoped to the workspace; every change audited (before/after); ledger and ownership checks undo a bad change; GL-posted, imported and call-paid transactions are locked; deletes never cascade through the books | `records/` |
 | Onboarding from one Excel workbook (Records → Onboard a family): branches, people, entities, ownership, roles, securities, accounts with opening cash, prices, opening positions as tax lots, fund commitments with flows to date, marks, optional history; validate → review → import, all or nothing; re-upload adds nothing; sets the GL start date after the opening date. The same workbook exports a family (example and backup) | `records/onboarding.py` |
+| "Review" page (SEC-07): accept / reject / correct marks held by the anomaly check, sign off imports that came in with warnings, see uploads left waiting; preparer ≠ reviewer enforced by Campfire user id (switchable for one-person offices, audited); names of people seen signing in show in audit trails | `records/review.py` |
 | Fictional demo family with entities and investments (dates relative to today) | `python manage.py seed_demo` |
 
 ## Local development

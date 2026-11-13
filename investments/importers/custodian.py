@@ -630,14 +630,15 @@ def _record(batch: ImportBatch, result: Result, status: str) -> ImportBatch:
 
 
 def stage(workspace: Workspace, *, fmt: FileFormat, content: bytes | str, file_name: str = "", created_by: str = "",
-          create_securities: bool = False, today: date | None = None) -> ImportBatch:
+          create_securities: bool = False, today: date | None = None, created_by_id: str = "") -> ImportBatch:
     """Store the file as a batch and validate it without importing anything."""
     text = decode(content)
     with transaction.atomic():
         batch = ImportBatch.objects.create(
             workspace=workspace, source=SOURCE, reference=file_name, kind=fmt.kind, file_format=fmt.code,
             file_name=file_name, file_sha256=hashlib.sha256(text.encode()).hexdigest(), content=text,
-            options={"create_securities": create_securities}, created_by=created_by, status=ImportBatch.Status.VALIDATED,
+            options={"create_securities": create_securities}, created_by=created_by, created_by_id=created_by_id,
+            status=ImportBatch.Status.VALIDATED,
         )
         result = validate(batch, fmt, write=False, today=today)
         return _record(batch, result, ImportBatch.Status.REJECTED if result.errors else ImportBatch.Status.VALIDATED)

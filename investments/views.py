@@ -82,7 +82,7 @@ def investments_page(request: HttpRequest, workspace: Workspace, framed: bool) -
     families = [family_investments(f, as_of) for f in Family.objects.filter(workspace=workspace, is_active=True)]
     return render(request, "investments/overview.html", {
         "workspace": workspace, "families": families, "as_of": as_of, "framed": framed,
-        "demo_url": demo_url(request, workspace, framed),
+        "demo_url": demo_url(request, workspace, framed), "review_url": pages.page_url(request, framed, "records:review"),
     })
 
 

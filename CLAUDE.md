@@ -43,10 +43,14 @@ columns, search, locks, after-save checks, delete guards); forms scoped by `reco
 `AuditEntry` before/after; fifth sidebar page "Records" · Phase A2 onboarding (`records/onboarding.py`): one .xlsx
 (openpyxl) with `SHEETS`, staged like custodian files (`ImportBatch` source "onboarding", content base64), opening
 balances on the opening date (marked holdings dated ≤ first mark so roll-forward doesn't double count), export =
-same workbook (`family_rows`); round-trip test reproduces the portfolio exactly. 104 tests passing.
+same workbook (`family_rows`); round-trip test reproduces the portfolio exactly · Phase A3 review queue
+(`records/review.py`, sidebar "Review"): held marks accept/reject/correct, imports with warnings signed off, waiting
+uploads; preparer ≠ reviewer via `request.fo_actor_id` ("cfu:<campfire user id>", same in frame and session;
+`campfire_integration.frames.actor_for`, `CampfireUser` remembers names); `ControlSettings.require_second_person`
+(default on, audited); Valuation/ImportBatch carry created_by_id and reviewed_by*. 109 tests passing.
 
 ## Next steps (in order) — roadmap Phase A (usable without us), then B (native feel), then C (differentiators)
-- A3 review queue (accept/reject held marks, import exceptions; preparer ≠ reviewer) · A5 month-end close page ·
+- A5 month-end close page ·
   A6 "needs attention" home. B: panels on Campfire JE/bill records, net worth incl. Campfire cash/liabilities,
   roles + per-user connections. C: documents & AI, family reports, FMV JEs, liquidity.
 1. **Capital call → Campfire bill** (= A4) (draft, `bills:draft`) → `Bill.paid` event (add to `EVENT_TOPICS`) →

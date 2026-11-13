@@ -473,7 +473,8 @@ class Importer:
             self.result.existing[sheet] += 1
             return
         v = record_valuation(account=account, instrument=inst, as_of=r["as_of"], value=r["value"],
-                             method=r["method"] or Valuation.Method.NAV_STATEMENT, batch=self.batch, source_ref=f"onboarding row {n}")
+                             method=r["method"] or Valuation.Method.NAV_STATEMENT, batch=self.batch, source_ref=f"onboarding row {n}",
+                             created_by=self.batch.created_by, created_by_id=self.batch.created_by_id)
         self.result.created[sheet] += 1
         if v.status == Valuation.Status.HELD:
             self.result.add(S.WARNING, f"Held for review: {v.change_pct}% from the expected value.", sheet, n)
@@ -579,13 +580,14 @@ def _record(batch: ImportBatch, result: Result, status: str) -> ImportBatch:
 
 
 def stage(workspace: Workspace, *, content: bytes, file_name: str, as_of: date, family_id: int | None = None,
-          family_name: str = "", family_code: str = "", set_gl_start: bool = False, created_by: str = "") -> ImportBatch:
+          family_name: str = "", family_code: str = "", set_gl_start: bool = False, created_by: str = "",
+          created_by_id: str = "") -> ImportBatch:
     batch = ImportBatch.objects.create(
         workspace=workspace, source=SOURCE, kind=ImportBatch.Kind.OTHER, file_format="onboarding_xlsx", file_name=file_name,
         reference=file_name, file_sha256=hashlib.sha256(content).hexdigest(), content=base64.b64encode(content).decode(),
         options={"as_of": as_of.isoformat(), "family_id": family_id, "family_name": family_name, "family_code": family_code,
                  "set_gl_start": set_gl_start},
-        created_by=created_by, status=ImportBatch.Status.VALIDATED,
+        created_by=created_by, created_by_id=created_by_id, status=ImportBatch.Status.VALIDATED,
     )
     result = run(batch, write=False)
     return _record(batch, result, ImportBatch.Status.REJECTED if result.errors else ImportBatch.Status.VALIDATED)

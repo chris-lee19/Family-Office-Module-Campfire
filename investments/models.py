@@ -169,14 +169,25 @@ class ImportBatch(models.Model):
     rows_duplicate = models.PositiveIntegerField(default=0)
     rows_ignored = models.PositiveIntegerField(default=0)
     created_by = models.CharField(max_length=255, blank=True)
+    created_by_id = models.CharField(max_length=64, blank=True, help_text="Stable id of who uploaded it (cfu:<campfire user id>)")
     created_at = models.DateTimeField(auto_now_add=True)
     committed_at = models.DateTimeField(null=True, blank=True)
+    # Sign-off of an import that came in with warnings (the review queue).
+    reviewed_by = models.CharField(max_length=255, blank=True)
+    reviewed_by_id = models.CharField(max_length=64, blank=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    review_note = models.TextField(blank=True)
 
     class Meta:
         ordering = ["-created_at", "-id"]
 
     def __str__(self) -> str:
         return f"{self.source} {self.reference}".strip()
+
+    @property
+    def source_label(self) -> str:
+        return {"custodian_file": "Custodian file", "onboarding": "Onboarding workbook", "demo": "Demo data",
+                "document_ai": "Document"}.get(self.source, self.source.replace("_", " ").capitalize())
 
     def clean(self) -> None:
         if self.family_id and self.family.workspace_id != self.workspace_id:
@@ -326,6 +337,11 @@ class Valuation(models.Model):
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.ACCEPTED)
     change_pct = models.DecimalField(null=True, blank=True, max_digits=12, decimal_places=2, help_text="vs prior accepted value")
     review_note = models.TextField(blank=True)
+    created_by = models.CharField(max_length=255, blank=True)
+    created_by_id = models.CharField(max_length=64, blank=True, help_text="Stable id of who recorded it (cfu:<campfire user id>)")
+    reviewed_by = models.CharField(max_length=255, blank=True)
+    reviewed_by_id = models.CharField(max_length=64, blank=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
     batch = models.ForeignKey(ImportBatch, null=True, blank=True, on_delete=models.PROTECT, related_name="valuations")
     source_ref = models.CharField(max_length=255, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

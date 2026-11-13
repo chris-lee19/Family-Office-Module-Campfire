@@ -18,7 +18,7 @@ from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
 
-from campfire_integration.frames import SESSION_USER, FrameAuthError, session_workspace, verify_frame_request
+from campfire_integration.frames import SESSION_USER, FrameAuthError, actor_for, session_workspace, verify_frame_request
 from campfire_integration.models import Workspace
 from core.framing import campfire_frame
 
@@ -64,7 +64,7 @@ def framed(page: Page, surfaces: tuple[str, ...] = ("nav",)) -> Callable[..., Ht
         except FrameAuthError as e:
             return render(request, "campfire/message.html", {"title": "Cannot open this page", "message": str(e), "framed": True}, status=e.status)
         request.fo_frame_token = token  # type: ignore[attr-defined]
-        request.fo_actor = f"Campfire user {user_id}" if user_id else "Campfire user"  # type: ignore[attr-defined]
+        request.fo_actor, request.fo_actor_id = actor_for(workspace, user_id)  # type: ignore[attr-defined]
         return page(request, workspace, True, **kwargs)
 
     return view
@@ -76,7 +76,8 @@ def standalone(page: Page) -> Callable[..., HttpResponse]:
         if workspace is None:
             return redirect("home")
         user = request.session.get(SESSION_USER) or {}
-        request.fo_actor = user.get("email") or user.get("name") or "Campfire user"  # type: ignore[attr-defined]
+        request.fo_actor, request.fo_actor_id = actor_for(  # type: ignore[attr-defined]
+            workspace, user.get("campfire_user_id"), name=user.get("email") or user.get("name") or "", sub=user.get("sub") or "")
         return page(request, workspace, False, **kwargs)
 
     return view

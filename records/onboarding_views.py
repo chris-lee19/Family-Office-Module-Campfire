@@ -49,6 +49,7 @@ def onboarding_page(request: HttpRequest, workspace: Workspace, framed: bool) ->
                 family_id=int(family_choice) if family_choice != "new" else None,
                 family_name=request.POST.get("family_name", ""), family_code=request.POST.get("family_code", ""),
                 set_gl_start=request.POST.get("set_gl_start") == "on", created_by=getattr(request, "fo_actor", ""),
+                created_by_id=getattr(request, "fo_actor_id", ""),
             )
             return redirect(pages.page_url(request, framed, "records:onboarding_batch", batch.pk))
     elif request.method != "GET":

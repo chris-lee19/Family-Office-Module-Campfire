@@ -48,12 +48,13 @@
     .record-form input:not([type=checkbox]), .record-form select, .record-form textarea, input.input { font:inherit; padding:6px 8px; border:1px solid var(--line); border-radius:6px; width:100%; max-width:420px; }
     .req { color:#991b1b; } a.btn { text-decoration:none; }
     ol.steps { padding-left:20px; } ol.steps li { margin:6px 0; }
+    form.decide { display:grid; gap:6px; min-width:260px; } form.decide .actions { margin:0; } form.decide .input { max-width:100%; }
   </style>
 </head>
 <body class="{% if framed %}framed{% endif %}">
   {% if not framed %}
   <header class="top">
-    <nav><strong>Family Office</strong>{% if request.session.campfire_user %} &nbsp; <a href="{% url 'investments:investments' %}">Investments</a> · <a href="{% url 'home' %}">Entities &amp; Ownership</a> · <a href="{% url 'investments:imports' %}">Imports</a> · <a href="{% url 'gl:gl' %}">General ledger</a> · <a href="{% url 'records:home' %}">Records</a>{% endif %}</nav>
+    <nav><strong>Family Office</strong>{% if request.session.campfire_user %} &nbsp; <a href="{% url 'investments:investments' %}">Investments</a> · <a href="{% url 'home' %}">Entities &amp; Ownership</a> · <a href="{% url 'investments:imports' %}">Imports</a> · <a href="{% url 'gl:gl' %}">General ledger</a> · <a href="{% url 'records:review' %}">Review</a> · <a href="{% url 'records:home' %}">Records</a>{% endif %}</nav>
     {% if request.session.campfire_user %}
       <form method="post" action="{% url 'campfire:logout' %}">{% csrf_token %}
         <span class="muted">{% firstof request.session.campfire_user.name request.session.campfire_user.email "Campfire user" %}{% if workspace %} · {{ workspace }}{% endif %}</span>

@@ -123,7 +123,7 @@ def edit_page(request: HttpRequest, workspace: Workspace, framed: bool, kind: st
         elif form.is_valid():
             try:
                 with transaction.atomic():
-                    saved, note = k.save(form) if k.save else (form.save(), "")
+                    saved, note = k.save(form, request) if k.save else (form.save(), "")
                     if k.check:
                         k.check(saved)
                         if previous is not None:

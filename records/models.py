@@ -26,3 +26,22 @@ class AuditEntry(models.Model):
 
     def __str__(self) -> str:
         return f"{self.at:%Y-%m-%d %H:%M} {self.actor} {self.action} {self.kind} {self.object_repr}"
+
+
+class ControlSettings(models.Model):
+    """A workspace's internal-control choices."""
+
+    workspace = models.OneToOneField(Workspace, on_delete=models.CASCADE, related_name="control_settings")
+    # Preparer ≠ reviewer (SEC-07): whoever recorded a mark or uploaded a file can't review it. A one-person office
+    # can switch it off; the switch is audited.
+    require_second_person = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name_plural = "control settings"
+
+    def __str__(self) -> str:
+        return f"Controls for {self.workspace}"
+
+    @classmethod
+    def for_workspace(cls, workspace: Workspace) -> "ControlSettings":
+        return cls.objects.get_or_create(workspace=workspace)[0]

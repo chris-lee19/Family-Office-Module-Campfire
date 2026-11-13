@@ -107,6 +107,7 @@ def change_threshold_pct(account: Account) -> Decimal:
 def record_valuation(
     *, account: Account, instrument: Instrument, as_of: date, value: Decimal, method: str,
     batch=None, source_ref: str = "", threshold_pct: Decimal | None = None,  # type: ignore[no-untyped-def]
+    created_by: str = "", created_by_id: str = "",
 ) -> Valuation:
     """Store a new mark, holding it for review when it moves too far from the expected value.
 
@@ -122,7 +123,7 @@ def record_valuation(
             status = Valuation.Status.HELD
     return Valuation.objects.create(
         account=account, instrument=instrument, as_of=as_of, value=value, method=method,
-        status=status, change_pct=change, batch=batch, source_ref=source_ref,
+        status=status, change_pct=change, batch=batch, source_ref=source_ref, created_by=created_by, created_by_id=created_by_id,
     )
 
 

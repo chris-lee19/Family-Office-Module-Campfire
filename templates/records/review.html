@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% load money gl_extras %}
+{% block title %}Review{% endblock %}
+{% block content %}
+<h1>Review</h1>
+<p class="muted">{{ workspace }} · decisions that need a second person{% if reviewer.name %} · you are {{ reviewer.name }}{% endif %}</p>
+{% if message %}<div class="notice">{{ message }}</div>{% endif %}
+{% if error %}<div class="issues">{{ error }}</div>{% endif %}
+
+<div class="cards">
+  <div class="card"><div class="label">Marks held for review</div><div class="value">{{ queue.held|length }}</div></div>
+  <div class="card"><div class="label">Imports to sign off</div><div class="value">{{ queue.warned|length }}</div></div>
+  <div class="card"><div class="label">Uploads waiting</div><div class="value">{{ queue.waiting|length }}</div></div>
+</div>
+
+<h2>Marks held for review</h2>
+{% if queue.held %}
+<table>
+  <thead><tr><th>Holding</th><th>Date</th><th class="num">Value</th><th class="num">Expected</th><th class="num">Change</th><th>Recorded by</th><th>Decision</th></tr></thead>
+  <tbody>
+  {% for h in queue.held %}{% with v=h.valuation %}
+    <tr>
+      <td><strong>{{ v.instrument }}</strong><br><span class="muted small">{{ v.account }} · {{ v.get_method_display }}{% if v.source_ref %} · {{ v.source_ref }}{% endif %}</span></td>
+      <td class="nowrap">{{ v.as_of|date:"Y-m-d" }}</td>
+      <td class="num">{{ v.value|money }}</td>
+      <td class="num">{% if h.expected is not None %}{{ h.expected|money }}<br><span class="muted small">mark {{ h.previous_date|date:"Y-m-d" }} rolled forward</span>{% else %}—{% endif %}</td>
+      <td class="num">{% if v.change_pct is not None %}{{ v.change_pct }}%{% endif %}</td>
+      <td>{{ v.created_by|default:"—" }}</td>
+      <td>
+        {# Separate forms: Enter in one box must never submit another decision. #}
+        <form method="post" action="{{ action }}" class="decide">
+          {% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
+          <input type="hidden" name="valuation" value="{{ v.pk }}">
+          <input class="input" name="note" placeholder="Note (required to reject)">
+          <div class="actions">
+            <button class="btn small" type="submit" name="action" value="accept">Accept</button>
+            <button class="btn secondary small" type="submit" name="action" value="reject">Reject</button>
+          </div>
+        </form>
+        <form method="post" action="{{ action }}" class="decide">
+          {% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
+          <input type="hidden" name="valuation" value="{{ v.pk }}"><input type="hidden" name="action" value="correct">
+          <div class="actions">
+            <input class="input" name="value" placeholder="Corrected value" inputmode="decimal" required>
+            <button class="btn secondary small" type="submit">Correct</button>
+          </div>
+        </form>
+      </td>
+    </tr>
+  {% endwith %}{% endfor %}
+  </tbody>
+</table>
+{% else %}<p class="muted">Nothing held.</p>{% endif %}
+
+<h2>Imports to sign off</h2>
+{% if queue.warned %}
+<table>
+  <thead><tr><th>File</th><th>Imported</th><th>Uploaded by</th><th>Warnings</th><th>Sign-off</th></tr></thead>
+  <tbody>
+  {% for b in queue.warned %}
+    <tr>
+      <td><a href="{{ links|get_item:b.pk }}">{{ b.file_name|default:b.reference }}</a><br><span class="muted small">{{ b.source_label }}{% if b.family %} · {{ b.family }}{% endif %}</span></td>
+      <td class="nowrap">{{ b.committed_at|date:"Y-m-d H:i" }}</td>
+      <td>{{ b.created_by|default:"—" }}</td>
+      <td class="small">{% for i in b.issues.all %}{% if i.severity == "warning" %}<div>{% if i.row_number %}Line {{ i.row_number }}: {% endif %}{{ i.message }}</div>{% endif %}{% endfor %}</td>
+      <td>
+        <form method="post" action="{{ action }}" class="decide">
+          {% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
+          <input type="hidden" name="batch" value="{{ b.pk }}">
+          <input class="input" name="note" placeholder="Note (optional)">
+          <button class="btn small" type="submit" name="action" value="sign_off">Sign off</button>
+        </form>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}<p class="muted">Nothing to sign off.</p>{% endif %}
+
+<h2>Uploads waiting</h2>
+{% if queue.waiting %}
+<table><tbody>
+{% for b in queue.waiting %}<tr><td><a href="{{ links|get_item:b.pk }}">{{ b.file_name|default:b.reference }}</a></td><td class="nowrap">{{ b.created_at|date:"Y-m-d H:i" }}</td><td>{{ b.created_by }}</td><td class="muted">Checked; import or discard it.</td></tr>{% endfor %}
+</tbody></table>
+{% else %}<p class="muted">None.</p>{% endif %}
+
+<h2>Control</h2>
+<form method="post" action="{{ action }}" class="actions">
+  {% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
+  <label class="checkline"><input type="checkbox" name="require_second_person" {% if queue.require_second_person %}checked{% endif %}> Preparer ≠ reviewer: whoever recorded a mark or uploaded a file can't review it</label>
+  <button class="btn secondary small" type="submit" name="action" value="policy">Save</button>
+</form>
+<p class="muted small">Switch it off only in a one-person office. The change is recorded in the audit trail.</p>
+{% endblock %}

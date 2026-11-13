@@ -39,7 +39,7 @@ class Kind:
     help: str = ""
     editable: bool = True  # False: add and delete only
     locked: Callable[[Any], str] = lambda obj: ""  # why the record can't be changed or deleted ("" = it can)
-    save: Callable[[f.WorkspaceForm], tuple[Model, str]] | None = None  # custom save; returns (object, note)
+    save: Callable[[f.WorkspaceForm, Any], tuple[Model, str]] | None = None  # custom save(form, request) -> (object, note)
     check: Callable[[Any], None] | None = None  # after a save or delete, inside the transaction; raise to undo
     # Why it can't be deleted although it can be edited ("" = it can). Guards against database cascades.
     undeletable: Callable[[Any], str] = lambda obj: ""
@@ -117,10 +117,11 @@ def check_ownership(o: OwnershipInterest) -> None:
         raise ValidationError(f"That ownership creates a loop: {e}") from e
 
 
-def save_valuation(form: f.WorkspaceForm) -> tuple[Model, str]:
+def save_valuation(form: f.WorkspaceForm, request: Any) -> tuple[Model, str]:
     d = form.cleaned_data
     v = record_valuation(account=d["account"], instrument=d["instrument"], as_of=d["as_of"], value=d["value"],
-                         method=d["method"], source_ref=d.get("source_ref") or "")
+                         method=d["method"], source_ref=d.get("source_ref") or "",
+                         created_by=getattr(request, "fo_actor", ""), created_by_id=getattr(request, "fo_actor_id", ""))
     if v.status == Valuation.Status.HELD:
         return v, f"Held for review: {v.change_pct}% from the expected value. It isn't used until someone accepts it."
     return v, ""
