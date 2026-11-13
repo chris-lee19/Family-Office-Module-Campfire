@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+{% load money gl_extras %}
+{% block title %}General ledger{% endblock %}
+{% block content %}
+<h1>General ledger</h1>
+<p class="muted">{{ workspace }} · investment activity into Campfire as summarized journal entries, one per entity and month · as of {{ today|date:"Y-m-d" }}</p>
+{% if message %}<div class="notice">{{ message }}</div>{% endif %}
+{% if error %}<div class="issues">{{ error }}</div>{% endif %}
+
+{% with p=preview %}
+<div class="cards">
+  <div class="card"><div class="label">Entries ready to send</div><div class="value">{{ p.ready|length }}</div></div>
+  <div class="card"><div class="label">Held back (need setup)</div><div class="value">{{ p.held|length }}</div></div>
+  <div class="card"><div class="label">Unmapped roles</div><div class="value">{{ unmapped|length }}</div></div>
+  <div class="card"><div class="label">Sent entries</div><div class="value">{{ postings|length }}</div></div>
+</div>
+
+<h2>Ready to post</h2>
+{% if p.journals %}
+<form method="post" action="{{ action }}" class="actions">
+  {% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
+  <button class="btn" type="submit" name="action" value="send" {% if not p.ready %}disabled{% endif %}>Send {{ p.ready|length }} entr{{ p.ready|length|pluralize:"y,ies" }} to Campfire for approval</button>
+  <span class="muted">Entries go to Campfire's approval queue; nothing posts until someone approves it there.</span>
+</form>
+<table>
+  <thead><tr><th>Date</th><th>Campfire entity</th><th>Booked for</th><th class="num">Transactions</th><th class="num">Debits</th><th>Status</th></tr></thead>
+  <tbody>
+  {% for j in p.journals %}
+    <tr>
+      <td class="nowrap">{{ j.je_date|date:"Y-m-d" }}</td>
+      <td>{% firstof cf_entity_names|get_item:j.campfire_entity_id j.campfire_entity_id %}</td>
+      <td>{{ j.entity_label }}</td>
+      <td class="num">{{ j.transactions|length }}</td>
+      <td class="num">{{ j.total|money }}</td>
+      <td>
+        {% if j.ok %}<span class="pill status-committed">Ready</span>{% else %}<span class="pill status-rejected">Held back</span>{% endif %}
+        {% for e in j.errors %}<div class="small err">{{ e }}</div>{% endfor %}
+        {% for w in j.warnings %}<div class="small muted">No tag for {{ w }}</div>{% endfor %}
+        {% if j.ok %}
+        <details><summary class="small">Lines</summary>
+          <table class="inner"><tbody>
+          {% for ln in j.lines %}<tr><td>{{ ln.account_label }}</td><td class="muted small">{{ ln.description }}{% if ln.tags %} · tags {{ ln.tags|join:", " }}{% endif %}</td><td class="num">{% if ln.debit %}{{ ln.debit|floatformat:"2g" }}{% endif %}</td><td class="num">{% if ln.credit %}{{ ln.credit|floatformat:"2g" }}{% endif %}</td></tr>{% endfor %}
+          </tbody></table>
+        </details>
+        {% endif %}
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="muted">Everything up to today is in the GL or awaiting approval.</p>
+{% endif %}
+{% if p.post_from %}<p class="muted">Posting activity from {{ p.post_from|date:"Y-m-d" }}{% if p.before_start %}; {{ p.before_start }} earlier transaction{{ p.before_start|pluralize }} are in the GL through opening balances{% endif %}.</p>{% endif %}
+{% if p.not_linked %}<p class="muted">Not posted (owner isn't an entity linked to Campfire): {% for owner, n in p.not_linked.items %}{{ owner }} ({{ n }}){% if not forloop.last %}, {% endif %}{% endfor %}.</p>{% endif %}
+{% if p.billed_contributions %}<p class="muted">{{ p.billed_contributions }} capital contribution{{ p.billed_contributions|pluralize }} already booked by the Campfire bill that paid {{ p.billed_contributions|pluralize:"it,them" }}.</p>{% endif %}
+{% endwith %}
+
+<h2>Sent entries</h2>
+{% if postings %}
+<form method="post" action="{{ action }}" class="actions">
+  {% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
+  <button class="btn secondary" type="submit" name="action" value="refresh">Check Campfire for approvals</button>
+</form>
+<table>
+  <thead><tr><th>Reference</th><th>Date</th><th>Booked for</th><th class="num">Debits</th><th>Status</th><th>Campfire entry</th><th></th></tr></thead>
+  <tbody>
+  {% for po in postings %}
+    <tr>
+      <td>{{ po.ref_number }}<br><span class="muted small">{{ po.created_at|date:"Y-m-d H:i" }}{% if po.created_by %} · {{ po.created_by }}{% endif %}</span></td>
+      <td class="nowrap">{{ po.je_date|date:"Y-m-d" }}</td>
+      <td>{{ po.entity_label }}</td>
+      <td class="num">{{ po.total|money }}</td>
+      <td><span class="pill posting-{{ po.status }}">{{ po.get_status_display }}</span>{% if po.error %}<div class="small muted">{{ po.error|truncatechars:160 }}</div>{% endif %}</td>
+      <td>{{ po.campfire_journal_id|default:"" }}</td>
+      <td>{% if po.status == "submitted" or po.status == "uncertain" %}
+        <form method="post" action="{{ action }}">{% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
+          <input type="hidden" name="posting" value="{{ po.pk }}"><button class="btn secondary small" type="submit" name="action" value="release" title="Use when Campfire rejected it or never received it">Release</button></form>
+      {% endif %}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="muted">Nothing sent yet.</p>
+{% endif %}
+
+<h2>Tie-out</h2>
+<form method="post" action="{{ action }}" class="actions">
+  {% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
+  <button class="btn secondary" type="submit" name="action" value="tieout">Compare with Campfire's GL</button>
+  <span class="muted">Custody cash and investments at cost, per entity, against the trial balance.</span>
+</form>
+{% if tieout %}
+{% for e in tieout.errors %}<div class="issues">{{ e }}</div>{% endfor %}
+<table>
+  <thead><tr><th>Campfire entity</th><th>GL account</th><th class="num">FO balance</th><th class="num">Not sent yet</th><th class="num">Awaiting approval</th><th class="num">Expected in GL</th><th class="num">GL balance</th><th class="num">Difference</th></tr></thead>
+  <tbody>
+  {% for r in tieout.rows %}
+    <tr><td>{% firstof cf_entity_names|get_item:r.campfire_entity_id r.campfire_entity_id %}</td><td>{{ r.label }}</td><td class="num">{{ r.fo_balance|money }}</td><td class="num">{{ r.unposted|money }}</td><td class="num">{{ r.awaiting_approval|money }}</td><td class="num">{{ r.expected_gl|money }}</td><td class="num">{{ r.gl_balance|money }}</td>
+      <td class="num">{% if r.ties %}<span class="pill status-committed">Ties</span>{% else %}<span class="pill status-rejected">{{ r.difference|money }}</span>{% endif %}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+<h2>Setup</h2>
+{% if campfire_error %}<div class="issues">{{ campfire_error }}</div>{% endif %}
+<form method="post" action="{{ action }}" class="actions">
+  {% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
+  <label>Post activity from <input type="date" name="post_from" value="{{ gl_settings.post_from|date:'Y-m-d' }}"></label>
+  <button class="btn secondary" type="submit" name="action" value="post_from">Save</button>
+  <span class="muted">Your go-live date: earlier activity is already in the GL through opening balances.</span>
+</form>
+<form method="post" action="{{ action }}" class="actions">
+  {% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
+  <button class="btn secondary" type="submit" name="action" value="setup_preview">Preview suggested setup</button>
+  {% if setup_is_preview %}<button class="btn" type="submit" name="action" value="setup_create">Create in Campfire</button>{% endif %}
+  <span class="muted">Family-office GL accounts and the FO Family / Asset Class / Holding dimensions. Existing accounts with the same number are reused.</span>
+</form>
+{% if setup_steps %}
+<table><tbody>{% for s in setup_steps %}<tr><td>{{ s.role_or_dimension }}</td><td><span class="pill">{{ s.action }}</span></td><td>{{ s.label }}</td></tr>{% endfor %}</tbody></table>
+{% endif %}
+
+<div class="grid2">
+  <div>
+    <h3>Entities</h3>
+    <form method="post" action="{{ action }}">
+      {% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
+      <table><tbody>
+      {% for e in entities %}
+        <tr><td>{{ e.name }}<br><span class="muted small">{{ e.family }} · {{ e.get_entity_type_display }}</span></td>
+          <td>{% if cf_entities %}<select name="entity_{{ e.pk }}"><option value="">Not booked in Campfire</option>{% for c in cf_entities %}<option value="{{ c.id }}" {% if c.id == e.campfire_entity_id %}selected{% endif %}>{{ c.name }}</option>{% endfor %}</select>{% else %}{{ e.campfire_entity_id|default:"—" }}{% endif %}</td></tr>
+      {% endfor %}
+      </tbody></table>
+      {% if cf_entities %}<p><button class="btn secondary" type="submit" name="action" value="link">Save entity links</button></p>{% endif %}
+    </form>
+  </div>
+  <div>
+    <h3>GL accounts by role</h3>
+    <form method="post" action="{{ action }}">
+      {% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
+      <table><tbody>
+      {% for role, m in roles %}
+        <tr><td>{{ role.label }}</td>
+          <td>{% if cf_accounts %}<select name="role_{{ role.value }}"><option value="">Not mapped</option>{% for a in cf_accounts %}<option value="{{ a.id }}" {% if m and a.id == m.campfire_account_id %}selected{% endif %}>{{ a.number }} {{ a.name }}</option>{% endfor %}</select>{% elif m %}{{ m.campfire_account_label }}{% else %}<span class="muted">Not mapped</span>{% endif %}</td></tr>
+      {% endfor %}
+      </tbody></table>
+      {% if cf_accounts %}<p><button class="btn secondary" type="submit" name="action" value="map">Save account mapping</button></p>{% endif %}
+      {% if narrower %}<p class="muted small">{{ narrower }} narrower mapping{{ narrower|pluralize }} (by entity, asset class or account) set in admin.</p>{% endif %}
+    </form>
+  </div>
+</div>
+{% endblock %}

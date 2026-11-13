@@ -1,0 +1,167 @@
+"""M3 GL bridge: how investment activity becomes journal entries in Campfire, and what was sent.
+
+The investment book of record (investments.Transaction) stays the source of truth. Posting turns transactions
+that aren't in the GL yet into summarized, balanced journal entries, one per Campfire entity and month, and
+records which transactions each entry carries (lineage both ways: Campfire's `source_id` names the posting,
+the posting lists the transactions, each transaction names its import batch and file line).
+"""
+
+from django.core.exceptions import ValidationError
+from django.db import models
+
+from campfire_integration.models import Workspace
+from investments.models import Account, AssetClass, Transaction
+
+MONEY = {"max_digits": 20, "decimal_places": 2}
+SOURCE = "Family Office"  # Campfire journal entry `source`; `source_id` is JournalPosting.source_id
+
+
+class Role(models.TextChoices):
+    """What a posting line is for. Each role is mapped to a Campfire GL account (AccountMapping)."""
+
+    CASH = "cash", "Cash at custodian"
+    CASH_CLEARING = "cash_clearing", "Investment cash clearing"
+    TRANSFERS = "transfers", "Transfers clearing"
+    INVESTMENTS = "investments", "Investments at cost"
+    DIVIDEND_INCOME = "dividend_income", "Dividend income"
+    INTEREST_INCOME = "interest_income", "Interest income"
+    FUND_INCOME = "fund_income", "Fund income distributions"
+    REALIZED_GAIN = "realized_gain", "Realized gain / loss"
+    INVESTMENT_FEES = "investment_fees", "Investment fees"
+
+
+# Roles whose balances the tie-out compares with the GL (REC-04). The others are clearing or P&L accounts.
+TIED_OUT_ROLES = (Role.CASH, Role.INVESTMENTS)
+# Lines in these roles carry the asset-class and holding dimensions.
+INSTRUMENT_ROLES = {Role.INVESTMENTS, Role.DIVIDEND_INCOME, Role.INTEREST_INCOME, Role.FUND_INCOME, Role.REALIZED_GAIN, Role.INVESTMENT_FEES}
+
+
+class GLSettings(models.Model):
+    """Per-workspace GL bridge settings."""
+
+    workspace = models.OneToOneField(Workspace, on_delete=models.CASCADE, related_name="gl_settings")
+    # Activity before this date is already in the GL (opening balances at go-live) and is never posted.
+    post_from = models.DateField(null=True, blank=True)
+
+    class Meta:
+        verbose_name_plural = "GL settings"
+
+    def __str__(self) -> str:
+        return f"GL settings for {self.workspace}"
+
+    @classmethod
+    def for_workspace(cls, workspace: Workspace) -> "GLSettings":
+        return cls.objects.get_or_create(workspace=workspace)[0]
+
+
+class AccountMapping(models.Model):
+    """Role -> Campfire GL account. Narrower mappings win: FO account, then Campfire entity, then asset class."""
+
+    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE, related_name="gl_account_mappings")
+    role = models.CharField(max_length=24, choices=Role.choices)
+    campfire_entity_id = models.BigIntegerField(null=True, blank=True, help_text="Only for this Campfire entity")
+    asset_class = models.ForeignKey(AssetClass, null=True, blank=True, on_delete=models.CASCADE, related_name="+")
+    account = models.ForeignKey(Account, null=True, blank=True, on_delete=models.CASCADE, related_name="+", help_text="Only for this FO account")
+    campfire_account_id = models.BigIntegerField()
+    campfire_account_label = models.CharField(max_length=255, blank=True, help_text="Number and name, for display")
+
+    class Meta:
+        ordering = ["workspace", "role", "id"]
+
+    def __str__(self) -> str:
+        scope = [str(x) for x in (self.account, self.asset_class) if x] + ([f"entity {self.campfire_entity_id}"] if self.campfire_entity_id else [])
+        return f"{self.get_role_display()}{' (' + ', '.join(scope) + ')' if scope else ''} -> {self.campfire_account_label or self.campfire_account_id}"
+
+    @property
+    def specificity(self) -> int:
+        return 4 * bool(self.account_id) + 2 * bool(self.campfire_entity_id) + bool(self.asset_class_id)
+
+    def clean(self) -> None:
+        if self.asset_class_id and self.asset_class.workspace_id != self.workspace_id:
+            raise ValidationError("The asset class belongs to another workspace.")
+        if self.account_id and self.account.family.workspace_id != self.workspace_id:
+            raise ValidationError("The account belongs to another workspace.")
+        same = AccountMapping.objects.filter(
+            workspace=self.workspace_id, role=self.role, campfire_entity_id=self.campfire_entity_id,
+            asset_class=self.asset_class_id, account=self.account_id,
+        ).exclude(pk=self.pk)
+        if same.exists():
+            raise ValidationError("There is already a mapping for this role and scope.")
+
+
+class DimensionTag(models.Model):
+    """The Campfire tag (custom dimension value) that stands for an FO value on posted lines."""
+
+    class Dimension(models.TextChoices):
+        FAMILY = "family", "Family"
+        ASSET_CLASS = "asset_class", "Asset class"
+        HOLDING = "holding", "Holding / fund"
+
+    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE, related_name="gl_dimension_tags")
+    dimension = models.CharField(max_length=16, choices=Dimension.choices)
+    key = models.CharField(max_length=100, help_text="Family code, asset class code or instrument id")
+    campfire_tag_id = models.BigIntegerField()
+    label = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        ordering = ["workspace", "dimension", "label"]
+        constraints = [models.UniqueConstraint(fields=["workspace", "dimension", "key"], name="gl_dimension_tag_unique")]
+
+    def __str__(self) -> str:
+        return f"{self.get_dimension_display()}: {self.label or self.key}"
+
+
+class JournalPosting(models.Model):
+    """One journal entry the app sent (or tried to send) to Campfire."""
+
+    class Status(models.TextChoices):
+        SUBMITTED = "submitted", "Awaiting approval in Campfire"
+        POSTED = "posted", "Posted"
+        FAILED = "failed", "Failed"
+        UNCERTAIN = "uncertain", "No answer from Campfire"
+        RELEASED = "released", "Released (deleted or rejected in Campfire)"
+
+    OPEN_STATUSES = (Status.SUBMITTED, Status.POSTED, Status.UNCERTAIN)  # its transactions count as posted
+
+    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE, related_name="journal_postings")
+    campfire_entity_id = models.BigIntegerField()
+    entity_label = models.CharField(max_length=255, blank=True, help_text="FO entities booked in this Campfire entity")
+    period_end = models.DateField()
+    je_date = models.DateField()
+    memo = models.CharField(max_length=255)
+    currency = models.CharField(max_length=3, default="USD")
+    lines = models.JSONField(default=list, help_text="As sent: account, debit, credit, tags, description, external_id")
+    total = models.DecimalField(**MONEY, help_text="Total debits")
+    transaction_ids = models.JSONField(default=list, help_text="Kept after a release, for the audit trail")
+    status = models.CharField(max_length=12, choices=Status.choices)
+    campfire_journal_id = models.BigIntegerField(null=True, blank=True, db_index=True)
+    response = models.JSONField(null=True, blank=True)
+    error = models.TextField(blank=True)
+    created_by = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    submitted_at = models.DateTimeField(null=True, blank=True)
+    posted_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+
+    def __str__(self) -> str:
+        return f"{self.source_id} {self.je_date} {self.entity_label} ({self.get_status_display()})"
+
+    @property
+    def source_id(self) -> str:
+        return f"fo-posting-{self.pk}"
+
+    @property
+    def ref_number(self) -> str:
+        return f"FO-{self.pk}"
+
+
+class PostedTransaction(models.Model):
+    """A transaction carried by a posting. One per transaction: that is what stops double posting."""
+
+    posting = models.ForeignKey(JournalPosting, on_delete=models.CASCADE, related_name="items")
+    transaction = models.OneToOneField(Transaction, on_delete=models.CASCADE, related_name="gl_item")
+
+    def __str__(self) -> str:
+        return f"{self.posting.source_id}: {self.transaction}"

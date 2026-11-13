@@ -10,5 +10,6 @@ urlpatterns = [
     path("campfire/", include("campfire_integration.urls")),
     path("fo/", include("entities.urls")),
     path("fo/", include("investments.urls")),
+    path("fo/", include("gl.urls")),
     path("admin/", admin.site.urls),
 ]

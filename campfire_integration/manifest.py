@@ -15,15 +15,24 @@ NAV_PAGES: list[tuple[str, str, str, str]] = [
     ("investments", "Investments", "chart-pie", "/fo/frame/investments"),
     ("entities", "Entities & Ownership", "users", "/fo/frame/entities"),
     ("imports", "Imports", "upload", "/fo/frame/imports"),
+    ("gl", "General ledger", "book-open", "/fo/frame/gl"),
 ]
 
-# Event topics to receive at /campfire/events. Filled in as handlers are added
-# (e.g. bill payment status for capital calls) once Campfire confirms topic names.
-EVENT_TOPICS: list[str] = []
+# Event topics to receive at /campfire/events (each needs a read scope in allowed_scopes). Add a topic only
+# when a handler exists for it: Bill.paid comes with the capital-call bill flow.
+EVENT_TOPICS: list[str] = ["JournalEntry.created", "JournalEntry.updated", "JournalEntry.deleted"]
+# Campfire refuses a manifest whose topics aren't covered by allowed_scopes (any tier of the resource).
+TOPIC_RESOURCE = {"JournalEntry": "journal_entries", "Bill": "bills", "Invoice": "invoices"}
+
+
+def covered_topics(scopes: list[str]) -> list[str]:
+    resources = {s.split(":")[0] for s in scopes if ":" in s}
+    return [t for t in EVENT_TOPICS if TOPIC_RESOURCE.get(t.split(".")[0]) in resources]
 
 
 def build_manifest() -> dict[str, Any]:
     app_url = settings.APP_URL
+    topics = covered_topics(list(settings.CAMPFIRE["SCOPES"]))
     manifest: dict[str, Any] = {
         "app": {
             "name": APP_NAME,
@@ -56,7 +65,7 @@ def build_manifest() -> dict[str, Any]:
             }
         ],
         "event_subscriptions": (
-            [{"topics": EVENT_TOPICS, "endpoint_url": app_url + "/campfire/events", "is_active": True}] if EVENT_TOPICS else []
+            [{"topics": topics, "endpoint_url": app_url + "/campfire/events", "is_active": True}] if topics else []
         ),
         "hooks": [],
     }

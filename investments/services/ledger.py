@@ -42,6 +42,7 @@ class Realized:
     quantity: Decimal | None
     proceeds: Decimal
     cost: Decimal
+    txn_id: int | None = None
 
     @property
     def gain(self) -> Decimal:
@@ -63,6 +64,8 @@ class AccountState:
     realized: list[Realized] = field(default_factory=list)
     income: dict[str, Decimal] = field(default_factory=lambda: defaultdict(Decimal))  # by transaction type
     expenses: Decimal = ZERO
+    # Cost basis taken off the books by each sale, transfer out or return of capital (transaction pk -> cost).
+    relieved: dict[int, Decimal] = field(default_factory=lambda: defaultdict(Decimal))
 
     def quantity(self, instrument_id: int) -> Decimal:
         return sum((lot.quantity for lot in self.lots.get(instrument_id, ())), ZERO)
@@ -112,8 +115,9 @@ def _relieve_fifo(state: AccountState, txn: Transaction, *, realize: bool) -> No
             proceeds = net_proceeds - allocated if last else (net_proceeds * take / total_qty).quantize(Decimal("0.01"))
             allocated += proceeds
             state.realized.append(
-                Realized(state.account.pk, txn.instrument_id, txn.trade_date, lot.acquired_on, take, proceeds, cost)
+                Realized(state.account.pk, txn.instrument_id, txn.trade_date, lot.acquired_on, take, proceeds, cost, txn.pk)
             )
+        state.relieved[txn.pk] += cost
         lot.quantity -= take
         lot.cost -= cost
         remaining -= take
@@ -152,12 +156,14 @@ def _apply(state: AccountState, txn: Transaction) -> None:
         basis = state.cost[instrument.pk]
         returned = min(basis, txn.amount)
         state.cost[instrument.pk] = basis - returned
+        state.relieved[txn.pk] += returned
         if txn.amount > returned:  # return of capital beyond basis is a gain
-            state.realized.append(Realized(state.account.pk, instrument.pk, txn.trade_date, None, None, txn.amount - returned, ZERO))
+            state.realized.append(Realized(state.account.pk, instrument.pk, txn.trade_date, None, None, txn.amount - returned, ZERO, txn.pk))
     elif t in (T.SELL, T.TRANSFER_OUT):
         basis = state.cost.pop(instrument.pk, ZERO)
+        state.relieved[txn.pk] += basis
         if t == T.SELL:
-            state.realized.append(Realized(state.account.pk, instrument.pk, txn.trade_date, None, None, txn.amount - txn.fees, basis))
+            state.realized.append(Realized(state.account.pk, instrument.pk, txn.trade_date, None, None, txn.amount - txn.fees, basis, txn.pk))
 
 
 def replay(account: Account, as_of: date) -> AccountState:

@@ -55,5 +55,16 @@ def test_manifest(settings) -> None:  # type: ignore[no-untyped-def]
     assert manifest["app"]["allowed_scopes"] == ["openid", "email", "profile"]
     assert manifest["allowed_domains"] == ["fo.test"]
     items = manifest["navigation"][0]["items"]
-    assert [i["url_template"] for i in items] == [f"{APP_URL}/fo/frame/investments", f"{APP_URL}/fo/frame/entities", f"{APP_URL}/fo/frame/imports"]
-    assert manifest["event_subscriptions"] == []
+    assert [i["url_template"] for i in items] == [f"{APP_URL}/fo/frame/investments", f"{APP_URL}/fo/frame/entities", f"{APP_URL}/fo/frame/imports", f"{APP_URL}/fo/frame/gl"]
+    assert manifest["event_subscriptions"] == []  # identity scopes only: no topic is covered
+
+    from config.settings import DEFAULT_CAMPFIRE_SCOPES
+
+    settings.CAMPFIRE = {**settings.CAMPFIRE, "SCOPES": DEFAULT_CAMPFIRE_SCOPES}
+    out = StringIO()
+    call_command("build_manifest", "--output", "-", stdout=out)
+    manifest = json.loads(out.getvalue())
+    assert manifest["app"]["allowed_scopes"] == DEFAULT_CAMPFIRE_SCOPES
+    (subscription,) = manifest["event_subscriptions"]
+    assert subscription["endpoint_url"] == f"{APP_URL}/campfire/events"
+    assert set(subscription["topics"]) == {"JournalEntry.created", "JournalEntry.updated", "JournalEntry.deleted"}

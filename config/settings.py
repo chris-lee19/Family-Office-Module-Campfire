@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     "campfire_integration",
     "entities",
     "investments",
+    "gl",
 ]
 
 MIDDLEWARE = [
@@ -103,6 +104,13 @@ if not FIELD_ENCRYPTION_KEYS:
         raise ImproperlyConfigured("FIELD_ENCRYPTION_KEYS is required when DJANGO_DEBUG is not 1")
     FIELD_ENCRYPTION_KEYS = [base64.urlsafe_b64encode(hashlib.sha256(SECRET_KEY.encode()).digest()).decode()]
 
+DEFAULT_CAMPFIRE_SCOPES = [
+    "openid", "email", "profile",
+    "journal_entries:write", "transactions:read", "bills:write", "bill_payments:read", "reports:read",
+    "bank_accounts:read", "bank_transactions:read", "entities:read", "accounts:write", "tags:write",
+    "vendors:write", "lock_periods:read",
+]
+
 CAMPFIRE = {
     "BASE_URL": env("CAMPFIRE_BASE_URL", "https://api.meetcampfire.com").rstrip("/"),
     "FRONTEND_ORIGIN": env("CAMPFIRE_FRONTEND_ORIGIN", "https://app.meetcampfire.com").rstrip("/"),
@@ -110,7 +118,11 @@ CAMPFIRE = {
     "CLIENT_SECRET": env("CAMPFIRE_CLIENT_SECRET"),
     # Current first; the previous one only during a rotation (Campfire signs with both for 24h).
     "SIGNING_SECRETS": [s for s in (env("CAMPFIRE_SIGNING_SECRET"), env("CAMPFIRE_SIGNING_SECRET_PREVIOUS")) if s],
-    "SCOPES": env("CAMPFIRE_SCOPES", "openid email profile").split(),
+    # The app's permission ceiling (manifest `allowed_scopes`). See docs/campfire_permissions.md.
+    "SCOPES": (env("CAMPFIRE_SCOPES") or " ".join(DEFAULT_CAMPFIRE_SCOPES)).split(),
+    # draft: connections request the draft tier for journal entries and bills, so everything the app creates
+    # goes through Campfire approval. direct: request write (Campfire may still route it to approval).
+    "POSTING_MODE": env("CAMPFIRE_POSTING_MODE") or "draft",
     "REDIRECT_PATH": "/campfire/callback",
     "API_KEY": env("CAMPFIRE_API_KEY"),
 }

@@ -56,12 +56,25 @@ def pkce_pair() -> tuple[str, str]:
     return verifier, challenge
 
 
+# Resources where the app creates records that people should approve in Campfire.
+DRAFTED_RESOURCES = ("journal_entries", "bills")
+
+
+def connect_scopes() -> list[str]:
+    """Scopes to request when a workspace connects: the manifest ceiling, with journal entries and bills at the
+    draft tier unless the app is set to post directly. Draft-tier writes land in Campfire's approval queue."""
+    scopes = list(_cfg("SCOPES"))
+    if _cfg("POSTING_MODE") == "direct":
+        return scopes
+    return [f"{s.split(':')[0]}:draft" if s.split(":")[0] in DRAFTED_RESOURCES and s.endswith(":write") else s for s in scopes]
+
+
 def authorize_url(*, state: str, nonce: str, code_challenge: str) -> str:
     query = {
         "client_id": _cfg("CLIENT_ID"),
         "redirect_uri": redirect_uri(),
         "response_type": "code",
-        "scope": " ".join(_cfg("SCOPES")),
+        "scope": " ".join(connect_scopes()),
         "state": state,
         "nonce": nonce,
         "code_challenge": code_challenge,
