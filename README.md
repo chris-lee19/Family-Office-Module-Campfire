@@ -61,7 +61,9 @@ A reserved ngrok domain keeps `APP_URL` stable. Otherwise every new URL means re
 1. **Developer → Apps → New app.** Only the name matters here; the manifest sets everything else, including permissions/scopes.
 2. Copy the **client ID** and **client secret** into `.env` (`CAMPFIRE_CLIENT_ID`, `CAMPFIRE_CLIENT_SECRET`).
 3. **Rotate the signing secret** and copy the `whsec_…` value (shown once) into `CAMPFIRE_SIGNING_SECRET`.
-4. `python manage.py build_manifest` writes `manifest.json` for your `APP_URL`. Paste it into the app's **Manifest** tab, save, then **Promote** the development version.
+4. Apply the manifest for your `APP_URL`: `python manage.py push_manifest` (uses `CAMPFIRE_API_KEY`; `--dry-run`
+   shows the changes first). Or `python manage.py build_manifest` and paste `manifest.json` into the app's
+   **Manifest** tab. Then **Promote** the development version on the app page.
 5. Ask Campfire to enable the **`oauth_app_extensions`** feature flag on the sandbox workspace. Without it, no sidebar pages or buttons appear and no events are sent.
 
 ### 3. Connect and seed

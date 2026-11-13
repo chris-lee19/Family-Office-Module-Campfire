@@ -33,19 +33,16 @@ M3 GL bridge (`gl/`): rules at cost (`gl/services/rules.py`, cost relief from `l
 Campfire entity and month, summarized by account + tags, sent as drafts (connect requests `journal_entries:draft`);
 lineage in native fields (`source`="Family Office", `source_id`=`fo-posting-<pk>`, line `external_id`); 201/202
 handling, `JournalEntry.*` events + `refresh_statuses`, release; `GLSettings.post_from` go-live date; setup of
-accounts/tags; REC-04 tie-out vs trial balance. Fourth sidebar page: General ledger. 81 tests passing.
+accounts/tags; REC-04 tie-out vs trial balance. Fourth sidebar page: General ledger. `push_manifest` applies the
+manifest over the API (API key). 83 tests passing.
 
 ## Next steps (in order)
-1. **First sandbox write test** (needs the user's go-ahead: CLAUDE.md says read-only until then). Verify on one draft JE
-   that Campfire accepts `source` / `source_id` / `ref_number` / line `external_id`, what the `202` body holds, that the
-   approved JE keeps them, and the create bodies for accounts (`account_type`/`account_subtype`), tag groups and tags.
-   Cleanup afterwards (delete the test JE/accounts). Adjust `gl/services/posting.py` / `setup.py` if anything differs.
-2. **Capital call → Campfire bill** (draft, `bills:draft`) → `Bill.paid` event (add to `EVENT_TOPICS`) →
+1. **Capital call → Campfire bill** (draft, `bills:draft`) → `Bill.paid` event (add to `EVENT_TOPICS`) →
    `investments.services.privates.mark_call_paid`. The bill's line account should be the investments-at-cost mapping:
    the GL bridge skips contributions whose call has a `campfire_bill_id` (the bill booked them).
-3. GL follow-ups: period-end unrealized gain (FMV) entries; FX for non-USD accounts; lock-period check before sending
+2. GL follow-ups: period-end unrealized gain (FMV) entries; FX for non-USD accounts; lock-period check before sending
    (`lock_periods:read`); tie-out drill-down to GL lines (`transactions:read`).
-4. Importer follow-ups: confirm the Pershing-style columns/codes against a real extract; positions file for
+3. Importer follow-ups: confirm the Pershing-style columns/codes against a real extract; positions file for
    custody position reconciliation (REC-02); withholding on dividends; reverting a committed batch (needs the GL bridge
    to reverse its JEs too).
 
@@ -61,10 +58,21 @@ accounts/tags; REC-04 tie-out vs trial balance. Fourth sidebar page: General led
   `Bill.created/.updated/.deleted/.paid/.payment` (thin payloads; re-read the record). Buttons/panels: `invoice`,
   `bill`, `journal_entry`, `vendor` only (no entity). A change that needs approval returns `202` with a draft.
 
+## Sandbox write test (2026-11-13, user approved; everything created was deleted)
+- Created with our code's request shapes: account (`number`, `name`, `account_type`, `account_subtype`) → 201;
+  tag group (`name`) → 201; tag (`name`, `group`) → 201; JE from `gl.services.posting._payload` → 201 with the admin
+  API key (the `202` draft path needs an app token with `journal_entries:draft`: check on first real connect).
+- Campfire keeps `source`, `source_id`, `ref_number`, line `external_id`, `bank_description` and tags; listing JEs with
+  `source=Family Office` finds the entry. Deleted records then 404 on GET.
+- Deletes: JE, account, tag via `POST .../{id}/delete` (204); tag group only via `DELETE /coa/api/tag-group/{id}`.
+- Sandbox app "Family Office" id `4992b82b-105c-411a-b346-1861cc1ff78d`: `push_manifest --scopes-only` saved v2 (dev)
+  with the P1 scopes; v1 (production) had no redirect URL / URLs / extensions yet.
+
 ## Waiting on the user
-- Go-ahead for sandbox writes (step 1 above).
+- Promote v2 of the app in Campfire (Developer → Apps → Family Office → Promote v2).
+- Local run with ngrok (README "Local development"): their public `APP_URL` is needed before the full manifest
+  (redirect URL, connect/manage URLs, sidebar pages, events) can be applied with `push_manifest`. Then Connect.
 - From the Campfire partner contact: whether the `oauth_app_extensions` flag is still needed on the sandbox.
-- Their `.env`: clear `CAMPFIRE_SCOPES` (or set the new list), rebuild + re-paste the manifest, promote, reconnect.
 
 ## Conventions
 - Run tests: `python3 -m venv .venv && .venv/bin/pip install -r requirements.txt && DJANGO_DEBUG=1 .venv/bin/python -m pytest`

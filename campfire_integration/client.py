@@ -124,6 +124,29 @@ def fetch_install_config(*, access_token: str) -> dict[str, Any]:
     return r.json()
 
 
+class ApiKeyClient:
+    """API calls with a workspace admin's API key (`CAMPFIRE_API_KEY`): developer tooling only, such as applying the
+    app manifest or sandbox checks. App management endpoints refuse OAuth app tokens, so this is the only way to
+    script them. Never used to act for a connected workspace; that is CampfireClient's job."""
+
+    def __init__(self, api_key: str | None = None) -> None:
+        self.api_key = api_key or _cfg("API_KEY")
+        if not self.api_key:
+            raise NotConnected("CAMPFIRE_API_KEY is not set")
+
+    def request(self, method: str, path: str, *, json: Any = None, params: Any = None, timeout: float = 30) -> requests.Response:
+        return requests.request(
+            method, f"{_cfg('BASE_URL')}{path}", headers={"Authorization": f"Token {self.api_key}"},
+            json=json, params=params, timeout=timeout,
+        )
+
+    def get_json(self, path: str, *, params: Any = None) -> Any:
+        r = self.request("GET", path, params=params)
+        if r.status_code >= 400:
+            raise CampfireError(r)
+        return r.json()
+
+
 class CampfireClient:
     """API calls on behalf of one connected workspace."""
 
