@@ -76,7 +76,7 @@ manifest over the API (API key). Render deploy (`render.yaml`) + "Load the demo 
 - Render: live at `https://family-office-wl37.onrender.com` (2026-11-13). `push_manifest` applied for that URL:
   allowed domain, 4 sidebar pages and JournalEntry events are live; redirect/connect/manage URLs + P1 scopes sit in
   v2 (development) until the user clicks Promote. Then: Connect, load demo data, GL setup; confirm the first draft JE
-  returns 202. This cloud session can't reach onrender.com (network policy) unless the host is allowed.
+  returns 202. The host is in this environment's allowed domains (verified: healthz 200, connect -> authorize 302).
 - Known limit for testers: one stored connection per workspace (the last connector's permissions); no per-user
   access control yet, so demo data only.
 - From the Campfire partner contact: whether the `oauth_app_extensions` flag is still needed on the sandbox.
