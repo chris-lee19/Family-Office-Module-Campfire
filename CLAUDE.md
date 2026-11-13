@@ -193,8 +193,8 @@ end. Held marks aren't used; non-USD accounts are skipped. Securities without a 
   has_parent_bank_transaction=true`, the non-BANK side; `account_type` UNCATEGORIZED = waiting). Each waiting line: pick
   the account (and payee) -> `PATCH /coa/api/transaction/<gl line id>` {account, vendor}; audited; a payee categorized
   before is suggested; lines that look like a capital call or distribution point to Capital calls.
-- NOT verified against the live API: the categorize PATCH (a test write on a demo line was blocked: ask the user before
-  any sandbox write). Needs scope `transactions:write` (added to the defaults): after `push_manifest` the user must
+- The categorize PATCH is verified (see Bills below). Test writes on demo data in the sandbox are approved by the user
+  (2026-11-13): restore what you change; anything beyond demo data still needs asking. Needs scope `transactions:write` (added to the defaults): after `push_manifest` the user must
   Promote the app version in Campfire and reconnect, or categorizing answers "Reconnect".
 - Demo bank accounts show a bank-feed balance of 0 (the seed sent 0); the page uses book balances instead.
 - Campfire's own sidebar: one "Family Office" group, items in the app's order (Home; Investments, Entities; Capital
@@ -212,7 +212,10 @@ end. Held marks aren't used; non-USD accounts are skipped. Securities without a 
   app's approval the only one set `CAMPFIRE_POSTING_MODE=direct` on Render and reconnect: that also posts journal
   entries directly, user to decide). Reject needs a reason. "Mark paid" -> `POST /coa/api/v1/bill/<id>/pay` with
   `empty_transactions` [{account_id, account_name, amount, payment_date, memo, external_id}] from a BANK account.
-- NOT verified against the live API: bill pay. Needs `bill_payments:write` (in the defaults; pending promote).
+- Verified against the sandbox 2026-11-13 (user approved test writes on demo data; everything restored): categorize
+  (PATCH ledger line -> 200, line leaves the waiting list; reverted), bill create with `bills.payload` (201), pay with
+  `empty_transactions` (bill -> paid, payment listed), payment removed (DELETE .../payment/<id>/void -> 204), bill
+  deleted (404 after). Paying needs `bill_payments:write` (in the defaults; pending promote of v4).
   Campfire's public API has no endpoint to approve its own drafts (bill-draft is the invoice inbox), so approval lives
   in the app.
 - Branding (user: make it feel like Campfire, "Family Office on Campfire"): sidebar brand, sign-in card, page titles
