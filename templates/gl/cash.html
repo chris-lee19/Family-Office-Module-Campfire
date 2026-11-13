@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% load money %}
+{% block title %}Cash{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Cash</h1>
+    <p class="muted">{{ workspace }}{% if cash.scope_label %} · {{ cash.scope_label }}{% endif %} · as of {{ today|date:"M j, Y" }}</p>
+  </div>
+  <div class="page-actions"><a class="btn secondary" href="{{ statements_url }}">Financial statements</a></div>
+</div>
+{% if message %}<div class="notice" data-toast="success">{{ message }}</div>{% endif %}
+{% if error %}<div class="issues">{{ error }}</div>{% endif %}
+
+{% if cash %}
+<div class="kpis">
+  <div class="kpi"><div class="label">Total cash</div><div class="value">{{ cash.operating|add:cash.custody|money }}</div><div class="sub">On the books, all entities</div></div>
+  <div class="kpi"><div class="label">Operating accounts</div><div class="value">{{ cash.operating|money }}</div><div class="sub">Bank accounts for bills and distributions</div></div>
+  <div class="kpi"><div class="label">At custodians</div><div class="value">{{ cash.custody|money }}</div><div class="sub">Cash inside investment accounts</div></div>
+  <div class="kpi"><div class="label">Bank lines to categorize</div><div class="value">{{ cash.waiting|length }}</div><div class="sub">{% if cash.waiting %}Not in the statements until categorized{% else %}Everything is categorized{% endif %}</div></div>
+</div>
+
+{% if cash.waiting %}
+<h2>To categorize <span class="count-chip">{{ cash.waiting|length }}</span></h2>
+{% for ln in cash.waiting %}
+<article class="box decision bank-line">
+  <div class="decision-main">
+    <div class="decision-title"><strong>{{ ln.merchant|default:"Bank line" }}</strong>
+      <span class="amount-chip {% if ln.amount < 0 %}out{% else %}in{% endif %}">{% if ln.amount < 0 %}Out{% else %}In{% endif %} {{ ln.amount|acct:2 }}</span></div>
+    <div class="muted small">{{ ln.posted|date:"M j, Y" }} · {{ ln.entity }} · {{ ln.bank_account }}</div>
+    {% if ln.hint %}<p class="small"><span class="pill att-info">{{ ln.hint }}</span> Record it on <a href="{{ calls_url }}">Capital calls</a> so the fund's records update too.</p>{% endif %}
+  </div>
+  <div class="decision-actions">
+    <form method="post" action="{{ action }}" class="decide">
+      {% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
+      <input type="hidden" name="action" value="categorize"><input type="hidden" name="line" value="{{ ln.id }}">
+      <select name="account" required aria-label="Account">
+        <option value="">What was it?</option>
+        {% for title, items in account_groups %}<optgroup label="{{ title }}">{% for id, label in items %}<option value="{{ id }}" {% if ln.suggestion and ln.suggestion.account == id %}selected{% endif %}>{{ label }}</option>{% endfor %}</optgroup>{% endfor %}
+      </select>
+      <select name="vendor" aria-label="Payee"><option value="">Payee (optional)</option>{% for id, name in vendors %}<option value="{{ id }}">{{ name }}</option>{% endfor %}</select>
+      <button class="btn small" type="submit">Categorize</button>
+      {% if ln.suggestion %}<span class="small muted">Suggested from last time: {{ ln.suggestion.label }}</span>{% endif %}
+    </form>
+  </div>
+</article>
+{% endfor %}
+{% endif %}
+
+<section class="box">
+  <div class="box-head"><h2>Cash by entity</h2></div>
+  {% if cash.entities %}
+  <table data-sort>
+    <thead><tr><th>Entity</th><th>Bank accounts</th><th class="num">Operating cash</th><th class="num">At custodians</th><th class="num">Total</th><th class="num">To categorize</th></tr></thead>
+    <tbody>
+    {% for e in cash.entities %}
+      <tr><td><strong>{{ e.entity }}</strong></td><td class="small muted">{{ e.bank_accounts|join:", "|default:"—" }}</td>
+        <td class="num">{{ e.operating|money }}</td><td class="num">{{ e.custody|money }}</td><td class="num"><strong>{{ e.total|money }}</strong></td>
+        <td class="num">{% if e.to_categorize %}<span class="pill sev-warning">{{ e.to_categorize }}</span>{% else %}–{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<div class="empty"><strong>No cash accounts yet</strong>Bank accounts and their activity come from Campfire's bank feed.</div>{% endif %}
+</section>
+
+<section class="box">
+  <div class="box-head"><h2>Bank activity, last {{ lookback }} days</h2>
+    <div class="aside">{% if cash.lines %}<span>In {{ cash.money_in|money }} · out {{ cash.money_out|money }}</span>
+      <input type="search" placeholder="Filter activity" aria-label="Filter activity" data-filter="#bank-lines">{% endif %}</div></div>
+  {% if cash.lines %}
+  <table data-sort id="bank-lines">
+    <thead><tr><th>Date</th><th>Description</th><th>Entity</th><th>Category</th><th class="num">In</th><th class="num">Out</th></tr></thead>
+    <tbody>
+    {% for ln in cash.lines %}
+      <tr><td class="nowrap">{{ ln.posted|date:"Y-m-d" }}</td><td>{{ ln.merchant }}<br><span class="muted small">{{ ln.bank_account }}</span></td><td>{{ ln.entity }}</td>
+        <td>{% if ln.categorized %}{{ ln.category }}{% else %}<span class="pill sev-warning">To categorize</span>{% endif %}</td>
+        <td class="num">{% if ln.amount > 0 %}{{ ln.amount|acct:2 }}{% endif %}</td><td class="num">{% if ln.amount < 0 %}{{ ln.amount|acct:2 }}{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<div class="empty"><strong>No bank activity in the last {{ lookback }} days</strong>Lines appear here as the bank feed brings them in.</div>{% endif %}
+</section>
+{% endif %}
+{% endblock %}

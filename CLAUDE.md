@@ -162,10 +162,14 @@ end. Held marks aren't used; non-USD accounts are skipped. Securities without a 
 2. ~~Financial statements in the app~~ (done 2026-11-13, see below; was: balance sheet, income statement, cash flow, trial balance; per entity and
    consolidated; drill-down). API: `/ca/api/get_balance_sheet`, `get_income_statement`, `get_cash_flow`,
    `get_trial_balance`, `/coa/api/general-ledger`, `/coa/api/transaction`.
-3. Cash (`/ca/api/account`, `/ca/api/transaction`, `/coa/api/transaction-matches`, `/coa/api/v2/reconciliation`).
+3. ~~Cash~~ (page done 2026-11-13, see below; bank reconciliation `/coa/api/v2/reconciliation` still to do).
 4. Bills and payments (`/coa/api/v1/bill`, `bill-draft`, `bill-payments`, `/coa/api/vendor`). 5. Journal entries
    (`/coa/api/journal_entry`, `intercompany-journal-entry`). 6. Approvals in the app. 7. Roles and per-user access.
    Later: budgets, fixed assets (property, art), documents/K-1s, liquidity, reporting pack.
+- Added by the user 2026-11-13 (don't lose): **partnership accounting and K-1s** (capital accounts per partner,
+  allocations of income/gain, K-1 tracking and figures by entity and person) and a **Connectors page** to bring in
+  investment data from the tools family offices use: Addepar, Masttro, J.P. Morgan, and the other common custodians and
+  aggregators (the app already has pluggable source adapters and the custodian file importer to build on).
 - Gaps for the CTO: approve endpoints; close checklist and period locks; keep sidebar scroll on navigation.
 
 ## Financial statements (2026-11-13) and the setup checklist
@@ -181,6 +185,22 @@ end. Held marks aren't used; non-USD accounts are skipped. Securities without a 
   and market value optional). When the required items are done it reads "Setup is complete", the tab badge goes and the
   forms fold into "Change the setup". The setup preview lists only what still needs creating (user asked why lines
   stay after setup). 146 tests.
+
+## Cash page (2026-11-13)
+- `gl/services/cash.py` + `gl/cash_views.py`, sidebar "Cash" (`gl:cash`): cash on the books by entity from one balance
+  sheet per consolidated group with `group_by=entity` (accounts of subtype BANK; "custod" in the name = at custodians);
+  bank lines of the last 90 days (`/ca/api/transaction`) joined to the entry each posted (`/coa/api/transaction?
+  has_parent_bank_transaction=true`, the non-BANK side; `account_type` UNCATEGORIZED = waiting). Each waiting line: pick
+  the account (and payee) -> `PATCH /coa/api/transaction/<gl line id>` {account, vendor}; audited; a payee categorized
+  before is suggested; lines that look like a capital call or distribution point to Capital calls.
+- NOT verified against the live API: the categorize PATCH (a test write on a demo line was blocked: ask the user before
+  any sandbox write). Needs scope `transactions:write` (added to the defaults): after `push_manifest` the user must
+  Promote the app version in Campfire and reconnect, or categorizing answers "Reconnect".
+- Demo bank accounts show a bank-feed balance of 0 (the seed sent 0); the page uses book balances instead.
+- Campfire's own sidebar: one "Family Office" group, items in the app's order (Home; Investments, Entities; Capital
+  calls, Imports, Review, Month-end close; Cash, Financial statements, General ledger; Records). Campfire draws that
+  menu: no group headings, icons or counts on the items. Splitting into several groups is possible but untested.
+  149 tests.
 
 ## Sandbox clean-up and demo books (2026-11-13, user: "OK to delete, and add the data needed to operate as a family office")
 - Removed (sample data on Entity 1/2/3, nothing refused): 115 invoices, 91 bills, 10 intercompany entries, 168 journal

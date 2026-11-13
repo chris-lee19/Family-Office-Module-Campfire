@@ -13,7 +13,7 @@ The app's permissions are the most it can ever request. A connecting person is s
 | Group | Permission | Scope | Read | Draft | Write | Why |
 |---|---|---|:-:|:-:|:-:|---|
 | Accounting | Journal Entries | `journal_entries:write` | ✓ | ✓ | ✓ | Post investment activity (ACC-03, INT-04/05), read back for lineage, `JournalEntry.*` events |
-| Accounting | General Ledger Transactions | `transactions:read` | ✓ | | | Drill-down from the tie-out |
+| Accounting | General Ledger Transactions | `transactions:write` | ✓ | | ✓ | Ledger lines behind the statements; categorizing bank lines on the Cash page (changes the account on the line's entry) |
 | Accounting | Bills | `bills:write` | ✓ | ✓ | ✓ | Capital call → bill → Campfire approval and payment (WF-01, INT-08), `Bill.paid` events |
 | Accounting | Bill Payments | `bill_payments:read` | ✓ | | | Know when a capital call was paid (funded / unfunded update) |
 | Reports | Financial Statements | `reports:read` | ✓ | | | Trial balance for the tie-out (REC-04); cash and liabilities per entity for net worth (REP-01, INT-03) |
