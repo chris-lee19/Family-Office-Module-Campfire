@@ -2,6 +2,11 @@
   {% if not framed %}
   <button class="icon-btn only-mobile" type="button" data-drawer-toggle aria-label="Menu">{% icon "menu" 20 %}</button>
   <div class="crumbs"><span>{{ workspace }}</span>{% if current %}<span class="sep">/</span><strong>{{ current }}</strong>{% endif %}</div>
+  {% else %}
+  {# Inside Campfire: move between the app's pages without touching Campfire's sidebar (its scroll stays where it is). #}
+  <nav class="frame-nav" aria-label="Family Office pages" data-frame-nav>
+    {% for i in nav %}<a href="{{ i.url }}"{% if i.active %} class="active" aria-current="page"{% endif %}>{{ i.label }}{% if i.badge %}<span class="badge">{{ i.badge }}</span>{% endif %}</a>{% endfor %}
+  </nav>
   {% endif %}
   <div class="topbar-tools">
     <button class="search-btn" type="button" data-palette-open>{% icon "search" 16 %}<span>Search or jump to…</span><kbd>Ctrl K</kbd></button>

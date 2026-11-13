@@ -16,6 +16,14 @@
     if (e.target.closest("[data-drawer-toggle]")) d.body.classList.toggle("drawer-open");
   });
 
+  /* ---- page links inside Campfire: keep the current one in view. Not scrollIntoView: inside a frame that can
+     also scroll Campfire's own page. ---- */
+  var strip = d.querySelector("[data-frame-nav]");
+  if (strip) {
+    var here = strip.querySelector(".active");
+    if (here) strip.scrollLeft = Math.max(0, here.offsetLeft - strip.offsetLeft - 24);
+  }
+
   /* ---- search ---- */
   var pal = d.getElementById("fo-palette");
   if (pal) {

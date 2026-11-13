@@ -382,3 +382,13 @@ details.guide { margin: 0 0 8px; } .recent { margin-top: 32px; }
 .box-head { flex-wrap: wrap; } .box-head .aside { flex-wrap: wrap; justify-content: flex-end; min-width: 0; max-width: 100%; }
 .seg { max-width: 100%; overflow-x: auto; }
 @media (max-width: 860px) { .box-head .aside input[type=search] { width: 100%; } .kpi .value, .card .value { font-size: 21px; overflow-wrap: anywhere; } }
+
+/* ---- page links across the top, inside Campfire ---- */
+.framed .topbar { flex-wrap: wrap; gap: 10px 12px; align-items: center; }
+.frame-nav { display: flex; gap: 2px; flex: 1 1 320px; min-width: 0; overflow-x: auto; scrollbar-width: none; padding: 3px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; }
+.frame-nav::-webkit-scrollbar { display: none; }
+.frame-nav a { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 7px; color: var(--fg-2); font-size: 13px; font-weight: 500; white-space: nowrap; }
+.frame-nav a:hover { color: var(--fg); background: var(--surface-3); text-decoration: none; }
+.frame-nav a.active { background: var(--surface); color: var(--fg); font-weight: 600; box-shadow: var(--shadow); }
+.frame-nav .badge { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--accent-soft); color: var(--accent); font-size: 11px; font-weight: 600; display: grid; place-items: center; }
+.framed .search-btn { min-width: 210px; }

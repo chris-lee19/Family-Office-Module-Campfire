@@ -87,6 +87,11 @@ actions beside it), empty sections hidden, control in a collapsed block · Month
 per entity with a step tracker and the next action · Imports = drop zone (`[data-dropzone]`) + how it works + filterable
 table · Entities = KPIs, ownership as bars, filter, links to the entity record · Records = a tile per record type
 (`[data-filter-cards]`), sortable lists. Every page checked at phone width (no sideways scroll).
+In-frame page links (2026-11-13, user: Campfire's sidebar scroll jumps when a Family Office page is clicked; that
+sidebar is Campfire's and a framed app can't control it): framed pages show `.frame-nav` (`topbar.html`, from the same
+NAV) so moving between pages stays inside the frame. Trade-off: Campfire's highlighted sidebar item and its page title
+above the frame don't follow in-frame moves. Never call scrollIntoView on load in a frame (it can scroll Campfire).
+Frame token still lasts 1 h (not renewed on in-frame navigation). Partner ask: keep the sidebar scroll on navigation.
 
 ## Next steps (in order) — Phase A (usable without us) is done; then B (native feel), then C (differentiators)
 - Agreed order (user, 2026-11-13): ~~fold Month-end close into Campfire Close~~ (done as far as the API allows)

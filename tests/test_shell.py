@@ -39,6 +39,9 @@ def test_shell_in_campfire_and_standalone(client, workspace: Workspace) -> None:
     # Inside Campfire: no sidebar (Campfire lists the pages), but search and the New menu, with links that stay in the frame.
     assert 'class="side"' not in page and 'id="fo-palette"' in page and "Record a capital call notice" in page
     assert "/fo/frame/records/capital-calls/new?fo_t=" in page
+    # Page links inside the frame, so moving between pages never touches Campfire's sidebar.
+    strip = page.split('data-frame-nav>')[1].split("</nav>")[0]
+    assert strip.count("<a ") == 9 and 'href="/fo/frame/close?fo_t=' in strip and 'class="active" aria-current="page">Home' in strip
     index = json.loads(page.split('<script id="fo-index" type="application/json">')[1].split("</script>")[0])
     titles = {i["t"] for i in index}
     assert {"Investments", "Upload a custodian file", "Alder Family Investments LP", "Summit Growth Partners IV, L.P."} <= titles
@@ -50,5 +53,5 @@ def test_shell_in_campfire_and_standalone(client, workspace: Workspace) -> None:
     session.save()
     home = client.get("/").content.decode()
     assert 'class="side"' in home and 'aria-current="page"' in home and "Allocation by asset class" in home
-    assert "Sign out" in home and 'href="/fo/gl"' in home
+    assert "Sign out" in home and 'href="/fo/gl"' in home and "data-frame-nav" not in home
     assert 'class="side"' not in client.get("/campfire/logout").content.decode()
