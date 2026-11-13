@@ -22,6 +22,7 @@ NAV = [
     ("Operations", "Imports", "investments:imports", "upload", ""),
     ("Operations", "Review", "records:review", "check", "review"),
     ("Operations", "Month-end close", "gl:close", "calendar", ""),
+    ("Books", "Financial statements", "gl:statements", "report", ""),
     ("Books", "General ledger", "gl:gl", "book", ""),
     ("Data", "Records", "records:home", "database", ""),
 ]
@@ -47,6 +48,7 @@ ICONS = {
     "calendar": '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/><path d="m9 15 2 2 4-4"/>',
     "book": '<path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"/><path d="M5 17a3 3 0 0 1 3-3h11"/>',
     "database": '<ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6"/><path d="M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/>',
+    "report": '<path d="M6 3h9l4 4v14H6z"/><path d="M15 3v4h4"/><path d="M9 12h7M9 16h7M9 8h3"/>',
     "search": '<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/>',
     "plus": '<path d="M12 5v14M5 12h14"/>',
     "menu": '<path d="M4 6h16M4 12h16M4 18h16"/>',

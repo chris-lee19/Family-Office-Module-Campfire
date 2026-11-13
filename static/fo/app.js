@@ -185,6 +185,11 @@
     ["dragleave", "drop"].forEach(function (ev) { zone.addEventListener(ev, function () { zone.classList.remove("over"); }); });
   });
 
+  /* ---- a filter bar applies itself when a choice changes ---- */
+  d.querySelectorAll("form[data-autosubmit]").forEach(function (form) {
+    form.addEventListener("change", function (e) { if (e.target.tagName === "SELECT") form.submit(); });
+  });
+
   /* ---- a submitted button shows it is working (not disabled: its name and value must still be sent) ---- */
   d.addEventListener("submit", function (e) {
     var b = e.submitter;

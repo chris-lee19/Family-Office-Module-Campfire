@@ -142,12 +142,33 @@ def gl_page(request: HttpRequest, workspace: Workspace, framed: bool) -> HttpRes
     roles = [(r, mapped.get(r.value)) for r in Role]
     entities = Entity.objects.filter(family__workspace=workspace).select_related("family").order_by("family__name", "name")
     postings = JournalPosting.objects.filter(workspace=workspace)[:30]
+    gl_settings = GLSettings.for_workspace(workspace)
+    unmapped = [r for r, m in roles if m is None]
+
+    # Where the setup stands. Once the required items are done the forms fold away: nothing is left to act on.
+    holders = list(Entity.objects.filter(family__workspace=workspace, accounts__isnull=False).distinct())
+    linked = sum(1 for e in holders if e.campfire_entity_id)
+    items = [
+        {"label": "Entities linked to Campfire", "done": bool(holders) and linked == len(holders), "required": True,
+         "detail": f"{linked} of {len(holders)} entities that hold accounts" if holders else "No entity holds an account yet"},
+        {"label": "GL accounts chosen for every posting role", "done": not unmapped, "required": True,
+         "detail": f"{len(roles) - len(unmapped)} of {len(roles)} roles" + (": " + ", ".join(r.label for r in unmapped[:3]) + (" …" if len(unmapped) > 3 else "") + " still to map" if unmapped else "")},
+        {"label": "Go-live date", "done": gl_settings.post_from is not None, "required": False,
+         "detail": f"Activity from {gl_settings.post_from} is posted; earlier activity is in the opening balances" if gl_settings.post_from
+         else "Optional. Not set: every transaction on record is posted"},
+        {"label": "Market value", "done": gl_settings.fair_value_from is not None, "required": False,
+         "detail": f"Booked at market value from {gl_settings.fair_value_from:%B %Y}" if gl_settings.fair_value_from else "Optional. Not set: the books stay at cost"},
+    ]
+    open_items = sum(1 for i in items if i["required"] and not i["done"])
+    steps = extra.get("setup_steps") or []
+    setup = {"items": items, "open": open_items, "complete": open_items == 0,
+             "todo": [s for s in steps if s.action in ("create", "reuse", "missing")], "done": [s for s in steps if s.action in ("mapped", "created")]}
     return render(request, "gl/overview.html", {
         "workspace": workspace, "framed": framed, "today": today, "preview": preview, "roles": roles, "narrower": narrower,
         "entities": entities, "cf_entities": cf_entities, "cf_accounts": cf_accounts, "campfire_error": campfire_error,
         "postings": postings, "message": message, "error": error, "frame_token": getattr(request, "fo_frame_token", ""),
-        "action": pages.page_url(request, framed, "gl:gl"), "unmapped": [r for r, m in roles if m is None],
-        "cf_entity_names": {int(e["id"]): e.get("name", "") for e in cf_entities}, "gl_settings": GLSettings.for_workspace(workspace), **extra,
+        "action": pages.page_url(request, framed, "gl:gl"), "unmapped": unmapped, "setup": setup,
+        "cf_entity_names": {int(e["id"]): e.get("name", "") for e in cf_entities}, "gl_settings": gl_settings, **extra,
     })
 
 

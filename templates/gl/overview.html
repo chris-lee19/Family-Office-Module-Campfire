@@ -20,7 +20,7 @@
   <button type="button" data-tab="post">Ready to post <span class="count{% if p.ready %} hot{% endif %}">{{ p.journals|length }}</span></button>
   <button type="button" data-tab="sent">Sent entries <span class="count">{{ postings|length }}</span></button>
   <button type="button" data-tab="tieout">Tie-out</button>
-  <button type="button" data-tab="setup">Setup{% if unmapped %} <span class="count hot">{{ unmapped|length }}</span>{% endif %}</button>
+  <button type="button" data-tab="setup">Setup{% if setup.open %} <span class="count hot">{{ setup.open }}</span>{% endif %}</button>
 </div>
 <section data-panel="post">
 {% if p.journals %}
@@ -125,6 +125,15 @@
 </section>
 
 <section data-panel="setup" hidden>
+<section class="box setup-status">
+  <div class="box-head"><h3>{% if setup.complete %}Setup is complete{% else %}Setup: {{ setup.open }} thing{{ setup.open|pluralize }} left to do{% endif %}</h3>
+    {% if setup.complete %}<div class="aside"><span class="pill status-committed">Nothing to do here</span></div>{% endif %}</div>
+  <ul class="rows">
+    {% for i in setup.items %}<li><span class="step {% if i.done %}ok{% else %}todo{% endif %}">{% if i.done %}✓{% elif i.required %}!{% else %}–{% endif %}</span>
+      <div><strong>{{ i.label }}</strong><span class="small muted">{{ i.detail }}</span></div></li>{% endfor %}
+  </ul>
+</section>
+{% if setup.complete %}<details class="settings"{% if setup_steps or campfire_error %} open{% endif %}><summary>Change the setup</summary>{% endif %}
 {% if campfire_error %}<div class="issues">{{ campfire_error }}</div>{% endif %}
 <form method="post" action="{{ action }}" class="actions">
   {% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
@@ -145,7 +154,14 @@
   <span class="muted">Family-office GL accounts and the FO Family / Asset Class / Holding dimensions. Existing accounts with the same number are reused.</span>
 </form>
 {% if setup_steps %}
-<table><tbody>{% for s in setup_steps %}<tr><td>{{ s.role_or_dimension }}</td><td><span class="pill">{{ s.action }}</span></td><td>{{ s.label }}</td></tr>{% endfor %}</tbody></table>
+  {% if setup.todo %}
+  <table><tbody>{% for s in setup.todo %}<tr><td>{{ s.role_or_dimension }}</td><td><span class="pill sev-warning">{% if s.action == "create" %}Will be created{% elif s.action == "reuse" %}Will reuse{% else %}Missing{% endif %}</span></td><td>{{ s.label }}</td></tr>{% endfor %}</tbody></table>
+  {% else %}
+  <div class="notice">{% if setup_is_preview %}Everything is already set up in Campfire: there is nothing to create.{% else %}Done: the accounts and dimensions are in Campfire. Nothing more to do here.{% endif %}</div>
+  {% endif %}
+  {% if setup.done %}<details><summary>{{ setup.done|length }} already in place</summary>
+    <table class="inner"><tbody>{% for s in setup.done %}<tr><td>{{ s.role_or_dimension }}</td><td class="muted">{% if s.action == "created" %}Created{% else %}In place{% endif %}</td><td>{{ s.label }}</td></tr>{% endfor %}</tbody></table>
+  </details>{% endif %}
 {% endif %}
 
 <div class="grid2">
@@ -178,6 +194,7 @@
     </form>
   </div>
 </div>
+{% if setup.complete %}</details>{% endif %}
 </section>
 </div>
 {% endblock %}

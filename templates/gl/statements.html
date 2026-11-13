@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% load money %}
+{% block title %}Financial statements{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Financial statements</h1>
+    <p class="muted">{{ workspace }}{% if scope %} · {{ scope.label }}{% endif %} · {{ start|date:"M j, Y" }} to {{ end|date:"M j, Y" }}</p>
+  </div>
+  {% if statement %}<div class="page-actions"><a class="btn secondary" href="{{ csv_url }}">Download CSV</a></div>{% endif %}
+</div>
+
+<form method="get" action="{{ action }}" class="filters" data-autosubmit>
+  {% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
+  <input type="hidden" name="view" value="{{ choices.view }}">
+  <label>Entity
+    <select name="entity">{% for o in options %}<option value="{{ o.value }}" {% if scope and o.value == scope.value %}selected{% endif %}>{{ o.label }}</option>{% endfor %}</select></label>
+  <label>Period
+    <select name="period">{% for k, label in periods.items %}<option value="{{ k }}" {% if k == choices.period %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+  {% if choices.period == "custom" %}
+  <label>From <input type="date" name="start" value="{{ choices.start }}"></label>
+  <label>To <input type="date" name="end" value="{{ choices.end }}"></label>
+  {% endif %}
+  <label>Columns
+    <select name="cols">{% for k, label in columns.items %}<option value="{{ k }}" {% if k == choices.cols %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+  <button class="btn secondary" type="submit">Update</button>
+</form>
+
+<div class="tabs" role="tablist">
+  {% for key, label, url, on in views %}<a role="tab" href="{{ url }}"{% if on %} class="active" aria-selected="true"{% endif %}>{{ label }}</a>{% endfor %}
+</div>
+
+{% if error %}<div class="issues">{{ error }}</div>{% endif %}
+{% if statement %}
+{% if headline %}<div class="kpis">
+  {% for label, value in headline %}<div class="kpi"><div class="label">{{ label }}</div><div class="value">{{ value|acct }}</div></div>{% endfor %}
+</div>{% endif %}
+<section class="box box-flush">
+  <table class="statement{% if statement.columns|length > 4 %} wide{% endif %}">
+    <thead><tr><th>{{ statement.title }}</th>{% for c in statement.columns %}<th class="num">{{ c }}</th>{% endfor %}</tr></thead>
+    <tbody>
+    {% for r, url in rows %}
+      <tr class="st-{{ r.kind }} lvl-{{ r.level }}">
+        <td>{% if r.number %}<span class="acct-no">{{ r.number }}</span>{% endif %}{% if url %}<a href="{{ url }}{% if choices.view %}&view={{ choices.view }}{% endif %}" title="Open the ledger lines">{{ r.label }}</a>{% else %}{{ r.label }}{% endif %}</td>
+        {% for v in r.values %}<td class="num">{% if cents %}{{ v|acct:2 }}{% else %}{{ v|acct }}{% endif %}</td>{% endfor %}
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+<p class="muted small">{% if statement.note %}{{ statement.note }} {% endif %}Figures come from the general ledger. Select an account to see the entries behind it.</p>
+{% endif %}
+{% endblock %}

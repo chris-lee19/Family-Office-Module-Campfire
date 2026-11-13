@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% load money %}
+{% block title %}{{ label }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <p class="crumb"><a href="{{ back }}">← Financial statements</a></p>
+    <h1>{{ label }}</h1>
+    <p class="muted">{% if scope %}{{ scope.label }} · {% endif %}{{ start|date:"M j, Y" }} to {{ end|date:"M j, Y" }}</p>
+  </div>
+</div>
+{% if error %}<div class="issues">{{ error }}</div>{% endif %}
+<div class="kpis">
+  <div class="kpi"><div class="label">Entries</div><div class="value">{{ total }}</div><div class="sub">{% if total > lines|length %}Showing the first {{ lines|length }}{% else %}In the period{% endif %}</div></div>
+  <div class="kpi"><div class="label">Debits</div><div class="value">{{ debits|acct:2 }}</div></div>
+  <div class="kpi"><div class="label">Credits</div><div class="value">{{ credits|acct:2 }}</div></div>
+</div>
+<section class="box">
+  <div class="box-head"><h2>Ledger lines</h2>
+    <div class="aside"><input type="search" placeholder="Filter lines" aria-label="Filter lines" data-filter="#ledger"></div></div>
+  {% if lines %}
+  <table data-sort id="ledger">
+    <thead><tr><th>Date</th><th>Entry</th><th>Description</th>{% if scope.rollup %}<th>Entity</th>{% endif %}<th class="num">Debit</th><th class="num">Credit</th>{% if not scope.rollup %}<th class="num">Balance</th>{% endif %}</tr></thead>
+    <tbody>
+    {% for ln in lines %}
+      <tr><td class="nowrap">{{ ln.posted }}</td><td>{{ ln.memo }}<br><span class="muted small">{{ ln.kind }}{% if ln.journal %} · {{ ln.journal }}{% endif %}</span></td><td>{{ ln.description }}</td>
+        {% if scope.rollup %}<td>{{ ln.entity }}</td>{% endif %}
+        <td class="num">{% if ln.debit %}{{ ln.debit|acct:2 }}{% endif %}</td><td class="num">{% if ln.credit %}{{ ln.credit|acct:2 }}{% endif %}</td>
+        {% if not scope.rollup %}<td class="num">{{ ln.balance|acct:2 }}</td>{% endif %}</tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<div class="empty"><strong>No entries in this period</strong>Widen the dates on the statements page.</div>{% endif %}
+</section>
+{% endblock %}

@@ -159,7 +159,7 @@ end. Held marks aren't used; non-USD accounts are skipped. Securities without a 
 
 ## App-as-the-face build order (agreed 2026-11-13)
 1. ~~Clean the sandbox and seed Alder dummy data~~ (done, see below).
-2. Financial statements in the app (balance sheet, income statement, cash flow, trial balance; per entity and
+2. ~~Financial statements in the app~~ (done 2026-11-13, see below; was: balance sheet, income statement, cash flow, trial balance; per entity and
    consolidated; drill-down). API: `/ca/api/get_balance_sheet`, `get_income_statement`, `get_cash_flow`,
    `get_trial_balance`, `/coa/api/general-ledger`, `/coa/api/transaction`.
 3. Cash (`/ca/api/account`, `/ca/api/transaction`, `/coa/api/transaction-matches`, `/coa/api/v2/reconciliation`).
@@ -167,6 +167,20 @@ end. Held marks aren't used; non-USD accounts are skipped. Securities without a 
    (`/coa/api/journal_entry`, `intercompany-journal-entry`). 6. Approvals in the app. 7. Roles and per-user access.
    Later: budgets, fixed assets (property, art), documents/K-1s, liquidity, reporting pack.
 - Gaps for the CTO: approve endpoints; close checklist and period locks; keep sidebar scroll on navigation.
+
+## Financial statements (2026-11-13) and the setup checklist
+- `gl/services/statements.py` + `gl/statement_views.py`, sidebar "Financial statements" (`gl:statements`, in NAV_PAGES):
+  Campfire computes (`reports:read`, already in the app's scopes): `/ca/api/get_balance_sheet`, `get_income_statement`,
+  `get_cash_flow` (v2 is "Feature not enabled"), `get_trial_balance`; columns come back as `<period>_Total` (+ `Total`
+  on the income statement), rows carry `hierarchy`. Scope = one entity or a parent with `entity_rollup=true`
+  (inactive entities left out). Period presets, one column / by month / by quarter, headline totals, CSV download.
+  Account names open the ledger lines (`/coa/api/transaction`, `gl:ledger`). The balance sheet shows uncategorized bank
+  lines below the totals (Campfire leaves them out). Campfire's cash flow only classifies accounts that have a cash-flow
+  classification, so today it is mostly net income.
+- General ledger -> Setup now opens with a checklist (entities that hold accounts linked; every role mapped; go-live
+  and market value optional). When the required items are done it reads "Setup is complete", the tab badge goes and the
+  forms fold into "Change the setup". The setup preview lists only what still needs creating (user asked why lines
+  stay after setup). 146 tests.
 
 ## Sandbox clean-up and demo books (2026-11-13, user: "OK to delete, and add the data needed to operate as a family office")
 - Removed (sample data on Entity 1/2/3, nothing refused): 115 invoices, 91 bills, 10 intercompany entries, 168 journal
