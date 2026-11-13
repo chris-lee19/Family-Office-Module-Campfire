@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% load money %}
+{% block title %}Capital calls{% endblock %}
+{% block content %}
+<h1>Capital calls</h1>
+<p class="muted">{{ workspace }} · notice → bill in Campfire (approved and paid there) → contribution booked, unfunded updated</p>
+{% if message %}<div class="notice">{{ message }}</div>{% endif %}
+{% if error %}<div class="issues">{{ error }}</div>{% endif %}
+
+<div class="actions">
+  <a class="btn" href="{{ new_call_url }}">Record a call notice</a>
+  <form method="post" action="{{ action }}">{% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
+    <button class="btn secondary" type="submit" name="action" value="refresh">Check Campfire for approvals and payments</button></form>
+</div>
+
+<h2>Open calls</h2>
+{% if rows %}
+<table>
+  <thead><tr><th>Fund</th><th>Owner</th><th class="num">Amount</th><th>Due</th><th>Status</th><th></th></tr></thead>
+  <tbody>
+  {% for c, problems in rows %}
+    <tr>
+      <td><strong>{{ c.commitment.instrument }}</strong>{% if c.source_ref %}<br><span class="muted small">{{ c.source_ref }}</span>{% endif %}</td>
+      <td>{{ c.commitment.account.owner }}<br><span class="muted small">{{ c.commitment.campfire_vendor_name|default:"no Campfire vendor" }}</span></td>
+      <td class="num">{{ c.amount|money }}</td>
+      <td class="nowrap">{{ c.due_date|date:"Y-m-d" }}{% if c.due_date < today %} <span class="pill status-rejected">Overdue</span>{% endif %}</td>
+      <td><span class="pill call-{{ c.status }}">{{ c.get_status_display }}</span>{% if c.campfire_bill_id %}<br><span class="muted small">Campfire bill #{{ c.campfire_bill_id }}</span>{% endif %}
+        {% if c.bill_note %}<div class="small muted">{{ c.bill_note }}</div>{% endif %}</td>
+      <td>
+        {% if c.status == "received" or c.status == "approved" %}
+          {% if problems %}{% for p in problems %}<div class="small err">{{ p }}</div>{% endfor %}
+          {% else %}
+          <form method="post" action="{{ action }}">{% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
+            <input type="hidden" name="call" value="{{ c.pk }}"><button class="btn small" type="submit" name="action" value="send">Send to Campfire as a bill</button></form>
+          {% endif %}
+        {% endif %}
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}<p class="muted">No open calls.</p>{% endif %}
+
+{% if paid %}
+<h3>Recently paid</h3>
+<table><tbody>{% for c in paid %}<tr><td>{{ c.commitment.instrument }}</td><td class="num">{{ c.amount|money }}</td><td>paid {{ c.paid_on|date:"Y-m-d" }}</td><td class="muted small">{% if c.campfire_bill_id %}Campfire bill #{{ c.campfire_bill_id }}{% endif %}</td></tr>{% endfor %}</tbody></table>
+{% endif %}
+
+<h2>Funds</h2>
+{% if campfire_error %}<div class="issues">{{ campfire_error }}</div>{% endif %}
+<table>
+  <thead><tr><th>Fund</th><th class="num">Commitment</th><th class="num">Called</th><th class="num">Unfunded</th><th>Campfire vendor (GP)</th></tr></thead>
+  <tbody>
+  {% for c, s in funds %}
+    <tr>
+      <td><strong>{{ c.instrument }}</strong><br><span class="muted small">{{ c.account }}{% if c.instrument.sponsor %} · {{ c.instrument.sponsor }}{% endif %}</span></td>
+      <td class="num">{{ c.amount|money }}</td><td class="num">{{ s.contributed|money }}</td><td class="num">{{ s.unfunded|money }}</td>
+      <td>{% if vendors %}
+        <form method="post" action="{{ action }}" class="actions">{% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
+          <input type="hidden" name="commitment" value="{{ c.pk }}">
+          <select name="vendor"><option value="">Choose…</option>{% for v in vendors %}<option value="{{ v.id }}" {% if v.id == c.campfire_vendor_id %}selected{% endif %}>{{ v.name }}</option>{% endfor %}</select>
+          <button class="btn secondary small" type="submit" name="action" value="vendor">Save</button></form>
+      {% else %}{{ c.campfire_vendor_name|default:"—" }}{% endif %}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% if vendors %}
+<form method="post" action="{{ action }}" class="actions">{% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
+  <button class="btn secondary small" type="submit" name="action" value="match_vendors">Match funds to vendors by manager / GP name</button></form>
+{% endif %}
+
+<h2>Record a distribution</h2>
+<form method="post" action="{{ action }}" class="record-form">
+  {% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
+  <div class="fields">
+    <div class="field"><label>Fund *</label><select name="commitment">{% for c, s in funds %}<option value="{{ c.pk }}">{{ c.instrument }} ({{ c.account.owner }})</option>{% endfor %}</select></div>
+    <div class="field"><label>Date *</label><input type="date" name="date" value="{{ today|date:'Y-m-d' }}" required></div>
+    <div class="field"><label>Return of capital</label><input name="roc" inputmode="decimal"></div>
+    <div class="field"><label>Of which recallable</label><input name="recallable" inputmode="decimal"><span class="muted small">Adds back to the unfunded commitment.</span></div>
+    <div class="field"><label>Income</label><input name="income" inputmode="decimal"></div>
+    <div class="field"><label>Realized gains</label><input name="gains" inputmode="decimal"></div>
+    <div class="field"><label>Note</label><input name="note" placeholder="e.g. Q3 distribution notice"></div>
+  </div>
+  <div class="actions"><button class="btn secondary" type="submit" name="action" value="distribution">Record distribution</button>
+    <span class="muted small">The cash arrives in a Campfire bank account; categorize it to Investment cash clearing. The GL bridge posts the other side.</span></div>
+</form>
+{% endblock %}

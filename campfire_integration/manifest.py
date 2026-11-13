@@ -15,14 +15,18 @@ NAV_PAGES: list[tuple[str, str, str, str]] = [
     ("investments", "Investments", "chart-pie", "/fo/frame/investments"),
     ("entities", "Entities & Ownership", "users", "/fo/frame/entities"),
     ("imports", "Imports", "upload", "/fo/frame/imports"),
+    ("calls", "Capital calls", "banknote", "/fo/frame/calls"),
     ("gl", "General ledger", "book-open", "/fo/frame/gl"),
     ("review", "Review", "check-circle", "/fo/frame/review"),
     ("records", "Records", "database", "/fo/frame/records"),
 ]
 
 # Event topics to receive at /campfire/events (each needs a read scope in allowed_scopes). Add a topic only
-# when a handler exists for it: Bill.paid comes with the capital-call bill flow.
-EVENT_TOPICS: list[str] = ["JournalEntry.created", "JournalEntry.updated", "JournalEntry.deleted"]
+# when a handler exists for it (gl/handlers.py).
+EVENT_TOPICS: list[str] = [
+    "JournalEntry.created", "JournalEntry.updated", "JournalEntry.deleted",
+    "Bill.created", "Bill.updated", "Bill.deleted", "Bill.paid", "Bill.payment",
+]
 # Campfire refuses a manifest whose topics aren't covered by allowed_scopes (any tier of the resource).
 TOPIC_RESOURCE = {"JournalEntry": "journal_entries", "Bill": "bills", "Invoice": "invoices"}
 

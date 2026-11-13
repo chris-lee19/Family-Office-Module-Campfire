@@ -9,7 +9,9 @@ from campfire_integration import events
 from campfire_integration.client import CampfireClient
 from campfire_integration.models import CampfireEvent
 from gl.models import SOURCE, JournalPosting
+from gl.services.calls import BILL_PATH, apply_bill, call_for_bill
 from gl.services.posting import JE_PATH, mark_posted, posting_for_source_id, release
+from investments.models import CapitalCall
 
 log = logging.getLogger(__name__)
 
@@ -37,3 +39,22 @@ def journal_entry_deleted(event: CampfireEvent) -> None:
         return
     for posting in JournalPosting.objects.filter(workspace=event.workspace, campfire_journal_id=int(event.object_id)).exclude(status=JournalPosting.Status.RELEASED):
         release(posting, f"Journal entry {event.object_id} was deleted in Campfire.")
+
+
+@events.on("Bill.created", "Bill.updated", "Bill.paid", "Bill.payment")
+def bill_saved(event: CampfireEvent) -> None:
+    """A capital-call bill was approved, changed or paid: re-read it and move the call on."""
+    if event.workspace is None or not str(event.object_id).isdigit() or event.payload.get("test"):
+        return
+    bill = CampfireClient(event.workspace).get_json(f"{BILL_PATH}/{event.object_id}")
+    call = call_for_bill(event.workspace, bill)
+    if call is not None:
+        apply_bill(call, None if bill.get("is_deleted") else bill)
+
+
+@events.on("Bill.deleted")
+def bill_deleted(event: CampfireEvent) -> None:
+    if event.workspace is None or not str(event.object_id).isdigit():
+        return
+    for call in CapitalCall.objects.filter(commitment__account__family__workspace=event.workspace, campfire_bill_id=int(event.object_id)):
+        apply_bill(call, None)

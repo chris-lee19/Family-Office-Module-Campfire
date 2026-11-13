@@ -361,20 +361,27 @@ class Commitment(models.Model):
     amount = models.DecimalField(**MONEY)
     commitment_date = models.DateField()
     currency = models.CharField(max_length=3, default="USD")
+    # The fund's GP / administrator as a Campfire vendor: the payee of capital-call bills.
+    campfire_vendor_id = models.BigIntegerField(null=True, blank=True)
+    campfire_vendor_name = models.CharField(max_length=255, blank=True)
 
     def __str__(self) -> str:
         return f"{self.account}: {self.amount} to {self.instrument}"
 
 
 class CapitalCall(models.Model):
-    """A capital call notice through its life: received -> approved -> bill in Campfire -> paid."""
+    """A capital call notice through its life: received -> bill sent to Campfire (awaiting approval) -> bill approved
+    (billed) -> paid in Campfire (the contribution is booked). Approval and payment happen in Campfire."""
 
     class Status(models.TextChoices):
         RECEIVED = "received", "Received"
         APPROVED = "approved", "Approved for payment"
-        BILLED = "billed", "Bill created in Campfire"
+        SUBMITTED = "submitted", "Bill awaiting approval in Campfire"
+        BILLED = "billed", "Bill approved in Campfire"
         PAID = "paid", "Paid"
         CANCELLED = "cancelled", "Cancelled"
+
+    OPEN_STATUSES = (Status.RECEIVED, Status.APPROVED, Status.SUBMITTED, Status.BILLED)
 
     commitment = models.ForeignKey(Commitment, on_delete=models.CASCADE, related_name="calls")
     notice_date = models.DateField()
@@ -385,9 +392,17 @@ class CapitalCall(models.Model):
     paid_on = models.DateField(null=True, blank=True)
     contribution = models.OneToOneField(Transaction, null=True, blank=True, on_delete=models.SET_NULL, related_name="capital_call")
     source_ref = models.CharField(max_length=255, blank=True, help_text="Notice document reference")
+    bill_sent_at = models.DateTimeField(null=True, blank=True)
+    bill_sent_by = models.CharField(max_length=255, blank=True)
+    bill_response = models.JSONField(null=True, blank=True)
+    bill_note = models.TextField(blank=True, help_text="Last problem or event about the bill")
 
     class Meta:
         ordering = ["due_date"]
 
     def __str__(self) -> str:
         return f"{self.commitment.instrument} call {self.amount} due {self.due_date}"
+
+    @property
+    def bill_source_id(self) -> str:
+        return f"fo-call-{self.pk}"

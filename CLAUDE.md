@@ -47,18 +47,18 @@ same workbook (`family_rows`); round-trip test reproduces the portfolio exactly 
 (`records/review.py`, sidebar "Review"): held marks accept/reject/correct, imports with warnings signed off, waiting
 uploads; preparer ≠ reviewer via `request.fo_actor_id` ("cfu:<campfire user id>", same in frame and session;
 `campfire_integration.frames.actor_for`, `CampfireUser` remembers names); `ControlSettings.require_second_person`
-(default on, audited); Valuation/ImportBatch carry created_by_id and reviewed_by*. 109 tests passing.
+(default on, audited); Valuation/ImportBatch carry created_by_id and reviewed_by* · Phase A4 capital calls
+(`gl/services/calls.py`, sidebar "Capital calls"): bill payload verified against the sandbox (201, source/source_id kept,
+found by vendor + q; test bill deleted, GET then 404); `Bill.*` events in the manifest; statuses received → submitted
+(202 draft) → billed → paid; `Commitment.campfire_vendor_id`. 113 tests passing.
 
 ## Next steps (in order) — roadmap Phase A (usable without us), then B (native feel), then C (differentiators)
 - A5 month-end close page ·
   A6 "needs attention" home. B: panels on Campfire JE/bill records, net worth incl. Campfire cash/liabilities,
   roles + per-user connections. C: documents & AI, family reports, FMV JEs, liquidity.
-1. **Capital call → Campfire bill** (= A4) (draft, `bills:draft`) → `Bill.paid` event (add to `EVENT_TOPICS`) →
-   `investments.services.privates.mark_call_paid`. The bill's line account should be the investments-at-cost mapping:
-   the GL bridge skips contributions whose call has a `campfire_bill_id` (the bill booked them).
-2. GL follow-ups: period-end unrealized gain (FMV) entries; FX for non-USD accounts; lock-period check before sending
+1. GL follow-ups: period-end unrealized gain (FMV) entries; FX for non-USD accounts; lock-period check before sending
    (`lock_periods:read`); tie-out drill-down to GL lines (`transactions:read`).
-3. Importer follow-ups: confirm the Pershing-style columns/codes against a real extract; positions file for
+2. Importer follow-ups: confirm the Pershing-style columns/codes against a real extract; positions file for
    custody position reconciliation (REC-02); withholding on dividends; reverting a committed batch (needs the GL bridge
    to reverse its JEs too).
 
