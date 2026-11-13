@@ -195,7 +195,7 @@ def _billed(qs):  # type: ignore[no-untyped-def]
     return qs.filter(capital_call__campfire_bill_id__isnull=False)
 
 
-def build_preview(workspace: Workspace, *, through: date) -> Preview:
+def build_preview(workspace: Workspace, *, through: date, campfire_entity_id: int | None = None) -> Preview:
     post_from = GLSettings.for_workspace(workspace).post_from
     qs = unposted(workspace, through)
     before_start = 0
@@ -210,7 +210,10 @@ def build_preview(workspace: Workspace, *, through: date) -> Preview:
     for txn in qs.exclude(pk__in=_billed(qs).values("pk")):
         entity = txn.account.entity
         if entity is None or entity.campfire_entity_id is None:
-            not_linked[str(txn.account.owner)] += 1
+            if campfire_entity_id is None:
+                not_linked[str(txn.account.owner)] += 1
+            continue
+        if campfire_entity_id is not None and entity.campfire_entity_id != campfire_entity_id:
             continue
         by_account[txn.account_id].append(txn)
 
@@ -279,12 +282,12 @@ def _payload(posting: JournalPosting) -> dict[str, Any]:
     }
 
 
-def _create_posting(workspace: Workspace, j: ProposedJournal, created_by: str) -> JournalPosting:
+def _create_posting(workspace: Workspace, j: ProposedJournal, created_by: str, created_by_id: str = "") -> JournalPosting:
     with transaction.atomic():
         posting = JournalPosting.objects.create(
             workspace=workspace, campfire_entity_id=j.campfire_entity_id, entity_label=j.entity_label[:255],
             period_end=j.period_end, je_date=j.je_date, memo=j.memo[:255], total=j.total, status=S.UNCERTAIN,
-            transaction_ids=[t.pk for t in j.transactions], created_by=created_by,
+            transaction_ids=[t.pk for t in j.transactions], created_by=created_by, created_by_id=created_by_id,
         )
         posting.lines = [
             {"account": ln.campfire_account_id, "account_label": ln.account_label, "debit": str(ln.debit), "credit": str(ln.credit),
@@ -326,12 +329,13 @@ def submit(posting: JournalPosting, client: CampfireClient) -> JournalPosting:
     return posting
 
 
-def send(workspace: Workspace, *, through: date, client: CampfireClient, created_by: str = "") -> list[JournalPosting]:
-    preview = build_preview(workspace, through=through)
+def send(workspace: Workspace, *, through: date, client: CampfireClient, created_by: str = "", created_by_id: str = "",
+         campfire_entity_id: int | None = None) -> list[JournalPosting]:
+    preview = build_preview(workspace, through=through, campfire_entity_id=campfire_entity_id)
     postings = []
     for j in preview.ready:
         try:
-            posting = _create_posting(workspace, j, created_by)
+            posting = _create_posting(workspace, j, created_by, created_by_id)
         except IntegrityError:
             continue  # another run took these transactions meanwhile
         postings.append(submit(posting, client))

@@ -41,6 +41,8 @@
     .pill.posting-failed { background:#fee2e2; color:#991b1b; } .pill.posting-released { color:var(--muted); }
     .small { font-size:12px; } .err { color:#991b1b; } table.inner td { padding:4px 6px; font-size:12px; } .btn.small { padding:4px 10px; font-size:12px; }
     .pill.call-submitted, .pill.call-billed { background:#fef3c7; color:#92400e; } .pill.call-paid { background:#dcfce7; color:#166534; }
+    table.close td { min-width:90px; } .step { display:inline-block; width:22px; height:22px; border-radius:11px; text-align:center; line-height:22px; font-weight:700; font-size:12px; }
+    .step.ok { background:#dcfce7; color:#166534; } .step.todo { background:#f3f4f6; color:var(--muted); } .step.bad { background:#fee2e2; color:#991b1b; }
     .btn[disabled] { opacity:.5; cursor:not-allowed; } select { max-width:320px; } .nowrap { white-space:nowrap; }
     input[type=date] { font:inherit; padding:5px; border:1px solid var(--line); border-radius:6px; }
     .record-form .fields { display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:14px 24px; max-width:900px; margin:12px 0; }
@@ -55,7 +57,7 @@
 <body class="{% if framed %}framed{% endif %}">
   {% if not framed %}
   <header class="top">
-    <nav><strong>Family Office</strong>{% if request.session.campfire_user %} &nbsp; <a href="{% url 'investments:investments' %}">Investments</a> · <a href="{% url 'home' %}">Entities &amp; Ownership</a> · <a href="{% url 'investments:imports' %}">Imports</a> · <a href="{% url 'gl:calls' %}">Capital calls</a> · <a href="{% url 'gl:gl' %}">General ledger</a> · <a href="{% url 'records:review' %}">Review</a> · <a href="{% url 'records:home' %}">Records</a>{% endif %}</nav>
+    <nav><strong>Family Office</strong>{% if request.session.campfire_user %} &nbsp; <a href="{% url 'investments:investments' %}">Investments</a> · <a href="{% url 'home' %}">Entities &amp; Ownership</a> · <a href="{% url 'investments:imports' %}">Imports</a> · <a href="{% url 'gl:calls' %}">Capital calls</a> · <a href="{% url 'gl:gl' %}">General ledger</a> · <a href="{% url 'records:review' %}">Review</a> · <a href="{% url 'gl:close' %}">Close</a> · <a href="{% url 'records:home' %}">Records</a>{% endif %}</nav>
     {% if request.session.campfire_user %}
       <form method="post" action="{% url 'campfire:logout' %}">{% csrf_token %}
         <span class="muted">{% firstof request.session.campfire_user.name request.session.campfire_user.email "Campfire user" %}{% if workspace %} · {{ workspace }}{% endif %}</span>

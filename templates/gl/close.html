@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Month-end close {{ month|date:"F Y" }}{% endblock %}
+{% block content %}
+<h1>Month-end close: {{ month|date:"F Y" }}{% if all_closed %} <span class="pill status-committed">Closed</span>{% endif %}</h1>
+<p class="muted">{{ workspace }} · <a href="{{ nav.prev }}">← previous month</a> · <a href="{{ nav.next }}">next month →</a> · as of {{ month_end|date:"Y-m-d" }}</p>
+{% if message %}<div class="notice">{{ message }}</div>{% endif %}
+{% if error %}<div class="issues">{{ error }}</div>{% endif %}
+{% if is_future %}<div class="notice">This month hasn't ended yet.</div>{% endif %}
+
+{% if rows %}
+<form method="post" action="{{ action }}" class="actions">
+  {% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}<input type="hidden" name="month" value="{{ month|date:'Y-m' }}">
+  <button class="btn secondary small" type="submit" name="action" value="refresh">Check Campfire for approvals</button>
+  <button class="btn secondary small" type="submit" name="action" value="tieout">Run the tie-out at month end</button>
+</form>
+
+<table class="close">
+  <thead><tr><th>Campfire entity</th>{% for s in rows.0.steps %}<th>{{ s.label }}</th>{% endfor %}<th>Next</th></tr></thead>
+  <tbody>
+  {% for r in rows %}
+    <tr>
+      <td><strong>{{ r.label }}</strong>{% if r.closed %}<br><span class="pill status-committed">Closed</span>{% endif %}</td>
+      {% for s in r.steps %}
+        <td><span class="step {% if s.done %}ok{% elif s.problem %}bad{% else %}todo{% endif %}">{% if s.done %}✓{% elif s.problem %}!{% else %}…{% endif %}</span>
+          <details><summary class="small muted">details</summary>{% for e in s.evidence %}<div class="small">{{ e }}</div>{% endfor %}</details></td>
+      {% endfor %}
+      <td>
+        {% with n=r.next_step %}
+        <form method="post" action="{{ action }}" class="decide">
+          {% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
+          <input type="hidden" name="month" value="{{ month|date:'Y-m' }}"><input type="hidden" name="entity" value="{{ r.campfire_entity_id }}">
+          {% if not n %}
+            <input class="input" name="reason" placeholder="Reason to reopen">
+            <button class="btn secondary small" type="submit" name="action" value="reopen">Reopen</button>
+          {% elif n.key == "data" %}
+            <a class="small" href="{{ links.data }}">Imports</a>
+            <button class="btn small" type="submit" name="action" value="data">Confirm data complete</button>
+          {% elif n.key == "review" %}
+            <a class="btn small" href="{{ links.review }}">Open Review</a>
+          {% elif n.key == "posted" %}
+            {% if n.problem %}<a class="btn secondary small" href="{{ links.gl }}">Fix on General ledger</a>{% else %}
+            <button class="btn small" type="submit" name="action" value="post">Send this entity's entries</button>{% endif %}
+          {% elif n.key == "approved" %}
+            <span class="small muted">Approve the entries in Campfire, then check.</span>
+            <button class="btn secondary small" type="submit" name="action" value="refresh">Check Campfire</button>
+          {% elif n.key == "ties" %}
+            <button class="btn small" type="submit" name="action" value="tieout">Run the tie-out</button>
+          {% elif n.key == "signoff" %}
+            <input class="input" name="note" placeholder="Note (optional)">
+            <button class="btn small" type="submit" name="action" value="signoff">Sign off {{ month|date:"F" }}</button>
+          {% endif %}
+        </form>
+        {% endwith %}
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+<p class="muted small">Reviewed, posted and approved are checked from the data. Data loaded is your confirmation; the tie-out compares custody cash
+  and investments at cost with Campfire's trial balance at month end. Sign-off needs every step, and someone other than whoever sent the month's entries.</p>
+{% else %}
+<p class="muted">No entity is linked to Campfire yet. Link them on the General ledger page.</p>
+{% endif %}
+{% endblock %}

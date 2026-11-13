@@ -141,6 +141,7 @@ class JournalPosting(models.Model):
     response = models.JSONField(null=True, blank=True)
     error = models.TextField(blank=True)
     created_by = models.CharField(max_length=255, blank=True)
+    created_by_id = models.CharField(max_length=64, blank=True, help_text="Stable id of who sent it (cfu:<campfire user id>)")
     created_at = models.DateTimeField(auto_now_add=True)
     submitted_at = models.DateTimeField(null=True, blank=True)
     posted_at = models.DateTimeField(null=True, blank=True)
@@ -168,3 +169,27 @@ class PostedTransaction(models.Model):
 
     def __str__(self) -> str:
         return f"{self.posting.source_id}: {self.transaction}"
+
+
+class MonthClose(models.Model):
+    """The month-end close of one Campfire entity: the steps people confirm (data complete, tie-out, sign-off)."""
+
+    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE, related_name="month_closes")
+    campfire_entity_id = models.BigIntegerField()
+    month = models.DateField(help_text="First day of the month")
+    data_done_by = models.CharField(max_length=255, blank=True)
+    data_done_at = models.DateTimeField(null=True, blank=True)
+    tieout_at = models.DateTimeField(null=True, blank=True)
+    tieout_ok = models.BooleanField(default=False)
+    tieout_detail = models.JSONField(default=list, blank=True, help_text="Rows that didn't tie: account, difference")
+    signed_off_by = models.CharField(max_length=255, blank=True)
+    signed_off_by_id = models.CharField(max_length=64, blank=True)
+    signed_off_at = models.DateTimeField(null=True, blank=True)
+    note = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["-month", "campfire_entity_id"]
+        constraints = [models.UniqueConstraint(fields=["workspace", "campfire_entity_id", "month"], name="month_close_unique")]
+
+    def __str__(self) -> str:
+        return f"Close {self.month:%Y-%m} entity {self.campfire_entity_id}"

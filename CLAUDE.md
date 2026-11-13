@@ -50,11 +50,13 @@ uploads; preparer ≠ reviewer via `request.fo_actor_id` ("cfu:<campfire user id
 (default on, audited); Valuation/ImportBatch carry created_by_id and reviewed_by* · Phase A4 capital calls
 (`gl/services/calls.py`, sidebar "Capital calls"): bill payload verified against the sandbox (201, source/source_id kept,
 found by vendor + q; test bill deleted, GET then 404); `Bill.*` events in the manifest; statuses received → submitted
-(202 draft) → billed → paid; `Commitment.campfire_vendor_id`. 113 tests passing.
+(202 draft) → billed → paid; `Commitment.campfire_vendor_id` · Phase A5 month-end close (`gl/services/close.py`, sidebar
+"Month-end close"): `MonthClose` per (workspace, Campfire entity, month); reviewed/posted/approved derived, data and
+sign-off confirmed, tie-out stored and stale once something posts later; posting can be limited to one entity
+(`send(..., campfire_entity_id=)`), JournalPosting.created_by_id for sign-off ≠ sender. 116 tests passing.
 
 ## Next steps (in order) — roadmap Phase A (usable without us), then B (native feel), then C (differentiators)
-- A5 month-end close page ·
-  A6 "needs attention" home. B: panels on Campfire JE/bill records, net worth incl. Campfire cash/liabilities,
+- A6 "needs attention" home. B: panels on Campfire JE/bill records, net worth incl. Campfire cash/liabilities,
   roles + per-user connections. C: documents & AI, family reports, FMV JEs, liquidity.
 1. GL follow-ups: period-end unrealized gain (FMV) entries; FX for non-USD accounts; lock-period check before sending
    (`lock_periods:read`); tie-out drill-down to GL lines (`transactions:read`).

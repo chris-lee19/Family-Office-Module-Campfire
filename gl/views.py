@@ -83,7 +83,7 @@ def _handle_post(request: HttpRequest, workspace: Workspace) -> tuple[str, Any]:
         steps = setup_accounts(workspace, client, create=create) + setup_dimensions(workspace, client, create=create)
         return ("Set up the GL accounts and dimensions in Campfire." if create else ""), {"setup_steps": steps, "setup_is_preview": not create}
     if action == "send":
-        sent = svc.send(workspace, through=today, client=client, created_by=actor)
+        sent = svc.send(workspace, through=today, client=client, created_by=actor, created_by_id=getattr(request, "fo_actor_id", ""))
         counts = {s: sum(1 for p in sent if p.status == s) for s in JournalPosting.Status}
         parts = [f"{n} {JournalPosting.Status(s).label.lower()}" for s, n in counts.items() if n]
         return (f"Sent {len(sent)} journal entr{'ies' if len(sent) != 1 else 'y'}: {', '.join(parts)}." if sent else "Nothing to send."), None
