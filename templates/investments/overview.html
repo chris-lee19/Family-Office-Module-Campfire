@@ -91,6 +91,7 @@
   {% if p.other_currencies %}<p class="muted">Not in totals (FX translation is a later phase): {% for ccy, v in p.other_currencies.items %}{{ ccy }} {{ v }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>{% endif %}
 {% endwith %}
 {% empty %}
-  <p class="muted">No families yet. Run <code>python manage.py seed_demo --customer-id &lt;id&gt;</code>.</p>
+  <p class="muted">No families yet.</p>
+  {% include "includes/demo_button.html" %}
 {% endfor %}
 {% endblock %}

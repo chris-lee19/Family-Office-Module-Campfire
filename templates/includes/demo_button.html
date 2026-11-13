@@ -1,0 +1,7 @@
+{% if demo_url %}
+<form method="post" action="{{ demo_url }}" class="actions">
+  {% csrf_token %}{% if request.fo_frame_token %}<input type="hidden" name="fo_t" value="{{ request.fo_frame_token }}">{% endif %}
+  <button class="btn" type="submit">Load the demo family</button>
+  <span class="muted">Adds the fictional Alder family (entities, ownership, accounts, investments) to this workspace for testing.</span>
+</form>
+{% endif %}

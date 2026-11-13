@@ -22,6 +22,7 @@
     </tbody>
   </table>
 {% empty %}
-  <p class="muted">No families yet. Add one in the admin, or run <code>python manage.py seed_demo --customer-id &lt;id&gt;</code>.</p>
+  <p class="muted">No families yet.</p>
+  {% include "includes/demo_button.html" %}
 {% endfor %}
 {% endblock %}

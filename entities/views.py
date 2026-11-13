@@ -63,10 +63,13 @@ def family_views(workspace: Workspace, as_of: date) -> list[FamilyView]:
 
 def entities_page(request: HttpRequest, workspace: Workspace, framed: bool) -> HttpResponse:
     as_of = timezone.localdate()
+    from investments.views import demo_url
+
     return render(
         request,
         "entities/overview.html",
-        {"workspace": workspace, "families": family_views(workspace, as_of), "as_of": as_of, "framed": framed},
+        {"workspace": workspace, "families": family_views(workspace, as_of), "as_of": as_of, "framed": framed,
+         "demo_url": demo_url(request, workspace, framed)},
     )
 
 

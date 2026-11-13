@@ -25,8 +25,8 @@ if not SECRET_KEY:
         raise ImproperlyConfigured("DJANGO_SECRET_KEY is required when DJANGO_DEBUG is not 1")
     SECRET_KEY = "dev-only-insecure-secret-key"
 
-# Public URL Campfire calls (ngrok in development).
-APP_URL = env("APP_URL", "http://localhost:8000").rstrip("/")
+# Public URL Campfire calls: ngrok in development; on Render its own https://<service>.onrender.com unless set.
+APP_URL = (env("APP_URL") or env("RENDER_EXTERNAL_URL") or "http://localhost:8000").rstrip("/")
 _app_host = urlparse(APP_URL).hostname or "localhost"
 
 ALLOWED_HOSTS = sorted({"localhost", "127.0.0.1", _app_host} | ({".ngrok-free.app", ".ngrok.app"} if DEBUG else set()))
@@ -60,6 +60,9 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
+if not DEBUG:  # serves collected static files (admin) in production; runserver does it in development
+    MIDDLEWARE.insert(1, "whitenoise.middleware.WhiteNoiseMiddleware")
+
 ROOT_URLCONF = "config.urls"
 WSGI_APPLICATION = "config.wsgi.application"
 
@@ -92,17 +95,38 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage" if DEBUG
+        else "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
 
 SESSION_COOKIE_SECURE = APP_URL.startswith("https://")
 CSRF_COOKIE_SECURE = SESSION_COOKIE_SECURE
 SESSION_COOKIE_HTTPONLY = True
 
-# Encryption for OAuth tokens and other secrets at rest (core.crypto). First key encrypts.
+# Encryption for OAuth tokens and other secrets at rest (core.crypto). First key encrypts, all decrypt.
+# FIELD_ENCRYPTION_KEYS takes Fernet keys. FIELD_ENCRYPTION_SECRET (any long random string, e.g. one a host
+# generates) is turned into one; list it in FIELD_ENCRYPTION_KEYS' second place when rotating away from it.
+
+
+def _derived_key(secret: str) -> str:
+    return base64.urlsafe_b64encode(hashlib.sha256(secret.encode()).digest()).decode()
+
+
 FIELD_ENCRYPTION_KEYS = [k for k in env("FIELD_ENCRYPTION_KEYS").split(",") if k.strip()]
+if env("FIELD_ENCRYPTION_SECRET"):
+    FIELD_ENCRYPTION_KEYS.append(_derived_key(env("FIELD_ENCRYPTION_SECRET")))
 if not FIELD_ENCRYPTION_KEYS:
     if not DEBUG:
-        raise ImproperlyConfigured("FIELD_ENCRYPTION_KEYS is required when DJANGO_DEBUG is not 1")
-    FIELD_ENCRYPTION_KEYS = [base64.urlsafe_b64encode(hashlib.sha256(SECRET_KEY.encode()).digest()).decode()]
+        raise ImproperlyConfigured("FIELD_ENCRYPTION_KEYS or FIELD_ENCRYPTION_SECRET is required when DJANGO_DEBUG is not 1")
+    FIELD_ENCRYPTION_KEYS = [_derived_key(SECRET_KEY)]
+
+# Lets people in a connected workspace load the fictional demo family from the app (shared test sandboxes).
+# Off by default outside development: never on where real client data lives.
+ALLOW_DEMO_DATA = (env("ALLOW_DEMO_DATA") or ("1" if DEBUG else "0")) == "1"
 
 DEFAULT_CAMPFIRE_SCOPES = [
     "openid", "email", "profile",

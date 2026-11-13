@@ -36,7 +36,7 @@ def test_other_workspaces_data_is_not_shown(client, workspace: Workspace) -> Non
     other = Workspace.objects.create(customer_id=5, name="Other", access_token="a", refresh_token="r")
     seed_alder(other)
     r = client.get(f"/fo/frame/entities?cf_ctx={context_token(customer_id=workspace.customer_id, surface='nav')}")
-    assert r.status_code == 200 and "Alder" not in r.content.decode()
+    assert r.status_code == 200 and "Alder 2012 Dynasty Trust" not in r.content.decode()
 
 
 @pytest.mark.django_db

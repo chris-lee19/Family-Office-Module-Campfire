@@ -16,6 +16,9 @@ A family-office product built as a **Campfire partner OAuth app** (we are a Camp
 ## Decisions already made (don't re-litigate)
 - Stack: Python / Django 5.2, Postgres in prod (SQLite locally), server-rendered frames for now (React later if needed).
 - Dev: ngrok tunnel to local Django on the user's machine (Campfire must reach the app over public HTTPS; a cloud session can't).
+- Shared testing (user decision 2026-11-13): hosted on **Render** from `render.yaml` (web + Postgres, gunicorn, WhiteNoise,
+  `APP_URL` from `RENDER_EXTERNAL_URL`). Netlify was considered and doesn't fit (no long-running Python server).
+  Testers: same sandbox workspace connects directly; other workspaces via sharing on the app's Installs tab.
 - The app takes Read/Draft/Write permissions but **never Approve**: app-created JEs and bills go through Campfire approval
   (default `posting_mode` = draft). Permission set by phase: `docs/campfire_permissions.md`.
 - Masttro/Arch: the app is the investment book of record with pluggable source adapters; Masttro/Arch adapters only on demand.
@@ -34,7 +37,8 @@ Campfire entity and month, summarized by account + tags, sent as drafts (connect
 lineage in native fields (`source`="Family Office", `source_id`=`fo-posting-<pk>`, line `external_id`); 201/202
 handling, `JournalEntry.*` events + `refresh_statuses`, release; `GLSettings.post_from` go-live date; setup of
 accounts/tags; REC-04 tie-out vs trial balance. Fourth sidebar page: General ledger. `push_manifest` applies the
-manifest over the API (API key). 83 tests passing.
+manifest over the API (API key). Render deploy (`render.yaml`) + "Load the demo family" button (`ALLOW_DEMO_DATA`).
+86 tests passing.
 
 ## Next steps (in order)
 1. **Capital call → Campfire bill** (draft, `bills:draft`) → `Bill.paid` event (add to `EVENT_TOPICS`) →
@@ -69,9 +73,11 @@ manifest over the API (API key). 83 tests passing.
   with the P1 scopes; v1 (production) had no redirect URL / URLs / extensions yet.
 
 ## Waiting on the user
-- Promote v2 of the app in Campfire (Developer → Apps → Family Office → Promote v2).
-- Local run with ngrok (README "Local development"): their public `APP_URL` is needed before the full manifest
-  (redirect URL, connect/manage URLs, sidebar pages, events) can be applied with `push_manifest`. Then Connect.
+- Render deploy (README "Shared test environment on Render"): create the Render account and Blueprint, enter the four
+  Campfire values. Then `push_manifest` with the onrender URL (from the Render Shell, or from a session with
+  `APP_URL=https://<service>.onrender.com`), Promote in Campfire (also carries the v2 scopes), Connect, load demo data.
+- Known limit for testers: one stored connection per workspace (the last connector's permissions); no per-user
+  access control yet, so demo data only.
 - From the Campfire partner contact: whether the `oauth_app_extensions` flag is still needed on the sandbox.
 
 ## Conventions

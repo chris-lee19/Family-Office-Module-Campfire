@@ -100,6 +100,32 @@ Campfire entity, then **Preview suggested setup** → **Create in Campfire** (or
 **Ready to post** shows the entries and anything holding one back; **Send** puts them in Campfire's approval queue.
 **Compare with Campfire's GL** runs the tie-out.
 
+## Shared test environment on Render
+
+For people other than the developer to test in the Campfire sandbox, the app runs on Render with its own HTTPS
+address (no ngrok). `render.yaml` defines the web service and a Postgres database.
+
+1. **Deploy.** In Render: **New → Blueprint**, connect this GitHub repository and pick the branch. Render creates
+   `family-office` (web) and `family-office-db` (Postgres), generates `DJANGO_SECRET_KEY` and
+   `FIELD_ENCRYPTION_SECRET`, and asks for the Campfire values:
+   - `CAMPFIRE_CLIENT_ID`, `CAMPFIRE_CLIENT_SECRET`: Campfire → Developer → Apps → Family Office → Actions → View credentials
+   - `CAMPFIRE_SIGNING_SECRET`: rotate the signing secret on the app page and copy it (shown once)
+   - `CAMPFIRE_API_KEY`: a workspace admin's API key (only for `push_manifest`)
+
+   `APP_URL` defaults to the service's `https://….onrender.com` address. Migrations run on every start; every push
+   to the branch redeploys.
+2. **Point Campfire at it.** In the service's **Shell**: `python manage.py push_manifest` (try `--dry-run` first).
+   This sets the redirect URL, connect/manage URLs, allowed domain, sidebar pages and events.
+3. **Promote** the new version on the app page in Campfire.
+4. **Connect.** In the sandbox workspace: Connections → Family Office → Connect. The app's API calls use the most
+   recent connection's permissions, so the last person to connect should be able to create journal entries and bills.
+5. **Demo data.** Open Family Office → Investments and click **Load the demo family** (only when `ALLOW_DEMO_DATA=1`;
+   keep it off where real client data lives).
+6. **Testers.** People in the sandbox workspace connect from Connections. People in other Campfire workspaces: share
+   the app by email on its **Installs** tab; each of their workspaces then connects and loads its own demo data.
+
+Optional: `python manage.py createsuperuser` in the Shell for `/admin` (custodian layouts, narrower GL mappings).
+
 ## Permissions (scopes)
 
 `CAMPFIRE_SCOPES` is the app's permission ceiling, written to the manifest's `allowed_scopes`. Leave it empty for the

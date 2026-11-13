@@ -1,0 +1,45 @@
+# Render Blueprint: the Family Office app and its Postgres database, for a shared Campfire sandbox.
+# Render → New → Blueprint → pick this repo and branch. It asks for the values marked `sync: false`.
+# Docs: https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: family-office
+    runtime: python
+    plan: starter            # always on: Campfire's callbacks and events can't wait for a sleeping free instance
+    buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput
+    # Migrations run at start so the free/starter plans (no pre-deploy step) work too; one instance only.
+    startCommand: python manage.py migrate --noinput && gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --timeout 60 --access-logfile -
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.13.1"
+      - key: DJANGO_DEBUG
+        value: "0"
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: FIELD_ENCRYPTION_SECRET   # encrypts Campfire tokens at rest; never change it once tokens exist
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: family-office-db
+          property: connectionString
+      - key: ALLOW_DEMO_DATA           # testers can load the fictional Alder family; set 0 for real client data
+        value: "1"
+      # APP_URL defaults to this service's https://<name>.onrender.com; set it only for a custom domain.
+      - key: CAMPFIRE_CLIENT_ID        # Campfire → Developer → Apps → Family Office → Actions → View credentials
+        sync: false
+      - key: CAMPFIRE_CLIENT_SECRET
+        sync: false
+      - key: CAMPFIRE_SIGNING_SECRET   # app page → rotate signing secret (shown once)
+        sync: false
+      - key: CAMPFIRE_API_KEY          # workspace admin API key: lets `push_manifest` run from the Render shell
+        sync: false
+      - key: CAMPFIRE_POSTING_MODE
+        value: draft
+
+databases:
+  - name: family-office-db
+    plan: basic-256mb
+    databaseName: family_office
+    ipAllowList: []          # reachable from Render services only
