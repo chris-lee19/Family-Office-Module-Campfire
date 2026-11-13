@@ -91,24 +91,70 @@ class SetupStep:
     label: str
 
 
+def _norm(name: str | None) -> str:
+    return " ".join((name or "").lower().split())
+
+
+def free_number(wanted: str, taken: set[str]) -> str:
+    """The suggested number, or the next free one after it (1500 taken -> 1501 ...). Never reuse a number."""
+    if wanted not in taken:
+        return wanted
+    n = int(wanted)
+    while str(n) in taken:
+        n += 1
+    return str(n)
+
+
+@dataclass
+class PlannedAccount:
+    existing: dict[str, Any] | None  # an account with the same name: reused
+    number: str  # for a new account
+    name: str
+    account_type: str
+    account_subtype: str
+
+    @property
+    def label(self) -> str:
+        return account_label(self.existing) if self.existing else f"{self.number} {self.name}"
+
+
+def plan_accounts(wanted: list[tuple[str, str, str, str]], accounts: list[dict[str, Any]]) -> list[PlannedAccount]:
+    """Match (number, name, type, subtype) against the chart: same name -> reuse; else create on a free number.
+
+    A number alone never matches: a sandbox's 1500 may be Intercompany Receivable, not Investments at cost.
+    """
+    by_name = {_norm(a.get("name")): a for a in accounts}
+    taken = {str(a.get("number")) for a in accounts if a.get("number")}
+    planned = []
+    for number, name, account_type, subtype in wanted:
+        existing = by_name.get(_norm(name))
+        if existing is None:
+            number = free_number(number, taken)
+            taken.add(number)
+        planned.append(PlannedAccount(existing, number, name, account_type, subtype))
+    return planned
+
+
+def create_planned(client: CampfireClient, p: PlannedAccount) -> dict[str, Any]:
+    return _post(client, ACCOUNT_PATH, {"number": p.number, "name": p.name, "account_type": p.account_type, "account_subtype": p.account_subtype})
+
+
 def setup_accounts(workspace: Workspace, client: CampfireClient, *, create: bool) -> list[SetupStep]:
     existing = {m.role: m for m in AccountMapping.objects.filter(workspace=workspace, campfire_entity_id=None, asset_class=None, account=None)}
-    by_number = {a.get("number"): a for a in list_accounts(client) if a.get("number")}
+    todo = [s for s in SUGGESTED_ACCOUNTS if s.role not in existing]
+    plans = dict(zip([s.role for s in todo], plan_accounts([(s.number, s.name, s.account_type, s.account_subtype) for s in todo], list_accounts(client)) if todo else []))
     steps = []
     for s in SUGGESTED_ACCOUNTS:
         if s.role in existing:
             steps.append(SetupStep(Role(s.role).label, "mapped", existing[s.role].campfire_account_label))
             continue
-        account = by_number.get(s.number)
+        plan = plans[s.role]
         if not create:  # preview: say what would happen, change nothing
-            steps.append(SetupStep(Role(s.role).label, "reuse" if account else "create", account_label(account) if account else f"{s.number} {s.name}"))
+            steps.append(SetupStep(Role(s.role).label, "reuse" if plan.existing else "create", plan.label))
             continue
-        action = "mapped"
-        if account is None:
-            account = _post(client, ACCOUNT_PATH, {"number": s.number, "name": s.name, "account_type": s.account_type, "account_subtype": s.account_subtype})
-            action = "created"
+        account = plan.existing or create_planned(client, plan)
         AccountMapping.objects.create(workspace=workspace, role=s.role, campfire_account_id=int(account["id"]), campfire_account_label=account_label(account))
-        steps.append(SetupStep(Role(s.role).label, action, account_label(account)))
+        steps.append(SetupStep(Role(s.role).label, "mapped" if plan.existing else "created", account_label(account)))
     return steps
 
 

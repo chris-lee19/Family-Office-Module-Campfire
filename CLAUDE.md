@@ -72,6 +72,14 @@ manifest over the API (API key). Render deploy (`render.yaml`) + "Load the demo 
 - Sandbox app "Family Office" id `4992b82b-105c-411a-b346-1861cc1ff78d`: `push_manifest --scopes-only` saved v2 (dev)
   with the P1 scopes; v1 (production) had no redirect URL / URLs / extensions yet.
 
+## Sandbox demo structure (2026-11-13, user approved)
+- `campfire_demo_setup` created in workspace "Holthouse" (customer 37990): "Alder Family (Consolidated)" (58617) with
+  the 8 Alder entities (58618–58625) and "Alder Family - Eliminations" (58626, linked as the parent's eliminations
+  entity); operating accounts 1040/1180/1250/2150/2180/6510/6520; vendors Summit Growth Partners, Crescent Ventures.
+  `--teardown` removes them. The sandbox's own 1500 is "Intercompany Receivable": setup now matches accounts by
+  name, never by number alone (`gl.services.setup.plan_accounts`).
+- App connected 2026-11-13 (v2 promoted): token has `journal_entries:draft`, `bills:draft`.
+
 ## Waiting on the user
 - Render: live at `https://family-office-wl37.onrender.com` (2026-11-13). `push_manifest` applied for that URL:
   allowed domain, 4 sidebar pages and JournalEntry events are live; redirect/connect/manage URLs + P1 scopes sit in

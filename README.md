@@ -119,9 +119,15 @@ address (no ngrok). `render.yaml` defines the web service and a Postgres databas
 3. **Promote** the new version on the app page in Campfire.
 4. **Connect.** In the sandbox workspace: Connections → Family Office → Connect. The app's API calls use the most
    recent connection's permissions, so the last person to connect should be able to create journal entries and bills.
-5. **Demo data.** Open Family Office → Investments and click **Load the demo family** (only when `ALLOW_DEMO_DATA=1`;
+5. **Sandbox structure (optional, for the demo).** `python manage.py campfire_demo_setup` (API key; `--dry-run`,
+   `--teardown`) creates the Alder entities under a consolidation parent with an eliminations entity, operating
+   GL accounts and the demo funds' GPs as vendors. Matching is by name, so it is safe to run again.
+6. **Demo data.** Open Family Office → Investments and click **Load the demo family** (only when `ALLOW_DEMO_DATA=1`;
    keep it off where real client data lives).
-6. **Testers.** People in the sandbox workspace connect from Connections. People in other Campfire workspaces: share
+7. **GL.** Family Office → General ledger: set the go-live date, **Link by matching name**, **Preview suggested
+   setup** → **Create in Campfire** (an existing account is reused only when its name matches; a taken number moves
+   to the next free one), then **Send**.
+8. **Testers.** People in the sandbox workspace connect from Connections. People in other Campfire workspaces: share
    the app by email on its **Installs** tab; each of their workspaces then connects and loads its own demo data.
 
 Optional: `python manage.py createsuperuser` in the Shell for `/admin` (custodian layouts, narrower GL mappings).

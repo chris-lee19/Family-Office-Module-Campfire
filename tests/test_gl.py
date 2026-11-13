@@ -263,14 +263,19 @@ def test_setup_accounts_and_dimensions(workspace: Workspace) -> None:
         created.append(body)
         return _response(201, {"id": 7000 + len(created), **body})
 
-    client = FakeClient(answer, gets={"/coa/api/account": {"results": [{"id": 31, "number": "1150", "name": "Custody cash"}], "next": None},
+    chart = [{"id": 31, "number": "1170", "name": "Transfers clearing"},  # same name: reused
+             {"id": 32, "number": "1500", "name": "Intercompany Receivable"}]  # same number, other account: not reused
+    client = FakeClient(answer, gets={"/coa/api/account": {"results": chart, "next": None},
                                       "/coa/api/tag-group": {"results": [], "next": None}, "/coa/api/tag": {"results": [], "next": None}})
     preview = setup_accounts(workspace, client, create=False)  # type: ignore[arg-type]
     assert [s.action for s in preview].count("reuse") == 1 and not AccountMapping.objects.exists() and not created
 
     steps = setup_accounts(workspace, client, create=True)  # type: ignore[arg-type]
-    assert AccountMapping.objects.get(role=Role.CASH).campfire_account_id == 31  # existing 1150 reused
-    assert len(created) == len(SUGGESTED_ACCOUNTS) - 1 and steps[0].action == "mapped"
+    assert AccountMapping.objects.get(role=Role.TRANSFERS).campfire_account_id == 31
+    investments = next(b for b in created if b["name"] == "Investments at cost")
+    assert investments["number"] == "1501"  # 1500 is taken by intercompany receivable
+    assert AccountMapping.objects.get(role=Role.INVESTMENTS).campfire_account_id != 32
+    assert len(created) == len(SUGGESTED_ACCOUNTS) - 1 and steps[2].action == "mapped" and steps[0].action == "created"
     assert setup_accounts(workspace, client, create=True)[0].action == "mapped"  # idempotent
     assert len(created) == len(SUGGESTED_ACCOUNTS) - 1
 
@@ -336,6 +341,16 @@ def test_gl_page_send_and_link(client, alder: Family) -> None:  # type: ignore[n
         dyn.refresh_from_db()
         assert dyn.campfire_entity_id is None
 
+    # Link by matching name: only unlinked entities, only exact (case/space-insensitive) unique matches.
+    fake.gets["/coa/api/entity"] = [{"id": 7001, "name": "alder 2012  dynasty trust"}, {"id": 7002, "name": "Alder Family Foundation"},
+                                    {"id": 7003, "name": "Alder Family Foundation"}]
+    with mock.patch("gl.views.CampfireClient", return_value=fake):
+        r = client.post("/fo/frame/gl", {"fo_t": token, "action": "auto_link"})
+    assert "Linked 1 entity" in r.content.decode()
+    dyn.refresh_from_db()
+    assert dyn.campfire_entity_id == 7001
+    assert Entity.objects.get(family=alder, name="Alder Family Foundation").campfire_entity_id is None  # two matches: left alone
+
 
 @pytest.mark.django_db
 def test_gl_page_without_campfire_connection(client, alder: Family) -> None:  # type: ignore[no-untyped-def]
@@ -362,3 +377,11 @@ def test_post_from_skips_history_already_in_opening_balances(alder: Family) -> N
     assert recent.journals and all(j.period_end >= TODAY - timedelta(days=131) for j in recent.journals)
     posted = sum(len(j.transactions) for j in recent.journals)
     assert recent.before_start + posted == sum(len(j.transactions) for j in everything.journals) + sum(everything.not_linked.values()) - sum(recent.not_linked.values())
+
+
+@pytest.mark.django_db
+def test_demo_setup_entity_names_match_the_demo_seed(workspace: Workspace) -> None:
+    from gl.management.commands.campfire_demo_setup import ALDER_ENTITIES
+
+    seed_alder(workspace)
+    assert sorted(ALDER_ENTITIES) == sorted(Entity.objects.filter(family__workspace=workspace).values_list("name", flat=True))

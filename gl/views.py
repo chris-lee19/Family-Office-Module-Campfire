@@ -46,6 +46,18 @@ def _handle_post(request: HttpRequest, workspace: Workspace) -> tuple[str, Any]:
                 entity.save(update_fields=["campfire_entity_id"])
                 changed += 1
         return f"Saved {changed} entity link{'s' if changed != 1 else ''}.", None
+    if action == "auto_link":
+        by_name: dict[str, list[int]] = {}
+        for e in list_entities(client):
+            by_name.setdefault(" ".join(str(e.get("name", "")).lower().split()), []).append(int(e["id"]))
+        linked = 0
+        for entity in Entity.objects.filter(family__workspace=workspace, campfire_entity_id__isnull=True):
+            ids = by_name.get(" ".join(entity.name.lower().split()), [])
+            if len(ids) == 1:  # only an unambiguous match
+                entity.campfire_entity_id = ids[0]
+                entity.save(update_fields=["campfire_entity_id"])
+                linked += 1
+        return f"Linked {linked} entit{'ies' if linked != 1 else 'y'} to the Campfire entity with the same name.", None
     if action == "map":
         accounts = {int(a["id"]): a for a in list_accounts(client)}
         for role in Role:

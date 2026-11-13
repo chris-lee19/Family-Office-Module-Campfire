@@ -133,7 +133,8 @@
           <td>{% if cf_entities %}<select name="entity_{{ e.pk }}"><option value="">Not booked in Campfire</option>{% for c in cf_entities %}<option value="{{ c.id }}" {% if c.id == e.campfire_entity_id %}selected{% endif %}>{{ c.name }}</option>{% endfor %}</select>{% else %}{{ e.campfire_entity_id|default:"—" }}{% endif %}</td></tr>
       {% endfor %}
       </tbody></table>
-      {% if cf_entities %}<p><button class="btn secondary" type="submit" name="action" value="link">Save entity links</button></p>{% endif %}
+      {% if cf_entities %}<p><button class="btn secondary" type="submit" name="action" value="link">Save entity links</button>
+        <button class="btn secondary" type="submit" name="action" value="auto_link" title="Links unlinked entities to the Campfire entity with exactly the same name">Link by matching name</button></p>{% endif %}
     </form>
   </div>
   <div>
