@@ -66,10 +66,16 @@ bank-feed matching (`gl/services/bankmatch.py`, Capital calls page). Sandbox tes
 account create (`/ca/api/account`, entity + chart_of_accounts_account + type CHECKING) 201; bank feed
 (`/ca/api/bank-feed/<id>`) needs `posted_at` (not `date`), signed `amount`, `merchant_name` kept (`description` not);
 each line posts a JE bank cash vs 000000 Uncategorized; deletes: bank txn / JE / account via POST .../delete. 131 tests passing.
+Close folded into Campfire (2026-11-13): no public close-checklist or lock-period endpoints (schema has none; probes 404),
+so the close page is "the investment part of Campfire's close" (intro + the 5 tasks to add to Campfire's checklist once;
+tick "Investments closed" there); `close_checklist` scope not requested. Partner ask: close-checklist + lock-period API ·
+UI refresh: design system `static/fo/app.css` (tokens on :root, dark via prefers-color-scheme and `data-theme`), grouped
+sidebar (`campfire_integration/templatetags/nav.py` NAV, shown standalone when `signed_in`), framed pages load
+`static/fo/bridge.js` (Campfire app bridge: ready → theme, resize, `[data-toast]` → toast; origin = CAMPFIRE FRONTEND_ORIGIN).
 
 ## Next steps (in order) — Phase A (usable without us) is done; then B (native feel), then C (differentiators)
-- Agreed order (user, 2026-11-13): fold Month-end close into Campfire Close Management
-  (`close_checklist:write`) → FMV / unrealized entries into the GL → roles + per-user connections.
+- Agreed order (user, 2026-11-13): ~~fold Month-end close into Campfire Close~~ (done as far as the API allows)
+  → FMV / unrealized entries into the GL → roles + per-user connections.
 - Seamless Campfire (user question): FO staff roles without Revenue/AR; a clean sandbox workspace for the demo; ask the
   partner contact for per-workspace module switches, an app page as landing page, and app widgets on Campfire Home.
   C: documents & AI, family reports, FMV JEs, liquidity.

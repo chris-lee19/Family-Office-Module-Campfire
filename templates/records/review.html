@@ -4,7 +4,7 @@
 {% block content %}
 <h1>Review</h1>
 <p class="muted">{{ workspace }} · decisions that need a second person{% if reviewer.name %} · you are {{ reviewer.name }}{% endif %}</p>
-{% if message %}<div class="notice">{{ message }}</div>{% endif %}
+{% if message %}<div class="notice" data-toast="success">{{ message }}</div>{% endif %}
 {% if error %}<div class="issues">{{ error }}</div>{% endif %}
 
 <div class="cards">

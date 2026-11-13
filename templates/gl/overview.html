@@ -4,7 +4,7 @@
 {% block content %}
 <h1>General ledger</h1>
 <p class="muted">{{ workspace }} · investment activity into Campfire as summarized journal entries, one per entity and month · as of {{ today|date:"Y-m-d" }}</p>
-{% if message %}<div class="notice">{{ message }}</div>{% endif %}
+{% if message %}<div class="notice" data-toast="success">{{ message }}</div>{% endif %}
 {% if error %}<div class="issues">{{ error }}</div>{% endif %}
 
 {% with p=preview %}

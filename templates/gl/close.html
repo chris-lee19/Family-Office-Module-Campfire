@@ -3,9 +3,28 @@
 {% block content %}
 <h1>Month-end close: {{ month|date:"F Y" }}{% if all_closed %} <span class="pill status-committed">Closed</span>{% endif %}</h1>
 <p class="muted">{{ workspace }} · <a href="{{ nav.prev }}">← previous month</a> · <a href="{{ nav.next }}">next month →</a> · as of {{ month_end|date:"Y-m-d" }}</p>
-{% if message %}<div class="notice">{{ message }}</div>{% endif %}
+{% if message %}<div class="notice" data-toast="success">{{ message }}</div>{% endif %}
 {% if error %}<div class="issues">{{ error }}</div>{% endif %}
 {% if is_future %}<div class="notice">This month hasn't ended yet.</div>{% endif %}
+
+<div class="callout">
+  {% if all_closed %}
+  <strong>The family-office close for {{ month|date:"F" }} is done.</strong> Tick <em>Investments closed</em> in Campfire's Close checklist
+  for {{ month|date:"F" }}; Campfire's own close (bank recs, bills, lock the period) carries on there.
+  {% else %}
+  <strong>This is the investment part of Campfire's month-end close.</strong> Work each entity to <em>Closed</em> here, then tick
+  <em>Investments closed</em> in Campfire's Close checklist. Bank recs, bills, review and locking the period stay in Campfire.
+  {% endif %}
+  <details><summary class="small">Tasks to add to the Campfire Close checklist (once)</summary>
+    <ol class="small">
+      <li>Custodian files and statements imported (Family Office → Imports)</li>
+      <li>Marks reviewed, nothing held (Family Office → Review)</li>
+      <li>Capital calls billed and paid; distributions recorded (Family Office → Capital calls)</li>
+      <li>Family Office journal entries approved (Accounting → Journal entries, source "Family Office")</li>
+      <li>Investments closed: every entity signed off (Family Office → Month-end close)</li>
+    </ol>
+  </details>
+</div>
 
 {% if rows %}
 <form method="post" action="{{ action }}" class="actions">

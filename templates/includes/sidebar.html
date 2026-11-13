@@ -1,0 +1,12 @@
+<aside class="side">
+  <a class="brand" href="{% url 'home' %}"><span class="brand-mark">F</span>Family Office</a>
+  {% for i in items %}
+    {% if i.group %}<div class="nav-group">{{ i.group }}</div>{% endif %}
+    <a class="nav{% if i.active %} active{% endif %}" href="{{ i.url }}"{% if i.active %} aria-current="page"{% endif %}>{{ i.label }}</a>
+  {% endfor %}
+  <div class="who">
+    {% firstof request.session.campfire_user.name request.session.campfire_user.email "Campfire user" %}{% if workspace %}<br>{{ workspace }}{% endif %}
+    <form method="post" action="{% url 'campfire:logout' %}"><input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+      <button class="btn secondary small" type="submit">Sign out</button></form>
+  </div>
+</aside>

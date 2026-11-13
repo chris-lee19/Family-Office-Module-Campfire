@@ -5,7 +5,7 @@
 <h1>Investments</h1>
 <p class="muted">{{ workspace }} · as of {{ as_of }}</p>
 
-{% if message %}<div class="notice">{{ message }}</div>{% endif %}
+{% if message %}<div class="notice" data-toast="success">{{ message }}</div>{% endif %}
 {% for fi in families %}
 {% with p=fi.portfolio nw=fi.net_worth %}
   <h2>{{ fi.family.name }}</h2>
@@ -36,7 +36,7 @@
   </div>
 
   {% if fi.attention_count %}
-  <div class="issues">
+  <div class="callout warn">
     <strong>Needs attention</strong>
     <ul class="plain">
       {% for v in fi.held %}<li><span class="pill held">Held</span> {{ v.instrument.name }}: {{ v.get_method_display }} of {{ v.value|money }} as of {{ v.as_of }} is {{ v.change_pct }}% vs expected. Not booked until <a href="{{ review_url }}">reviewed</a>.</li>{% endfor %}

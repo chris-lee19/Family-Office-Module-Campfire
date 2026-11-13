@@ -4,7 +4,7 @@
 {% block content %}
 <h1>Capital calls</h1>
 <p class="muted">{{ workspace }} · notice → bill in Campfire (approved and paid there) → contribution booked, unfunded updated</p>
-{% if message %}<div class="notice">{{ message }}</div>{% endif %}
+{% if message %}<div class="notice" data-toast="success">{{ message }}</div>{% endif %}
 {% if error %}<div class="issues">{{ error }}</div>{% endif %}
 
 <div class="actions">

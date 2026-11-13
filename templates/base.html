@@ -1,75 +1,18 @@
-<!doctype html>
+{% load static nav %}<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Family Office{% endblock %}</title>
-  <style>
-    :root { --bg:#fff; --fg:#1f2328; --muted:#656d76; --line:#e5e7eb; --accent:#ea580c; --warn-bg:#fff7ed; --warn:#9a3412; }
-    * { box-sizing: border-box; }
-    body { margin:0; font:14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif; color:var(--fg); background:var(--bg); }
-    header.top { display:flex; justify-content:space-between; align-items:center; padding:12px 24px; border-bottom:1px solid var(--line); }
-    main { padding:20px 24px; max-width:1200px; }
-    .framed main { padding:16px; max-width:none; }
-    h1 { font-size:20px; margin:0 0 4px; } h2 { font-size:16px; margin:24px 0 8px; }
-    .muted { color:var(--muted); }
-    table { width:100%; border-collapse:collapse; margin-top:8px; }
-    th, td { text-align:left; padding:8px; border-bottom:1px solid var(--line); vertical-align:top; }
-    th { font-weight:600; color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.03em; }
-    .pill { display:inline-block; padding:1px 8px; border-radius:999px; background:#f3f4f6; font-size:12px; }
-    .pill.booked { background:#ffedd5; color:var(--warn); }
-    .issues { background:var(--warn-bg); color:var(--warn); border-radius:6px; padding:8px 12px; margin:8px 0; }
-    ul.plain { list-style:none; margin:0; padding:0; }
-    .btn { display:inline-block; padding:8px 14px; border-radius:6px; background:var(--accent); color:#fff; text-decoration:none; border:0; cursor:pointer; font:inherit; }
-    .btn.secondary { background:#f3f4f6; color:var(--fg); }
-    nav a { color:var(--fg); }
-    .num { text-align:right; font-variant-numeric: tabular-nums; white-space:nowrap; }
-    .cards { display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:12px; margin:12px 0 4px; }
-    .card { border:1px solid var(--line); border-radius:8px; padding:12px; }
-    .card .label { color:var(--muted); font-size:12px; } .card .value { font-size:20px; font-weight:600; font-variant-numeric: tabular-nums; }
-    .grid2 { display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:16px 32px; }
-    .bar { height:6px; background:#f3f4f6; border-radius:3px; min-width:60px; } .bar span { display:block; height:100%; background:var(--accent); border-radius:3px; }
-    .pill.held { background:#fee2e2; color:#991b1b; } .pill.stale { background:#fef3c7; color:#92400e; }
-    h3 { font-size:14px; margin:16px 0 4px; }
-    form.stack { display:grid; gap:10px; max-width:560px; } form.stack label { display:grid; gap:4px; } form.stack label.check { display:flex; gap:8px; align-items:center; }
-    select, input[type=file] { font:inherit; padding:6px; border:1px solid var(--line); border-radius:6px; }
-    .actions { display:flex; gap:8px; align-items:center; margin:12px 0; }
-    .notice { background:#f0f9ff; color:#075985; border-radius:6px; padding:8px 12px; margin:8px 0; }
-    .pill.status-committed { background:#dcfce7; color:#166534; } .pill.status-rejected, .pill.sev-error { background:#fee2e2; color:#991b1b; }
-    .pill.status-validated, .pill.sev-warning { background:#fef3c7; color:#92400e; } .pill.status-discarded { color:var(--muted); }
-    .pill.posting-posted { background:#dcfce7; color:#166534; } .pill.posting-submitted, .pill.posting-uncertain { background:#fef3c7; color:#92400e; }
-    .pill.posting-failed { background:#fee2e2; color:#991b1b; } .pill.posting-released { color:var(--muted); }
-    .small { font-size:12px; } .err { color:#991b1b; } table.inner td { padding:4px 6px; font-size:12px; } .btn.small { padding:4px 10px; font-size:12px; }
-    .pill.call-submitted, .pill.call-billed { background:#fef3c7; color:#92400e; } .pill.call-paid { background:#dcfce7; color:#166534; }
-    table.close td { min-width:90px; } .step { display:inline-block; width:22px; height:22px; border-radius:11px; text-align:center; line-height:22px; font-weight:700; font-size:12px; }
-    .step.ok { background:#dcfce7; color:#166534; } .step.todo { background:#f3f4f6; color:var(--muted); } .step.bad { background:#fee2e2; color:#991b1b; }
-    .pill.att-urgent { background:#fee2e2; color:#991b1b; } .pill.att-todo { background:#fef3c7; color:#92400e; } .pill.att-info { background:#e0f2fe; color:#075985; }
-    table.attention td { vertical-align:middle; } .card .value a { color:inherit; text-decoration:none; }
-    .networth { display:grid; grid-template-columns:minmax(320px, 460px) 1fr; gap:16px; align-items:start; margin:8px 0 16px; }
-    table.nw td { padding:4px 8px; } table.nw tr.total td { border-top:2px solid var(--fg); }
-    .btn[disabled] { opacity:.5; cursor:not-allowed; } select { max-width:320px; } .nowrap { white-space:nowrap; }
-    input[type=date] { font:inherit; padding:5px; border:1px solid var(--line); border-radius:6px; }
-    .record-form .fields { display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:14px 24px; max-width:900px; margin:12px 0; }
-    .record-form .field { display:grid; gap:4px; align-content:start; } .record-form label.checkline { display:flex; gap:8px; align-items:center; margin-top:22px; }
-    .record-form .field.has-error input, .record-form .field.has-error select { border-color:#991b1b; }
-    .record-form input:not([type=checkbox]), .record-form select, .record-form textarea, input.input { font:inherit; padding:6px 8px; border:1px solid var(--line); border-radius:6px; width:100%; max-width:420px; }
-    .req { color:#991b1b; } a.btn { text-decoration:none; }
-    ol.steps { padding-left:20px; } ol.steps li { margin:6px 0; }
-    form.decide { display:grid; gap:6px; min-width:260px; } form.decide .actions { margin:0; } form.decide .input { max-width:100%; }
-  </style>
+  {% if framed %}<script>try { var t = sessionStorage.getItem("fo-theme"); if (t) document.documentElement.setAttribute("data-theme", t); } catch (_) {}</script>{% endif %}
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="{% static 'fo/app.css' %}">
 </head>
-<body class="{% if framed %}framed{% endif %}">
-  {% if not framed %}
-  <header class="top">
-    <nav><strong>Family Office</strong>{% if request.session.campfire_user %} &nbsp; <a href="{% url 'home' %}">Home</a> · <a href="{% url 'investments:investments' %}">Investments</a> · <a href="{% url 'entities:entities' %}">Entities &amp; Ownership</a> · <a href="{% url 'investments:imports' %}">Imports</a> · <a href="{% url 'gl:calls' %}">Capital calls</a> · <a href="{% url 'gl:gl' %}">General ledger</a> · <a href="{% url 'records:review' %}">Review</a> · <a href="{% url 'gl:close' %}">Close</a> · <a href="{% url 'records:home' %}">Records</a>{% endif %}</nav>
-    {% if request.session.campfire_user %}
-      <form method="post" action="{% url 'campfire:logout' %}">{% csrf_token %}
-        <span class="muted">{% firstof request.session.campfire_user.name request.session.campfire_user.email "Campfire user" %}{% if workspace %} · {{ workspace }}{% endif %}</span>
-        <button class="btn secondary" type="submit">Sign out</button>
-      </form>
-    {% endif %}
-  </header>
-  {% endif %}
+<body class="{% if framed %}framed{% endif %}{% if panel %} panel{% endif %}" data-campfire-origin="{{ campfire_origin }}">
+  {% if not framed and signed_in %}<div class="app">{% sidebar %}{% endif %}
   <main>{% block content %}{% endblock %}</main>
+  {% if not framed and signed_in %}</div>{% endif %}
+  {% if framed %}<script src="{% static 'fo/bridge.js' %}"></script>{% endif %}
 </body>
 </html>

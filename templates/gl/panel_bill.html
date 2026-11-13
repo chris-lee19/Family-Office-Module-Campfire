@@ -2,7 +2,7 @@
 {% load money %}
 {% block title %}Family Office{% endblock %}
 {% block content %}
-{% if message %}<div class="notice">{{ message }}</div>{% endif %}
+{% if message %}<div class="notice" data-toast="success">{{ message }}</div>{% endif %}
 {% if error %}<div class="issues">{{ error }}</div>{% endif %}
 {% if call %}
   <h2 style="margin-top:0">Capital call: {{ call.commitment.instrument }}</h2>
