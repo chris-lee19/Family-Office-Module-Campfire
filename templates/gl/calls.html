@@ -46,6 +46,43 @@
 <table><tbody>{% for c in paid %}<tr><td>{{ c.commitment.instrument }}</td><td class="num">{{ c.amount|money }}</td><td>paid {{ c.paid_on|date:"Y-m-d" }}</td><td class="muted small">{% if c.campfire_bill_id %}Campfire bill #{{ c.campfire_bill_id }}{% endif %}</td></tr>{% endfor %}</tbody></table>
 {% endif %}
 
+<h2>From the bank feed</h2>
+{% if bank %}
+<p class="muted small">Wires in Campfire's bank feed (last 120 days) that look like capital calls or distributions.</p>
+<table>
+  <thead><tr><th>Date</th><th class="num">Amount</th><th>Bank line</th><th>Looks like</th><th></th></tr></thead>
+  <tbody>
+  {% for b in bank %}
+    <tr>
+      <td class="nowrap">{{ b.posted|date:"Y-m-d" }}</td>
+      <td class="num">{{ b.amount|money }}</td>
+      <td>{{ b.text|default:"—" }}<br><span class="muted small">{{ b.line.account_name }} · {{ b.line.entity_name }}</span></td>
+      <td>{% if b.kind == "distribution" %}A distribution from <strong>{{ b.commitment.instrument }}</strong>
+          {% else %}The <strong>{{ b.call.commitment.instrument }}</strong> call due {{ b.call.due_date|date:"Y-m-d" }}{% endif %}</td>
+      <td>
+        {% if b.kind == "call_paid" %}
+          <form method="post" action="{{ action }}" class="decide">{% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
+            <input type="hidden" name="line" value="{{ b.line.id }}"><input type="hidden" name="call" value="{{ b.call.pk }}">
+            <button class="btn small" type="submit" name="action" value="bank_paid">Mark the call paid</button></form>
+        {% elif b.kind == "pay_bill_in_campfire" %}
+          <span class="small">This call has a Campfire bill{% if b.call.campfire_bill_id %} (#{{ b.call.campfire_bill_id }}){% endif %}: pay the bill with this bank line in Campfire, and the call is marked paid here.</span>
+        {% else %}
+          <form method="post" action="{{ action }}" class="decide">{% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
+            <input type="hidden" name="line" value="{{ b.line.id }}"><input type="hidden" name="commitment" value="{{ b.commitment.pk }}">
+            <div class="actions"><input class="input" name="roc" value="{{ b.amount|floatformat:2 }}" title="Return of capital" placeholder="Return of capital">
+              <input class="input" name="recallable" placeholder="of which recallable"></div>
+            <div class="actions"><input class="input" name="income" placeholder="Income"><input class="input" name="gains" placeholder="Gains"></div>
+            <button class="btn small" type="submit" name="action" value="bank_distribution">Record distribution</button></form>
+        {% endif %}
+        <form method="post" action="{{ action }}">{% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
+          <input type="hidden" name="line" value="{{ b.line.id }}"><button class="btn secondary small" type="submit" name="action" value="bank_dismiss">Not related</button></form>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}<p class="muted">Nothing in the bank feed looks like a capital call or distribution.</p>{% endif %}
+
 <h2>Funds</h2>
 {% if campfire_error %}<div class="issues">{{ campfire_error }}</div>{% endif %}
 <table>

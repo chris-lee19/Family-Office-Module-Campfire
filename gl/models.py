@@ -213,3 +213,15 @@ class CampfireBalanceSnapshot(models.Model):
 
     def __str__(self) -> str:
         return f"Campfire balances {self.campfire_entity_id} {self.as_of}"
+
+
+class BankLineDismissal(models.Model):
+    """A Campfire bank-feed line someone said isn't a capital call or distribution: no longer suggested."""
+
+    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE, related_name="bank_dismissals")
+    bank_line_id = models.BigIntegerField()
+    dismissed_by = models.CharField(max_length=255, blank=True)
+    dismissed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["workspace", "bank_line_id"], name="bank_dismissal_unique")]

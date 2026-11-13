@@ -14,6 +14,7 @@ from django.utils import timezone
 from campfire_integration import pages
 from campfire_integration.client import CampfireClient, CampfireError, NotConnected
 from campfire_integration.models import Workspace
+from gl.services import bankmatch
 from gl.services import calls as svc
 from investments.models import CapitalCall, Commitment, Transaction
 from investments.services.privates import summarize
@@ -50,7 +51,7 @@ def _commitments(workspace: Workspace):  # type: ignore[no-untyped-def]
 
 
 def record_distribution(workspace: Workspace, commitment: Commitment, when: date, roc: Decimal, recallable: Decimal,
-                        income: Decimal, gains: Decimal, note: str, actor: str) -> list[Transaction]:
+                        income: Decimal, gains: Decimal, note: str, actor: str, source_ref: str = "") -> list[Transaction]:
     if recallable > roc:
         raise svc.CallError("The recallable part can't exceed the return of capital.")
     parts = [(T.DISTRIBUTION_ROC, roc - recallable, False, "Return of capital"), (T.DISTRIBUTION_ROC, recallable, True, "Recallable return of capital"),
@@ -61,8 +62,9 @@ def record_distribution(workspace: Workspace, commitment: Commitment, when: date
     with transaction.atomic():
         for t, amount, recall, label in parts:
             if amount:
+                part_ref = (source_ref if not created else f"{source_ref}:{len(created)}") if source_ref else ""
                 txn = Transaction.objects.create(account=commitment.account, instrument=commitment.instrument, txn_type=t, trade_date=when,
-                                                 amount=amount, is_recallable=recall, description=(f"{label}: {note}" if note else label)[:255])
+                                                 source_ref=part_ref, amount=amount, is_recallable=recall, description=(f"{label}: {note}" if note else label)[:255])
                 created.append(txn)
                 AuditEntry.objects.create(workspace=workspace, actor=actor, action=AuditEntry.Action.CREATED, kind="transactions",
                                           object_id=str(txn.pk), object_repr=str(txn)[:255], changes={"distribution": ["", f"{label} {amount}"]})
@@ -118,6 +120,32 @@ def _handle(request: HttpRequest, workspace: Workspace) -> str:
                                    _money(request.POST.get("recallable"), "Recallable"), _money(request.POST.get("income"), "Income"),
                                    _money(request.POST.get("gains"), "Gains"), request.POST.get("note", "").strip(), actor)
         return f"Recorded the {commitment.instrument} distribution ({sum(t.amount for t in made):,})."
+    if action in ("bank_paid", "bank_distribution", "bank_dismiss"):
+        line_id = _int(request.POST.get("line"))
+        if action == "bank_dismiss":
+            bankmatch.dismiss(workspace, line_id, actor)
+            return "Hidden: that bank line won't be suggested again."
+        r = _client(workspace).request("GET", f"{bankmatch.BANK_TXN_PATH}/{line_id}")
+        if r.status_code != 200:
+            raise svc.CallError("That bank line isn't in Campfire any more.")
+        line = r.json()
+        if action == "bank_paid":
+            try:
+                call = bankmatch.mark_paid_from_line(workspace, _int(request.POST.get("call")), line)
+            except ValueError as e:
+                raise svc.CallError(str(e)) from e
+            return f"{call.commitment.instrument}: call marked paid on {call.paid_on}. Categorize the bank line to Investment cash clearing in Campfire."
+        commitment = _commitments(workspace).filter(pk=_int(request.POST.get("commitment"))).first()
+        if commitment is None:
+            raise svc.CallError("Choose the fund.")
+        parts = [_money(request.POST.get(k), label) for k, label in (("roc", "Return of capital"), ("recallable", "Recallable"),
+                                                                     ("income", "Income"), ("gains", "Gains"))]
+        wire = Decimal(str(line.get("amount") or 0)).quantize(Decimal("0.01"))
+        if parts[0] + parts[2] + parts[3] != wire:
+            raise svc.CallError(f"The parts add up to {parts[0] + parts[2] + parts[3]:,}, but the wire is {wire:,}.")
+        made = record_distribution(workspace, commitment, date.fromisoformat(str(line["posted_at"])[:10]), parts[0], parts[1], parts[2], parts[3],
+                                   f"wire {line.get('merchant_name') or ''}".strip(), actor, source_ref=bankmatch.ref(line))
+        return f"Recorded the {commitment.instrument} distribution of {sum(t.amount for t in made):,} from the bank feed."
     raise svc.CallError("Unknown action.")
 
 
@@ -141,14 +169,16 @@ def calls_page(request: HttpRequest, workspace: Workspace, framed: bool) -> Http
         "commitment__instrument").order_by("-paid_on")[:10]
     funds = [(c, summarize(c, today)) for c in _commitments(workspace)]
     vendors: list[dict[str, Any]] = []
+    bank: list[bankmatch.Suggestion] = []
     campfire_error = ""
     try:
         vendors = svc.list_vendors(_client(workspace))
+        bank = bankmatch.suggestions(workspace, _client(workspace), today)
     except CAMPFIRE_ERRORS as e:
-        campfire_error = f"Couldn't load vendors from Campfire ({type(e).__name__})."
+        campfire_error = f"Couldn't load vendors and the bank feed from Campfire ({type(e).__name__})."
     return render(request, "gl/calls.html", {
         "workspace": workspace, "framed": framed, "frame_token": getattr(request, "fo_frame_token", ""), "rows": rows, "paid": paid,
-        "funds": funds, "vendors": vendors, "campfire_error": campfire_error, "message": message, "error": error, "today": today,
+        "funds": funds, "vendors": vendors, "bank": bank, "campfire_error": campfire_error, "message": message, "error": error, "today": today,
         "action": pages.page_url(request, framed, "gl:calls"), "new_call_url": pages.page_url(request, framed, "records:new", "capital-calls"),
         "gl_url": pages.page_url(request, framed, "gl:gl"),
     })

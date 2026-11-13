@@ -61,11 +61,14 @@ are declared and show once Campfire adds extensions to that page (docs: buttons 
 bill page; panels on invoices and bill list/edit). `pages.record_framed` binds the frame to `{{record.id}}` · Phase B2a
 net worth with Campfire (`gl/services/networth.py`, `CampfireBalanceSnapshot`): trial balance per booked entity,
 ASSET/LIABILITY only, role-mapped accounts excluded; new roles UNREALIZED (1630) / UNREALIZED_GAIN (7300) so the
-unrealized account is excluded now and FMV entries can use it later. Verified read-only on sandbox Entity 1. 128 tests passing.
+unrealized account is excluded now and FMV entries can use it later. Verified read-only on sandbox Entity 1 · Phase B2b
+bank-feed matching (`gl/services/bankmatch.py`, Capital calls page). Sandbox test (user approved, all deleted): bank
+account create (`/ca/api/account`, entity + chart_of_accounts_account + type CHECKING) 201; bank feed
+(`/ca/api/bank-feed/<id>`) needs `posted_at` (not `date`), signed `amount`, `merchant_name` kept (`description` not);
+each line posts a JE bank cash vs 000000 Uncategorized; deletes: bank txn / JE / account via POST .../delete. 131 tests passing.
 
 ## Next steps (in order) — Phase A (usable without us) is done; then B (native feel), then C (differentiators)
-- Agreed order (user, 2026-11-13): B2b bank-feed matching (Cash Management: wires ↔ capital calls / distributions;
-  sandbox has no bank accounts or transactions yet) → fold Month-end close into Campfire Close Management
+- Agreed order (user, 2026-11-13): fold Month-end close into Campfire Close Management
   (`close_checklist:write`) → FMV / unrealized entries into the GL → roles + per-user connections.
 - Seamless Campfire (user question): FO staff roles without Revenue/AR; a clean sandbox workspace for the demo; ask the
   partner contact for per-workspace module switches, an app page as landing page, and app widgets on Campfire Home.

@@ -41,6 +41,7 @@ class FakeCampfire:
         self.bills: dict[int, dict[str, Any]] = {}
         self.posted: list[dict[str, Any]] = []
         self.vendors = [{"id": 501, "name": "Summit Growth Partners"}, {"id": 502, "name": "Crescent Ventures"}]
+        self.bank_lines: list[dict[str, Any]] = []  # Campfire bank-feed lines (/ca/api/transaction)
 
     def approve(self, call: CapitalCall, bill_id: int = 7001) -> dict[str, Any]:
         body = self.posted[-1]
@@ -51,6 +52,9 @@ class FakeCampfire:
         if method == "POST" and path == calls.BILL_PATH:
             self.posted.append(json)
             return _response(self.post_status, {"id": 9999} if self.post_status == 201 else {"draft_id": 1, "detail": "Submitted for approval"})
+        if method == "GET" and path.startswith("/ca/api/transaction/"):
+            line = next((b for b in self.bank_lines if str(b["id"]) == path.rsplit("/", 1)[1]), None)
+            return _response(200, line) if line else _response(404, {"detail": "Not found."})
         if method == "GET" and path.startswith(calls.BILL_PATH + "/"):
             bill = self.bills.get(int(path.rsplit("/", 1)[1]))
             return _response(200, bill) if bill else _response(404, {"detail": "Not found."})
@@ -63,6 +67,8 @@ class FakeCampfire:
             return self.bills[int(path.rsplit("/", 1)[1])]
         if path == calls.VENDOR_PATH:
             return {"results": self.vendors, "next": None}
+        if path == "/ca/api/transaction":
+            return {"results": self.bank_lines, "next": None}
         raise AssertionError(path)
 
 
