@@ -29,6 +29,24 @@ def test_connect_redirects_to_campfire_with_pkce(client) -> None:  # type: ignor
 
 
 @pytest.mark.django_db
+def test_sign_in_never_waits_for_a_permission_that_isnt_promoted(client, settings) -> None:  # type: ignore[no-untyped-def]
+    settings.CAMPFIRE = {**settings.CAMPFIRE, "SCOPES": ["openid", "email", "transactions:read", "transactions:write", "bills:write"]}
+    scope = lambda r: parse_qs(urlparse(r["Location"]).query)["scope"][0].split()  # noqa: E731
+    assert "transactions:write" in scope(client.get("/campfire/connect"))
+    # Campfire refuses a scope that is only in the app's development version: ask again without it.
+    refused = client.get("/campfire/callback", {"error": "invalid_scope", "error_description": "This app may not request: transactions:write."})
+    assert refused.status_code == 302 and refused["Location"] == "/campfire/connect"
+    again = client.get("/campfire/connect")
+    assert scope(again) == ["openid", "email", "transactions:read", "bills:draft"]
+    # The same refusal again (nothing new to drop) is shown, not retried for ever.
+    stuck = client.get("/campfire/callback", {"error": "invalid_scope", "error_description": "This app may not request: transactions:write."})
+    assert stuck.status_code == 400 and "invalid_scope" in stuck.content.decode()
+    assert "transactions:write" in scope(client.get("/campfire/connect"))  # a later sign-in asks for everything again
+    other = client.get("/campfire/callback", {"error": "access_denied"})
+    assert other.status_code == 400 and "access_denied" in other.content.decode()
+
+
+@pytest.mark.django_db
 def test_callback_rejects_state_mismatch(client) -> None:  # type: ignore[no-untyped-def]
     client.get("/campfire/connect")
     r = client.get("/campfire/callback?code=abc&state=wrong")

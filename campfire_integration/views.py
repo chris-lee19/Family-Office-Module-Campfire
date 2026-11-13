@@ -3,10 +3,12 @@ import logging
 import secrets
 import time
 from typing import Any
+from urllib.parse import urlencode
 
 from django.conf import settings
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
@@ -19,6 +21,7 @@ from campfire_integration.security import IdTokenError, verify_id_token, verify_
 log = logging.getLogger(__name__)
 
 SESSION_OAUTH = "campfire_oauth"
+SESSION_REFUSED_SCOPES = "campfire_refused_scopes"  # scopes Campfire refused at sign-in: asked again without them
 
 
 def _message(request: HttpRequest, title: str, message: str, status: int = 400) -> HttpResponse:
@@ -40,13 +43,15 @@ def connect(request: HttpRequest) -> HttpResponse:
         return _message(request, "Not configured", "CAMPFIRE_CLIENT_ID is not set.", status=500)
     verifier, challenge = client.pkce_pair()
     state, nonce = secrets.token_urlsafe(24), secrets.token_urlsafe(24)
+    refused = request.session.get(SESSION_REFUSED_SCOPES, [])
     request.session[SESSION_OAUTH] = {
         "state": state,
         "verifier": verifier,
         "nonce": nonce,
         "return_to": _campfire_return_url(request.GET.get("return_to")),
+        "without": refused,
     }
-    return redirect(client.authorize_url(state=state, nonce=nonce, code_challenge=challenge))
+    return redirect(client.authorize_url(state=state, nonce=nonce, code_challenge=challenge, without=refused))
 
 
 @require_GET
@@ -54,6 +59,16 @@ def callback(request: HttpRequest) -> HttpResponse:
     pending: dict[str, Any] | None = request.session.pop(SESSION_OAUTH, None)
     if request.GET.get("error"):
         detail = request.GET.get("error_description", "")
+        if request.GET["error"] == "invalid_scope" and pending:
+            # A permission the app asks for isn't in its promoted version yet. Sign-in must never wait for that:
+            # ask again without the refused scopes; the pages that need them say so.
+            already = set(pending.get("without") or [])
+            refused = {s for s in client.connect_scopes() if s in detail} - already - {"openid"}
+            if refused:
+                request.session[SESSION_REFUSED_SCOPES] = sorted(already | refused)
+                target = reverse("campfire:connect")
+                return redirect(f"{target}?{urlencode({'return_to': pending['return_to']})}" if pending.get("return_to") else target)
+        request.session.pop(SESSION_REFUSED_SCOPES, None)
         return _message(request, "Could not connect to Campfire", f"Campfire returned {request.GET['error']} {detail}".strip())
     if not pending or request.GET.get("state") != pending["state"]:
         return _message(request, "Could not connect to Campfire", "State mismatch: refusing the code.")
@@ -61,6 +76,7 @@ def callback(request: HttpRequest) -> HttpResponse:
         tokens = client.exchange_code(code=request.GET.get("code", ""), verifier=pending["verifier"])
     except client.CampfireError as e:
         return _message(request, "Could not connect to Campfire", f"Token exchange failed ({e.status_code}).")
+    request.session.pop(SESSION_REFUSED_SCOPES, None)  # the next sign-in asks for everything again
 
     id_token = tokens.get("id_token")
     if not id_token:

@@ -6,6 +6,7 @@ import logging
 import secrets
 from datetime import timedelta
 from functools import lru_cache
+from collections.abc import Iterable
 from typing import Any
 from urllib.parse import urlencode
 
@@ -60,21 +61,23 @@ def pkce_pair() -> tuple[str, str]:
 DRAFTED_RESOURCES = ("journal_entries", "bills")
 
 
-def connect_scopes() -> list[str]:
+def connect_scopes(without: Iterable[str] = ()) -> list[str]:
     """Scopes to request when a workspace connects: the manifest ceiling, with journal entries and bills at the
-    draft tier unless the app is set to post directly. Draft-tier writes land in Campfire's approval queue."""
+    draft tier unless the app is set to post directly. Draft-tier writes land in Campfire's approval queue.
+    `without`: scopes Campfire refused for this app (a permission added in a version that isn't promoted yet)."""
     scopes = list(_cfg("SCOPES"))
-    if _cfg("POSTING_MODE") == "direct":
-        return scopes
-    return [f"{s.split(':')[0]}:draft" if s.split(":")[0] in DRAFTED_RESOURCES and s.endswith(":write") else s for s in scopes]
+    if _cfg("POSTING_MODE") != "direct":
+        scopes = [f"{s.split(':')[0]}:draft" if s.split(":")[0] in DRAFTED_RESOURCES and s.endswith(":write") else s for s in scopes]
+    refused = set(without)
+    return [s for s in scopes if s not in refused]
 
 
-def authorize_url(*, state: str, nonce: str, code_challenge: str) -> str:
+def authorize_url(*, state: str, nonce: str, code_challenge: str, without: Iterable[str] = ()) -> str:
     query = {
         "client_id": _cfg("CLIENT_ID"),
         "redirect_uri": redirect_uri(),
         "response_type": "code",
-        "scope": " ".join(connect_scopes()),
+        "scope": " ".join(connect_scopes(without)),
         "state": state,
         "nonce": nonce,
         "code_challenge": code_challenge,

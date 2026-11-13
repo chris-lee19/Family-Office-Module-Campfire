@@ -203,6 +203,13 @@ end. Held marks aren't used; non-USD accounts are skipped. Securities without a 
   149 tests. `push_manifest` applied 2026-11-13 (menu live; `transactions:write` waits in a development version for the
   user to Promote and reconnect).
 
+## Sign-in and new permissions (lesson, 2026-11-13)
+- Adding `transactions:write` to the defaults broke sign-in for everyone: Campfire answers `invalid_scope` ("This app may
+  not request: ...") for a scope that is only in the app's development version. Fixed: the callback retries the
+  authorization without the refused scopes (`SESSION_REFUSED_SCOPES`, `client.connect_scopes(without=)`), once per new
+  refusal; pages that need the scope say "Reconnect". Keep the `:read` scope next to a new `:write` so reading still
+  works before the promote. Never ship a new scope assuming it is promoted. 150 tests.
+
 ## Sandbox clean-up and demo books (2026-11-13, user: "OK to delete, and add the data needed to operate as a family office")
 - Removed (sample data on Entity 1/2/3, nothing refused): 115 invoices, 91 bills, 10 intercompany entries, 168 journal
   entries, 87 revenue transactions, 5 contracts, 8 customers, 6 products, 51 vendors, 7 departments, 6 "Product Tag" tags,
