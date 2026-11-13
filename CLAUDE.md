@@ -21,6 +21,12 @@ A family-office product built as a **Campfire partner OAuth app** (we are a Camp
   Testers: same sandbox workspace connects directly; other workspaces via sharing on the app's Installs tab.
 - The app takes Read/Draft/Write permissions but **never Approve**: app-created JEs and bills go through Campfire approval
   (default `posting_mode` = draft). Permission set by phase: `docs/campfire_permissions.md`.
+- **Direction change (user, 2026-11-13, after Campfire's CTO):** Campfire modules can't be switched on/off per workspace, so
+  "the Campfire GL runs in the background and the family office app is the face". Everything a family-office CFO does
+  lives in our app (no confusion about what is inside or outside it): financial statements, cash, bills, journal entries,
+  approvals, close. The standalone app (own sidebar, Campfire sign-in) is the front door. This supersedes "don't rebuild
+  Campfire's screens". Approvals also go through our app, for the demo (supersedes "never Approve" for now; the public API
+  has no approve endpoints found yet, technicalities to be worked out later).
 - Masttro/Arch: the app is the investment book of record with pluggable source adapters; Masttro/Arch adapters only on demand.
 - Demo data is fictional (the Alder family); never put client names or figures in code, seeds or tests.
 
@@ -150,6 +156,27 @@ end. Held marks aren't used; non-USD accounts are skipped. Securities without a 
 - Dimensions now also Family Branch, Tax Treatment, Custodian (account-level, on every line). The sandbox's own 1500 is "Intercompany Receivable": setup now matches accounts by
   name, never by number alone (`gl.services.setup.plan_accounts`).
 - App connected 2026-11-13 (v2 promoted): token has `journal_entries:draft`, `bills:draft`.
+
+## App-as-the-face build order (agreed 2026-11-13)
+1. Clean the sandbox and seed Alder dummy data (opening balances, bank accounts with activity, household/adviser bills).
+2. Financial statements in the app (balance sheet, income statement, cash flow, trial balance; per entity and
+   consolidated; drill-down). API: `/ca/api/get_balance_sheet`, `get_income_statement`, `get_cash_flow`,
+   `get_trial_balance`, `/coa/api/general-ledger`, `/coa/api/transaction`.
+3. Cash (`/ca/api/account`, `/ca/api/transaction`, `/coa/api/transaction-matches`, `/coa/api/v2/reconciliation`).
+4. Bills and payments (`/coa/api/v1/bill`, `bill-draft`, `bill-payments`, `/coa/api/vendor`). 5. Journal entries
+   (`/coa/api/journal_entry`, `intercompany-journal-entry`). 6. Approvals in the app. 7. Roles and per-user access.
+   Later: budgets, fixed assets (property, art), documents/K-1s, liquidity, reporting pack.
+- Gaps for the CTO: approve endpoints; close checklist and period locks; keep sidebar scroll on navigation.
+
+## Sandbox inventory (read-only, 2026-11-13) — the CTO allows wiping non-family-office data; user approved in
+## principle and asked for the list first. NOTHING deleted yet: wait for the user's OK on the list.
+- Keep: 10 Alder entities, 44 GL accounts (FO chart + role accounts), 9 Alder payees, 3 FO tag groups + 18 tags.
+- Not family office (all on Entity 1/2/3): 115 invoices, 91 bills, 168 manual/CSV journal entries (394 incl. the ones
+  behind invoices/bills), 10 intercompany entries, 8 customers, 5 contracts, 6 products, 51 vendors, 7 departments,
+  6 ungrouped tags, entities "Entity 1 (USD)" 55929, "Entity 2 (USD)" 55930, "Entity 3 (EUR)" 55931, "Eliminations" 55932,
+  54 default accounts (revenue/COGS/payroll/startup equity; some are structural: AP, AR, intercompany, opening balance
+  equity, FX gain/loss, 000000 Uncategorized). No bank accounts, bank lines, budgets, fixed assets, files.
+- Missing FO setup seen: tag groups FO Family Branch / Tax Treatment / Custodian not created yet; no FO entries posted.
 
 ## Waiting on the user
 - Render: live at `https://family-office-wl37.onrender.com` (2026-11-13). `push_manifest` applied for that URL:
