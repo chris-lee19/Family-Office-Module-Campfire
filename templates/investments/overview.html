@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load money nw_extras %}
+{% load money nw_extras viz %}
 {% block title %}Investments{% endblock %}
 {% block content %}
 <h1>Investments</h1>
@@ -9,35 +9,17 @@
 {% for fi in families %}
 {% with p=fi.portfolio nw=fi.net_worth %}
   <h2>{{ fi.family.name }}</h2>
-  <div class="networth">
-    <table class="nw"><tbody>
-      <tr><td>Investments (Family Office, at market value)</td><td class="num">{{ nw.investments|money }}</td></tr>
-      <tr><td>+ Bank cash (Campfire)</td><td class="num">{{ nw|nw_total:"cash"|money }}</td></tr>
-      <tr><td>+ Other assets (Campfire)</td><td class="num">{{ nw|nw_total:"other"|money }}</td></tr>
-      <tr><td>− Liabilities (Campfire)</td><td class="num">{{ nw|nw_total:"liability"|money }}</td></tr>
-      <tr class="total"><td><strong>Net worth</strong></td><td class="num"><strong>{{ nw.net|money }}</strong></td></tr>
-    </tbody></table>
-    <div class="small muted">
-      {% if nw.fetched_at %}Campfire balances as of {{ nw.balances_as_of|date:"Y-m-d" }}, read {{ nw.fetched_at|date:"Y-m-d H:i" }}.{% else %}No Campfire balances read yet.{% endif %}
-      {% if nw.missing %}Not read yet: {{ nw.missing|join:", " }}.{% endif %}
-      <form method="post" action="{{ action }}" style="display:inline">{% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
-        <button class="btn secondary small" type="submit" name="action" value="refresh_balances">Refresh from Campfire</button></form>
-      {% if nw.lines %}<details><summary>Campfire accounts in net worth</summary><table class="inner"><tbody>
-        {% for ln in nw.lines %}<tr><td>{{ ln.entity }}</td><td>{{ ln.label }}</td><td class="muted">{{ ln.category }}</td><td class="num">{{ ln.amount|money }}</td></tr>{% endfor %}
-      </tbody></table></details>{% endif %}
-    </div>
-  </div>
-  <div class="cards">
-    <div class="card"><div class="label">Total investments</div><div class="value">{{ p.total|money }}</div></div>
-    <div class="card"><div class="label">Unfunded commitments</div><div class="value">{{ p.unfunded|money }}</div></div>
-    <div class="card"><div class="label">Realized gain (to date)</div><div class="value">{{ p.realized_gain|money }}</div></div>
-    <div class="card"><div class="label">Income (to date)</div><div class="value">{{ p.income|money }}</div></div>
-    <div class="card"><div class="label">Needs attention</div><div class="value">{{ fi.attention_count }}</div></div>
+  <div class="kpis">
+    <div class="kpi"><div class="label">Net worth</div><div class="value">{{ nw.net|money }}</div><div class="sub">{% if nw.fetched_at %}With Campfire balances as of {{ nw.balances_as_of|date:"M j" }}{% else %}Investments only until Campfire balances are read{% endif %}</div></div>
+    <div class="kpi"><div class="label">Total investments</div><div class="value">{{ p.total|money }}</div><div class="sub">At market value</div></div>
+    <div class="kpi"><div class="label">Unfunded commitments</div><div class="value">{{ p.unfunded|money }}</div><div class="sub">Still callable</div></div>
+    <div class="kpi"><div class="label">Realized gain (to date)</div><div class="value">{{ p.realized_gain|money }}</div><div class="sub">From sales and fund distributions</div></div>
+    <div class="kpi"><div class="label">Income (to date)</div><div class="value">{{ p.income|money }}</div><div class="sub">Dividends, interest, fund income</div></div>
   </div>
 
   {% if fi.attention_count %}
   <div class="callout warn">
-    <strong>Needs attention</strong>
+    <strong>Needs attention ({{ fi.attention_count }})</strong>
     <ul class="plain">
       {% for v in fi.held %}<li><span class="pill held">Held</span> {{ v.instrument.name }}: {{ v.get_method_display }} of {{ v.value|money }} as of {{ v.as_of }} is {{ v.change_pct }}% vs expected. Not booked until <a href="{{ review_url }}">reviewed</a>.</li>{% endfor %}
       {% for c in fi.calls %}<li><span class="pill">Capital call</span> {{ c.commitment.instrument.name }}: {{ c.amount|money }} due {{ c.due_date }} ({{ c.get_status_display|lower }}) · <a href="{{ calls_url }}">open</a></li>{% endfor %}
@@ -46,71 +28,94 @@
   </div>
   {% endif %}
 
-  <div class="grid2">
-    {% if fi.net_by_person %}<div>
-      <h3>Net worth by person (look-through)</h3>
-      <table><tbody>{% for r in fi.net_by_person %}<tr><td>{{ r.label }}</td><td class="num">{{ r.value|money }}</td><td class="num">{{ r.pct }}%</td><td><div class="bar"><span style="width:{{ r.pct }}%"></span></div></td></tr>{% endfor %}</tbody></table>
-    </div>{% endif %}
-    <div>
-      <h3>Investments by person (look-through)</h3>
-      <table><tbody>{% for r in fi.by_person %}<tr><td>{{ r.label }}</td><td class="num">{{ r.value|money }}</td><td class="num">{{ r.pct }}%</td><td><div class="bar"><span style="width:{{ r.pct }}%"></span></div></td></tr>{% endfor %}</tbody></table>
-    </div>
-    <div>
-      <h3>By owner</h3>
-      <table><tbody>{% for r in fi.by_entity %}<tr><td>{{ r.label }}</td><td class="num">{{ r.value|money }}</td><td class="num">{{ r.pct }}%</td></tr>{% endfor %}</tbody></table>
-    </div>
-    <div>
-      <h3>By asset class</h3>
-      <table><tbody>{% for r in fi.by_asset_class %}<tr><td>{{ r.label }}</td><td class="num">{{ r.value|money }}</td><td class="num">{{ r.pct }}%</td><td><div class="bar"><span style="width:{{ r.pct }}%"></span></div></td></tr>{% endfor %}</tbody></table>
-    </div>
-    <div>
-      <h3>Liquidity &amp; tax treatment</h3>
-      <table><tbody>
-        {% for r in fi.by_liquidity %}<tr><td>{{ r.label }}</td><td class="num">{{ r.value|money }}</td><td class="num">{{ r.pct }}%</td></tr>{% endfor %}
-        {% for r in fi.by_tax_treatment %}<tr><td>{{ r.label }}</td><td class="num">{{ r.value|money }}</td><td class="num">{{ r.pct }}%</td></tr>{% endfor %}
-      </tbody></table>
-    </div>
+  <div class="networth">
+    <section class="box">
+      <div class="box-head"><h3>Net worth</h3>
+        <div class="aside"><form method="post" action="{{ action }}">{% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
+          <button class="btn secondary small" type="submit" name="action" value="refresh_balances">Refresh from Campfire</button></form></div></div>
+      <div class="box-body">
+        <table class="nw"><tbody>
+          <tr><td>Investments (Family Office, at market value)</td><td class="num">{{ nw.investments|money }}</td></tr>
+          <tr><td>+ Bank cash (Campfire)</td><td class="num">{{ nw|nw_total:"cash"|money }}</td></tr>
+          <tr><td>+ Other assets (Campfire)</td><td class="num">{{ nw|nw_total:"other"|money }}</td></tr>
+          <tr><td>− Liabilities (Campfire)</td><td class="num">{{ nw|nw_total:"liability"|money }}</td></tr>
+          <tr class="total"><td><strong>Net worth</strong></td><td class="num"><strong>{{ nw.net|money }}</strong></td></tr>
+        </tbody></table>
+        <p class="small muted">
+          {% if nw.fetched_at %}Campfire balances as of {{ nw.balances_as_of|date:"Y-m-d" }}, read {{ nw.fetched_at|date:"Y-m-d H:i" }}.{% else %}No Campfire balances read yet.{% endif %}
+          {% if nw.missing %}Not read yet: {{ nw.missing|join:", " }}.{% endif %}</p>
+        {% if nw.lines %}<details><summary>Campfire accounts in net worth</summary><table class="inner"><tbody>
+          {% for ln in nw.lines %}<tr><td>{{ ln.entity }}</td><td>{{ ln.label }}</td><td class="muted">{{ ln.category }}</td><td class="num">{{ ln.amount|money }}</td></tr>{% endfor %}
+        </tbody></table></details>{% endif %}
+      </div>
+    </section>
+
+    <section class="box" data-tabs="alloc-{{ fi.family.pk }}">
+      <div class="box-head"><h3>Allocation</h3>
+        <div class="aside"><div class="seg" role="tablist">
+          <button type="button" data-tab="class">Asset class</button>
+          <button type="button" data-tab="owner">Owner</button>
+          <button type="button" data-tab="person">Person</button>
+          {% if fi.net_by_person %}<button type="button" data-tab="networth">Net worth</button>{% endif %}
+          <button type="button" data-tab="liquidity">Liquidity</button>
+          <button type="button" data-tab="tax">Tax</button>
+        </div></div></div>
+      <div class="box-body">
+        <div data-panel="class">{% alloc fi.by_asset_class "By asset class" %}</div>
+        <div data-panel="owner" hidden>{% alloc fi.by_entity "By owner" %}</div>
+        <div data-panel="person" hidden><p class="small muted">Investments by person (look-through the ownership chain)</p>{% alloc fi.by_person "Investments by person (look-through)" %}</div>
+        {% if fi.net_by_person %}<div data-panel="networth" hidden><p class="small muted">Net worth by person (look-through), including Campfire balances</p>{% alloc fi.net_by_person "Net worth by person (look-through)" %}</div>{% endif %}
+        <div data-panel="liquidity" hidden>{% alloc fi.by_liquidity "By liquidity" %}</div>
+        <div data-panel="tax" hidden>{% alloc fi.by_tax_treatment "By tax treatment" %}</div>
+      </div>
+    </section>
   </div>
 
   {% if fi.privates %}
-  <h3>Private investments</h3>
-  <table>
-    <thead><tr><th>Fund</th><th class="num">Commitment</th><th class="num">Called</th><th class="num">Unfunded</th><th class="num">Distributed</th><th class="num">NAV</th><th class="num">DPI</th><th class="num">TVPI</th><th class="num">IRR</th></tr></thead>
-    <tbody>
-    {% for c, irr in fi.privates %}
-      <tr>
-        <td><strong>{{ c.commitment.instrument.name }}</strong><br><span class="muted">{{ c.commitment.account.owner }}{% if c.pending_calls %} · call pending {{ c.pending_calls|money }}{% endif %}</span></td>
-        <td class="num">{{ c.commitment.amount|money }}</td>
-        <td class="num">{{ c.contributed|money }}</td>
-        <td class="num">{{ c.unfunded|money }}</td>
-        <td class="num">{{ c.distributed|money }}</td>
-        <td class="num">{{ c.nav|money }}<br><span class="muted">{{ c.nav_date|default:"no mark" }}</span>{% if c.nav_stale %} <span class="pill stale">Stale</span>{% endif %}</td>
-        <td class="num">{{ c.dpi|multiple }}</td>
-        <td class="num">{{ c.tvpi|multiple }}</td>
-        <td class="num">{{ irr|pct }}</td>
-      </tr>
-    {% endfor %}
-    </tbody>
-  </table>
+  <section class="box">
+    <div class="box-head"><h3>Private investments</h3><div class="aside">{{ fi.privates|length }} fund{{ fi.privates|length|pluralize }} · <a href="{{ calls_url }}">Capital calls</a></div></div>
+    <table data-sort>
+      <thead><tr><th>Fund</th><th class="num">Commitment</th><th class="num">Called</th><th class="num">Unfunded</th><th class="num">Distributed</th><th class="num">NAV</th><th class="num">DPI</th><th class="num">TVPI</th><th class="num">IRR</th></tr></thead>
+      <tbody>
+      {% for c, irr in fi.privates %}
+        <tr>
+          <td><strong>{{ c.commitment.instrument.name }}</strong><br><span class="muted small">{{ c.commitment.account.owner }}{% if c.pending_calls %} · call pending {{ c.pending_calls|money }}{% endif %}</span></td>
+          <td class="num">{{ c.commitment.amount|money }}</td>
+          <td class="num">{{ c.contributed|money }}</td>
+          <td class="num">{{ c.unfunded|money }}</td>
+          <td class="num">{{ c.distributed|money }}</td>
+          <td class="num">{{ c.nav|money }}<br><span class="muted small">{{ c.nav_date|default:"no mark" }}</span>{% if c.nav_stale %} <span class="pill stale">Stale</span>{% endif %}</td>
+          <td class="num">{{ c.dpi|multiple }}</td>
+          <td class="num">{{ c.tvpi|multiple }}</td>
+          <td class="num">{{ irr|pct }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </section>
   {% endif %}
 
-  <h3>Holdings</h3>
-  <table>
-    <thead><tr><th>Account</th><th>Holding</th><th class="num">Quantity</th><th class="num">Cost</th><th class="num">Value</th><th class="num">Unrealized</th><th>Valued by</th></tr></thead>
-    <tbody>
-    {% for h in p.holdings %}
-      <tr>
-        <td>{{ h.account.name }}<br><span class="muted">{{ h.account.get_tax_treatment_display }}</span></td>
-        <td>{{ h.name }}</td>
-        <td class="num">{% if h.quantity is not None %}{{ h.quantity|floatformat:"-2g" }}{% endif %}</td>
-        <td class="num">{{ h.cost_basis|money }}</td>
-        <td class="num">{{ h.market_value|money }}</td>
-        <td class="num">{% if h.instrument %}{{ h.unrealized|money }}{% endif %}</td>
-        <td>{{ h.method_label }}{% if h.value_date and h.method != "cash" %} · {{ h.value_date }}{% endif %}{% if h.is_stale %} <span class="pill stale">Stale</span>{% endif %}</td>
-      </tr>
-    {% endfor %}
-    </tbody>
-  </table>
+  <section class="box">
+    <div class="box-head"><h3>Holdings</h3>
+      <div class="aside"><span id="holdings-count-{{ fi.family.pk }}">{{ p.holdings|length }}</span> shown
+        <input type="search" placeholder="Filter holdings" aria-label="Filter holdings" data-filter="#holdings-{{ fi.family.pk }}" data-count="#holdings-count-{{ fi.family.pk }}"></div></div>
+    <table data-sort id="holdings-{{ fi.family.pk }}">
+      <thead><tr><th>Account</th><th>Holding</th><th class="num">Quantity</th><th class="num">Cost</th><th class="num">Value</th><th class="num">Unrealized</th><th>Valued by</th></tr></thead>
+      <tbody>
+      {% for h in p.holdings %}
+        <tr>
+          <td>{{ h.account.name }}<br><span class="muted small">{{ h.account.get_tax_treatment_display }}</span></td>
+          <td>{{ h.name }}</td>
+          <td class="num">{% if h.quantity is not None %}{{ h.quantity|floatformat:"-2g" }}{% endif %}</td>
+          <td class="num">{{ h.cost_basis|money }}</td>
+          <td class="num">{{ h.market_value|money }}</td>
+          <td class="num">{% if h.instrument %}<span class="{% if h.unrealized < 0 %}err{% endif %}">{{ h.unrealized|money }}</span>{% endif %}</td>
+          <td>{{ h.method_label }}{% if h.value_date and h.method != "cash" %} · {{ h.value_date }}{% endif %}{% if h.is_stale %} <span class="pill stale">Stale</span>{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </section>
   {% if p.other_currencies %}<p class="muted">Not in totals (FX translation is a later phase): {% for ccy, v in p.other_currencies.items %}{{ ccy }} {{ v }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>{% endif %}
 {% endwith %}
 {% empty %}

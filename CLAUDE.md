@@ -72,6 +72,16 @@ tick "Investments closed" there); `close_checklist` scope not requested. Partner
 UI refresh: design system `static/fo/app.css` (tokens on :root, dark via prefers-color-scheme and `data-theme`), grouped
 sidebar (`campfire_integration/templatetags/nav.py` NAV, shown standalone when `signed_in`), framed pages load
 `static/fo/bridge.js` (Campfire app bridge: ready → theme, resize, `[data-toast]` → toast; origin = CAMPFIRE FRONTEND_ORIGIN).
+UI v2 (2026-11-13, user asked for a modern, answer-first tool; competitor named: Asseta, not to be copied): shell in
+`campfire_integration/templatetags/nav.py` (`shell_context`: NAV with icons + badge counts, ACTIONS for the New menu,
+search index; wrappers set `request.fo_workspace`; shown when that is set and not a panel) → `templates/includes/sidebar.html`
+(standalone only) and `topbar.html` (search palette + New, also framed; index URLs carry no frame token, `app.js` adds it).
+`static/fo/app.js`: palette (Ctrl/Cmd+K, `/`), menus, mobile drawer, `[data-tabs]`/`[data-tab]`/`[data-panel]` (+
+`[data-tab-go]`), `table[data-sort]`, `input[data-filter]`, loading state on submit (never disables: button name/value
+must post). Home = dashboard (`records/attention_views.py`; `Headline` has by_asset_class + change since last month-end).
+Charts: `{% alloc rows %}` (`investments/templatetags/viz.py`, stacked bar + legend-as-table, colours by label not rank,
+palette `--s1..--s8` validated light/dark). Primary buttons are ink (`--primary`), orange is the accent. The dev
+server caches templates with `--noreload`; restart it after template edits. 133 tests passing.
 
 ## Next steps (in order) — Phase A (usable without us) is done; then B (native feel), then C (differentiators)
 - Agreed order (user, 2026-11-13): ~~fold Month-end close into Campfire Close~~ (done as far as the API allows)

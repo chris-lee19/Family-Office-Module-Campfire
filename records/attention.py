@@ -5,7 +5,7 @@ Each item says what is wrong, why it matters, and links to the page that fixes i
 (entries ready to send, imports to sign off, a month to close, stale prices). FYI: things to know about.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, timedelta
 from decimal import Decimal
 
@@ -195,6 +195,19 @@ class Headline:
     calls_due_30: Decimal
     net_worth: Decimal = Decimal(0)
     has_campfire_balances: bool = False
+    by_asset_class: dict[str, Decimal] = field(default_factory=dict)
+    prior_total: Decimal | None = None  # investments at the end of last month
+    prior_date: date | None = None
+
+    @property
+    def change(self) -> Decimal | None:
+        return None if self.prior_total is None else self.total - self.prior_total
+
+    @property
+    def change_pct(self) -> Decimal | None:
+        if not self.prior_total:
+            return None
+        return ((self.total - self.prior_total) / self.prior_total * 100).quantize(Decimal("0.1"))
 
 
 def headline(workspace: Workspace, today: date | None = None) -> Headline:
@@ -205,13 +218,21 @@ def headline(workspace: Workspace, today: date | None = None) -> Headline:
     total = unfunded = net = Decimal(0)
     has_balances = False
     families = list(Family.objects.filter(workspace=workspace, is_active=True))
+    from investments.services.portfolio import build_portfolio
+
+    prior_date = today.replace(day=1) - timedelta(days=1)
+    prior = Decimal(0)
+    classes: dict[str, Decimal] = {}
     for f in families:
         nw = build_net_worth(f, today)
         total += nw.investments
         unfunded += nw.portfolio.unfunded
         net += nw.net
         has_balances = has_balances or nw.fetched_at is not None
+        for label, value in nw.portfolio.by_asset_class.items():
+            classes[label] = classes.get(label, Decimal(0)) + value
+        prior += build_portfolio(f, prior_date).total
     due = CapitalCall.objects.filter(commitment__account__family__workspace=workspace, status__in=CapitalCall.OPEN_STATUSES,
                                      due_date__lte=today + timedelta(days=30)).aggregate(s=Sum("amount"))["s"] or Decimal(0)
-    return Headline(len(families), total, unfunded, due, net, has_balances)
+    return Headline(len(families), total, unfunded, due, net, has_balances, classes, prior if families and prior else None, prior_date)
 

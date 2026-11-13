@@ -1,6 +1,6 @@
 """The Capital calls page: open calls and their bills in Campfire, the GP vendor per fund, and recording distributions."""
 
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
@@ -176,7 +176,12 @@ def calls_page(request: HttpRequest, workspace: Workspace, framed: bool) -> Http
         bank = bankmatch.suggestions(workspace, _client(workspace), today)
     except CAMPFIRE_ERRORS as e:
         campfire_error = f"Couldn't load vendors and the bank feed from Campfire ({type(e).__name__})."
-    return render(request, "gl/calls.html", {
+    in_30 = [c for c in open_calls if c.due_date <= today + timedelta(days=30)]
+    stats = {"open": len(open_calls), "open_total": sum((c.amount for c in open_calls), Decimal(0)),
+             "due_30": sum((c.amount for c in in_30), Decimal(0)), "overdue": sum(1 for c in open_calls if c.due_date < today),
+             "unfunded": sum((s.unfunded for _, s in funds), Decimal(0)), "funds": len(funds),
+             "no_vendor": sum(1 for c, _ in funds if not c.campfire_vendor_id)}
+    return render(request, "gl/calls.html", {"stats": stats,
         "workspace": workspace, "framed": framed, "frame_token": getattr(request, "fo_frame_token", ""), "rows": rows, "paid": paid,
         "funds": funds, "vendors": vendors, "bank": bank, "campfire_error": campfire_error, "message": message, "error": error, "today": today,
         "action": pages.page_url(request, framed, "gl:calls"), "new_call_url": pages.page_url(request, framed, "records:new", "capital-calls"),

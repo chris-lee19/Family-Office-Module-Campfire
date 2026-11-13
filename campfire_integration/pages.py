@@ -64,6 +64,7 @@ def framed(page: Page, surfaces: tuple[str, ...] = ("nav",)) -> Callable[..., Ht
         except FrameAuthError as e:
             return render(request, "campfire/message.html", {"title": "Cannot open this page", "message": str(e), "framed": True}, status=e.status)
         request.fo_frame_token = token  # type: ignore[attr-defined]
+        request.fo_workspace = workspace  # type: ignore[attr-defined]
         request.fo_actor, request.fo_actor_id = actor_for(workspace, user_id)  # type: ignore[attr-defined]
         return page(request, workspace, True, **kwargs)
 
@@ -91,6 +92,7 @@ def record_framed(page: Page, *, object_type: str, surfaces: tuple[str, ...]) ->
         except FrameAuthError as e:
             return render(request, "campfire/message.html", {"title": "Cannot open this", "message": str(e), "framed": True}, status=e.status)
         request.fo_frame_token = token  # type: ignore[attr-defined]
+        request.fo_workspace = workspace  # type: ignore[attr-defined]
         request.fo_actor, request.fo_actor_id = actor_for(workspace, user_id)  # type: ignore[attr-defined]
         return page(request, workspace, True, record_id=record_id, **kwargs)
 
@@ -102,6 +104,7 @@ def standalone(page: Page) -> Callable[..., HttpResponse]:
         workspace = session_workspace(request)
         if workspace is None:
             return redirect("home")
+        request.fo_workspace = workspace  # type: ignore[attr-defined]
         user = request.session.get(SESSION_USER) or {}
         request.fo_actor, request.fo_actor_id = actor_for(  # type: ignore[attr-defined]
             workspace, user.get("campfire_user_id"), name=user.get("email") or user.get("name") or "", sub=user.get("sub") or "")

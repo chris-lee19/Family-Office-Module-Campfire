@@ -1,35 +1,92 @@
 {% extends "base.html" %}
-{% load money %}
+{% load money viz %}
 {% block title %}Home{% endblock %}
 {% block content %}
-<h1>{% if counts.urgent or counts.todo %}{{ counts.urgent|add:counts.todo }} thing{{ counts.urgent|add:counts.todo|pluralize }} need{{ counts.urgent|add:counts.todo|pluralize:"s," }} attention{% else %}All clear{% endif %}</h1>
-<p class="muted">{{ workspace }} · {{ today|date:"l, F j, Y" }}</p>
-
-<div class="cards">
-  {% if head.has_campfire_balances %}<div class="card"><div class="label">Net worth (incl. Campfire)</div><div class="value"><a href="{{ links.investments }}">{{ head.net_worth|money }}</a></div></div>{% endif %}
-  <div class="card"><div class="label">Investments ({{ head.families }} famil{{ head.families|pluralize:"y,ies" }})</div><div class="value"><a href="{{ links.investments }}">{{ head.total|money }}</a></div></div>
-  <div class="card"><div class="label">Unfunded commitments</div><div class="value">{{ head.unfunded|money }}</div></div>
-  <div class="card"><div class="label">Capital calls due in 30 days</div><div class="value"><a href="{{ links.calls }}">{{ head.calls_due_30|money }}</a></div></div>
-  <div class="card"><div class="label">Urgent · to do · FYI</div><div class="value">{{ counts.urgent }} · {{ counts.todo }} · {{ counts.info }}</div></div>
+<div class="page-head">
+  <div>
+    <div class="eyebrow">{{ today|date:"l, F j, Y" }} · {{ workspace }}</div>
+    <h1>{% if counts.urgent or counts.todo %}{{ counts.urgent|add:counts.todo }} thing{{ counts.urgent|add:counts.todo|pluralize }} need{{ counts.urgent|add:counts.todo|pluralize:"s," }} attention{% else %}All clear{% endif %}</h1>
+  </div>
+  {% if head.families %}<div class="page-actions">
+    <a class="btn secondary" href="{{ links.imports }}">Upload a file</a>
+    <a class="btn secondary" href="{{ links.new_mark }}">Add a mark</a>
+    <a class="btn" href="{{ links.new_call }}">Record a call notice</a>
+  </div>{% endif %}
 </div>
 
-{% if rows %}
-<table class="attention">
-  <tbody>
-  {% for i, url in rows %}
-    <tr class="sev-row-{{ i.severity }}">
-      <td class="nowrap"><span class="pill att-{{ i.severity }}">{% if i.severity == "urgent" %}Urgent{% elif i.severity == "todo" %}To do{% else %}FYI{% endif %}</span></td>
-      <td class="muted small nowrap">{{ i.area }}</td>
-      <td><strong>{{ i.title }}</strong><br><span class="muted small">{{ i.detail }}</span></td>
-      <td class="num"><a class="btn {% if i.severity != 'urgent' %}secondary {% endif %}small" href="{{ url }}">{{ i.action }}</a></td>
-    </tr>
-  {% endfor %}
-  </tbody>
-</table>
-{% elif head.families %}
-<p class="muted">Nothing is waiting: marks reviewed, calls handled, the GL up to date and last month closed.</p>
+{% if head.families %}
+<div class="kpis">
+  {% if head.has_campfire_balances %}<div class="kpi"><div class="label">Net worth (incl. Campfire)</div><div class="value"><a href="{{ links.investments }}">{{ head.net_worth|money }}</a></div><div class="sub">Investments plus cash, other assets and liabilities</div></div>{% endif %}
+  <div class="kpi"><div class="label">Investments ({{ head.families }} famil{{ head.families|pluralize:"y,ies" }})</div><div class="value"><a href="{{ links.investments }}">{{ head.total|money }}</a></div>
+    <div class="sub">{% if head.change is not None %}<span class="delta {% if head.change < 0 %}down{% else %}up{% endif %}">{% if head.change < 0 %}▼{% else %}▲{% endif %} {{ head.change|money }}{% if head.change_pct is not None %} ({{ head.change_pct }}%){% endif %}</span> since {{ head.prior_date|date:"M j" }}{% else %}At market value{% endif %}</div></div>
+  <div class="kpi"><div class="label">Unfunded commitments</div><div class="value">{{ head.unfunded|money }}</div><div class="sub">Still callable by fund managers</div></div>
+  <div class="kpi"><div class="label">Capital calls due in 30 days</div><div class="value"><a href="{{ links.calls }}">{{ head.calls_due_30|money }}</a></div><div class="sub">{% if calls %}Next: {{ calls.0.call.due_date|date:"M j" }}{% else %}None open{% endif %}</div></div>
+</div>
+
+<div class="dash">
+  <div>
+    <section class="box">
+      <div class="box-head"><h2>Your work</h2>
+        <div class="aside">{% if counts.urgent %}<span class="pill att-urgent">{{ counts.urgent }} urgent</span>{% endif %}{% if counts.todo %}<span class="pill att-todo">{{ counts.todo }} to do</span>{% endif %}{% if counts.info %}<span class="pill att-info">{{ counts.info }} FYI</span>{% endif %}</div></div>
+      {% if rows %}
+      <ul class="tasks">
+      {% for i, url in rows %}
+        <li class="task {{ i.severity }}">
+          <div>
+            <div class="task-meta"><span class="pill att-{{ i.severity }}">{% if i.severity == "urgent" %}Urgent{% elif i.severity == "todo" %}To do{% else %}FYI{% endif %}</span><span>{{ i.area }}</span></div>
+            <div class="task-title">{{ i.title }}</div>
+            <div class="task-detail">{{ i.detail }}</div>
+          </div>
+          <a class="btn {% if i.severity != 'urgent' %}secondary {% endif %}small" href="{{ url }}">{{ i.action }}</a>
+        </li>
+      {% endfor %}
+      </ul>
+      {% else %}
+      <div class="empty"><strong>Nothing is waiting</strong>Marks reviewed, calls handled, the GL up to date and last month closed.</div>
+      {% endif %}
+    </section>
+
+    <section class="box">
+      <div class="box-head"><h2>Allocation by asset class</h2><div class="aside"><a href="{{ links.investments }}">Investments</a></div></div>
+      <div class="box-body">{% alloc allocation "Allocation by asset class" %}</div>
+    </section>
+  </div>
+
+  <div>
+    <section class="box">
+      <div class="box-head"><h2>{{ close_month|date:"F" }} close</h2><div class="aside">{% if close_done %}<span class="pill status-committed">Closed</span>{% endif %}<a href="{{ links.close }}">Open</a></div></div>
+      {% if close_rows %}
+      <ul class="rows">
+        {% for r in close_rows %}<li><div><strong>{{ r.label }}</strong>
+          <div class="progress{% if r.closed %} done{% endif %}"><span style="width:{{ r.pct }}%"></span></div>
+          <span class="small muted">{% if r.closed %}Signed off{% else %}{{ r.done }} of {{ r.total }} steps{% if r.next %} · next: {{ r.next|lower }}{% endif %}{% endif %}</span></div></li>{% endfor %}
+      </ul>
+      {% else %}<div class="empty">No entity is linked to Campfire yet.</div>{% endif %}
+    </section>
+
+    <section class="box">
+      <div class="box-head"><h2>Upcoming capital calls</h2><div class="aside">{% if calls %}{{ calls_total|money }}{% endif %}</div></div>
+      {% if calls %}
+      <ul class="rows">
+        {% for c in calls %}<li><span class="date">{{ c.call.due_date|date:"M" }}<b>{{ c.call.due_date|date:"j" }}</b></span>
+          <div><strong>{{ c.call.commitment.instrument.name }}</strong><span class="small {% if c.days < 0 %}err{% else %}muted{% endif %}">{% if c.days < 0 %}{{ c.late }} day{{ c.late|pluralize }} overdue{% elif c.days == 0 %}Due today{% else %}Due in {{ c.days }} day{{ c.days|pluralize }}{% endif %} · {{ c.call.get_status_display|lower }}</span></div>
+          <span class="amount">{{ c.call.amount|money }}</span></li>{% endfor %}
+      </ul>
+      {% else %}<div class="empty">No open capital calls.</div>{% endif %}
+    </section>
+
+    <section class="box">
+      <div class="box-head"><h2>Recent changes</h2><div class="aside"><a href="{{ links.records }}">Records</a></div></div>
+      {% if recent %}
+      <ul class="rows">
+        {% for a in recent %}<li><div><strong>{{ a.object_repr }}</strong><span class="small muted">{{ a.get_action_display }}{% if a.actor %} by {{ a.actor }}{% endif %} · {{ a.at|timesince }} ago</span></div></li>{% endfor %}
+      </ul>
+      {% else %}<div class="empty">No changes yet.</div>{% endif %}
+    </section>
+  </div>
+</div>
 {% else %}
-<p class="muted">No families yet. Onboard one on the Records page.</p>
-{% include "includes/demo_button.html" %}
+<section class="box"><div class="empty"><strong>No families yet</strong>Onboard one on the Records page, or load the demo family to look around.</div>
+  <div class="box-body">{% include "includes/demo_button.html" %}</div></section>
 {% endif %}
 {% endblock %}

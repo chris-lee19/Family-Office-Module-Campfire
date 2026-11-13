@@ -1,0 +1,23 @@
+{% load nav %}<header class="topbar">
+  {% if not framed %}
+  <button class="icon-btn only-mobile" type="button" data-drawer-toggle aria-label="Menu">{% icon "menu" 20 %}</button>
+  <div class="crumbs"><span>{{ workspace }}</span>{% if current %}<span class="sep">/</span><strong>{{ current }}</strong>{% endif %}</div>
+  {% endif %}
+  <div class="topbar-tools">
+    <button class="search-btn" type="button" data-palette-open>{% icon "search" 16 %}<span>Search or jump to…</span><kbd>Ctrl K</kbd></button>
+    <div class="menu" data-menu>
+      <button class="btn small" type="button" data-menu-toggle aria-haspopup="true">{% icon "plus" 16 %}New</button>
+      <div class="menu-list" role="menu">
+        {% for a in actions %}<a role="menuitem" href="{{ a.url }}"><strong>{{ a.label }}</strong><span>{{ a.hint }}</span></a>{% endfor %}
+      </div>
+    </div>
+  </div>
+</header>
+<div class="palette" id="fo-palette" hidden data-token="{{ request.fo_frame_token|default:'' }}">
+  <div class="palette-box" role="dialog" aria-label="Search">
+    <div class="palette-input">{% icon "search" 18 %}<input type="text" placeholder="Search pages, actions, entities, accounts, funds…" autocomplete="off" spellcheck="false" aria-label="Search"></div>
+    <div class="palette-results" data-results></div>
+    <div class="palette-foot"><span><kbd>↑</kbd><kbd>↓</kbd> move</span><span><kbd>Enter</kbd> open</span><span><kbd>Esc</kbd> close</span></div>
+  </div>
+</div>
+{{ index|json_script:"fo-index" }}

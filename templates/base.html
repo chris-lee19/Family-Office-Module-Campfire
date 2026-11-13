@@ -10,9 +10,13 @@
   <link rel="stylesheet" href="{% static 'fo/app.css' %}">
 </head>
 <body class="{% if framed %}framed{% endif %}{% if panel %} panel{% endif %}" data-campfire-origin="{{ campfire_origin }}">
-  {% if not framed and signed_in %}<div class="app">{% sidebar %}{% endif %}
+  {% if request.fo_workspace and not panel %}
+    {% if not framed %}<div class="app">{% sidebar %}<div class="app-main">{% endif %}
+    {% topbar %}
+  {% endif %}
   <main>{% block content %}{% endblock %}</main>
-  {% if not framed and signed_in %}</div>{% endif %}
+  {% if request.fo_workspace and not panel and not framed %}</div></div>{% endif %}
+  <script src="{% static 'fo/app.js' %}"></script>
   {% if framed %}<script src="{% static 'fo/bridge.js' %}"></script>{% endif %}
 </body>
 </html>

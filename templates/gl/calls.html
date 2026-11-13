@@ -13,6 +13,13 @@
     <button class="btn secondary" type="submit" name="action" value="refresh">Check Campfire for approvals and payments</button></form>
 </div>
 
+<div class="kpis">
+  <div class="kpi"><div class="label">Open calls</div><div class="value">{{ stats.open_total|money }}</div><div class="sub">{{ stats.open }} call{{ stats.open|pluralize }}{% if stats.overdue %} · <span class="err">{{ stats.overdue }} overdue</span>{% endif %}</div></div>
+  <div class="kpi"><div class="label">Due in 30 days</div><div class="value">{{ stats.due_30|money }}</div><div class="sub">Cash to have ready</div></div>
+  <div class="kpi"><div class="label">Unfunded commitments</div><div class="value">{{ stats.unfunded|money }}</div><div class="sub">Across {{ stats.funds }} fund{{ stats.funds|pluralize }}</div></div>
+  <div class="kpi"><div class="label">Funds without a Campfire vendor</div><div class="value">{{ stats.no_vendor }}</div><div class="sub">{% if stats.no_vendor %}Choose the GP below to send bills{% else %}Every fund can be billed{% endif %}</div></div>
+</div>
+
 <h2>Open calls</h2>
 {% if rows %}
 <table>
@@ -107,7 +114,7 @@
   <button class="btn secondary small" type="submit" name="action" value="match_vendors">Match funds to vendors by manager / GP name</button></form>
 {% endif %}
 
-<h2>Record a distribution</h2>
+<h2 id="distribution">Record a distribution</h2>
 <form method="post" action="{{ action }}" class="record-form">
   {% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
   <div class="fields">

@@ -1,0 +1,7 @@
+{% load money %}{% if segments %}
+<div class="stack" role="img" aria-label="{{ label }}: {% for s in segments %}{{ s.label }} {{ s.pct }}%{% if not forloop.last %}, {% endif %}{% endfor %}">{% for s in segments %}<span class="c{{ s.slot }}" style="flex: {{ s.pct|default:1 }} 1 0" data-tip="{{ s.label }} · {{ s.value|money }} · {{ s.pct }}%"></span>{% endfor %}</div>
+<div class="legend">
+  {% for s in segments %}<div><span class="name"><i class="c{{ s.slot }}"></i>{{ s.label }}</span><span class="num">{{ s.value|money }}</span><span class="num muted">{{ s.pct }}%</span></div>{% endfor %}
+  {% for r in others %}<div><span class="name"><i class="c0"></i>{{ r.label }}</span><span class="num">{{ r.value|money }}</span><span class="num muted">{{ r.pct }}%</span></div>{% endfor %}
+</div>
+{% else %}<p class="muted">Nothing to show yet.</p>{% endif %}

@@ -8,14 +8,21 @@
 {% if error %}<div class="issues">{{ error }}</div>{% endif %}
 
 {% with p=preview %}
-<div class="cards">
-  <div class="card"><div class="label">Entries ready to send</div><div class="value">{{ p.ready|length }}</div></div>
-  <div class="card"><div class="label">Held back (need setup)</div><div class="value">{{ p.held|length }}</div></div>
-  <div class="card"><div class="label">Unmapped roles</div><div class="value">{{ unmapped|length }}</div></div>
-  <div class="card"><div class="label">Sent entries</div><div class="value">{{ postings|length }}</div></div>
+<div class="kpis">
+  <div class="kpi"><div class="label">Entries ready to send</div><div class="value">{{ p.ready|length }}</div><div class="sub">Go to Campfire's approval queue</div></div>
+  <div class="kpi"><div class="label">Held back (need setup)</div><div class="value">{{ p.held|length }}</div><div class="sub">{% if p.held %}<a href="#setup" data-tab-go="setup">Finish setup</a> to release them{% else %}Nothing is blocked{% endif %}</div></div>
+  <div class="kpi"><div class="label">Unmapped roles</div><div class="value">{{ unmapped|length }}</div><div class="sub">{% if unmapped %}<a href="#setup" data-tab-go="setup">Map GL accounts</a>{% else %}Every role has a GL account{% endif %}</div></div>
+  <div class="kpi"><div class="label">Sent entries</div><div class="value">{{ postings|length }}</div><div class="sub"><a href="#sent" data-tab-go="sent">See their status</a></div></div>
 </div>
 
-<h2>Ready to post</h2>
+<div data-tabs="gl">
+<div class="tabs" role="tablist">
+  <button type="button" data-tab="post">Ready to post <span class="count{% if p.ready %} hot{% endif %}">{{ p.journals|length }}</span></button>
+  <button type="button" data-tab="sent">Sent entries <span class="count">{{ postings|length }}</span></button>
+  <button type="button" data-tab="tieout">Tie-out</button>
+  <button type="button" data-tab="setup">Setup{% if unmapped %} <span class="count hot">{{ unmapped|length }}</span>{% endif %}</button>
+</div>
+<section data-panel="post">
 {% if p.journals %}
 <form method="post" action="{{ action }}" class="actions">
   {% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
@@ -55,8 +62,9 @@
 {% if p.not_linked %}<p class="muted">Not posted (owner isn't an entity linked to Campfire): {% for owner, n in p.not_linked.items %}{{ owner }} ({{ n }}){% if not forloop.last %}, {% endif %}{% endfor %}.</p>{% endif %}
 {% if p.billed_contributions %}<p class="muted">{{ p.billed_contributions }} capital contribution{{ p.billed_contributions|pluralize }} already booked by the Campfire bill that paid {{ p.billed_contributions|pluralize:"it,them" }}.</p>{% endif %}
 {% endwith %}
+</section>
 
-<h2>Sent entries</h2>
+<section data-panel="sent" hidden>
 {% if postings %}
 <form method="post" action="{{ action }}" class="actions">
   {% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
@@ -85,7 +93,9 @@
 <p class="muted">Nothing sent yet.</p>
 {% endif %}
 
-<h2>Tie-out</h2>
+</section>
+
+<section data-panel="tieout" hidden>
 <form method="post" action="{{ action }}" class="actions">
   {% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
   <button class="btn secondary" type="submit" name="action" value="tieout">Compare with Campfire's GL</button>
@@ -104,7 +114,9 @@
 </table>
 {% endif %}
 
-<h2>Setup</h2>
+</section>
+
+<section data-panel="setup" hidden>
 {% if campfire_error %}<div class="issues">{{ campfire_error }}</div>{% endif %}
 <form method="post" action="{{ action }}" class="actions">
   {% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
@@ -151,5 +163,7 @@
       {% if narrower %}<p class="muted small">{{ narrower }} narrower mapping{{ narrower|pluralize }} (by entity, asset class or account) set in admin.</p>{% endif %}
     </form>
   </div>
+</div>
+</section>
 </div>
 {% endblock %}

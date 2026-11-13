@@ -1,12 +1,16 @@
-<aside class="side">
-  <a class="brand" href="{% url 'home' %}"><span class="brand-mark">F</span>Family Office</a>
-  {% for i in items %}
+{% load nav %}<aside class="side" id="fo-side">
+  <a class="brand" href="{% url 'home' %}"><span class="brand-mark">F</span><span>Family Office</span></a>
+  <nav aria-label="Main">
+  {% for i in nav %}
     {% if i.group %}<div class="nav-group">{{ i.group }}</div>{% endif %}
-    <a class="nav{% if i.active %} active{% endif %}" href="{{ i.url }}"{% if i.active %} aria-current="page"{% endif %}>{{ i.label }}</a>
+    <a class="nav{% if i.active %} active{% endif %}" href="{{ i.url }}"{% if i.active %} aria-current="page"{% endif %}>{% icon i.icon %}<span>{{ i.label }}</span>{% if i.badge %}<span class="badge" title="{{ i.badge }} open">{{ i.badge }}</span>{% endif %}</a>
   {% endfor %}
+  </nav>
   <div class="who">
-    {% firstof request.session.campfire_user.name request.session.campfire_user.email "Campfire user" %}{% if workspace %}<br>{{ workspace }}{% endif %}
+    <span class="avatar" aria-hidden="true">{{ initials }}</span>
+    <span class="who-text"><strong>{{ who|default:"Campfire user" }}</strong>{% if workspace %}<span>{{ workspace }}</span>{% endif %}</span>
     <form method="post" action="{% url 'campfire:logout' %}"><input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
-      <button class="btn secondary small" type="submit">Sign out</button></form>
+      <button class="link-btn" type="submit">Sign out</button></form>
   </div>
 </aside>
+<div class="scrim" data-drawer-toggle></div>
