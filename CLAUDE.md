@@ -40,11 +40,13 @@ accounts/tags; REC-04 tie-out vs trial balance. Fourth sidebar page: General led
 manifest over the API (API key). Render deploy (`render.yaml`) + "Load the demo family" button (`ALLOW_DEMO_DATA`) ·
 Phase A1 Records (`records/`): generic list/add/edit/delete per record type from `records/registry.py` (`Kind`: form,
 columns, search, locks, after-save checks, delete guards); forms scoped by `records.forms.scoped` (fail closed);
-`AuditEntry` before/after; fifth sidebar page "Records". 98 tests passing.
+`AuditEntry` before/after; fifth sidebar page "Records" · Phase A2 onboarding (`records/onboarding.py`): one .xlsx
+(openpyxl) with `SHEETS`, staged like custodian files (`ImportBatch` source "onboarding", content base64), opening
+balances on the opening date (marked holdings dated ≤ first mark so roll-forward doesn't double count), export =
+same workbook (`family_rows`); round-trip test reproduces the portfolio exactly. 105 tests passing.
 
 ## Next steps (in order) — roadmap Phase A (usable without us), then B (native feel), then C (differentiators)
-- A2 onboarding wizard + opening balances (spreadsheet of entities/accounts/positions with lots as of go-live) ·
-  A3 review queue (accept/reject held marks, import exceptions; preparer ≠ reviewer) · A5 month-end close page ·
+- A3 review queue (accept/reject held marks, import exceptions; preparer ≠ reviewer) · A5 month-end close page ·
   A6 "needs attention" home. B: panels on Campfire JE/bill records, net worth incl. Campfire cash/liabilities,
   roles + per-user connections. C: documents & AI, family reports, FMV JEs, liquidity.
 1. **Capital call → Campfire bill** (= A4) (draft, `bills:draft`) → `Bill.paid` event (add to `EVENT_TOPICS`) →

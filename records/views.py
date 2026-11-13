@@ -54,6 +54,7 @@ def home_page(request: HttpRequest, workspace: Workspace, framed: bool) -> HttpR
                     pages.page_url(request, framed, "records:new", k.slug)) for k in KINDS.values() if k.group == g]) for g in GROUPS]
     recent = AuditEntry.objects.filter(workspace=workspace)[:15]
     return render(request, "records/home.html", {"workspace": workspace, "groups": groups, "recent": recent, "kinds": KINDS,
+                                                 "onboarding_url": pages.page_url(request, framed, "records:onboarding"),
                                                  **_frame_ctx(request, framed)})
 
 

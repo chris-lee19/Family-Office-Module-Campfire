@@ -29,6 +29,7 @@ Plan and requirement mapping: [`docs/PLAN.md`](docs/PLAN.md), [`docs/campfire_fi
 | Subledger-to-GL tie-out (REC-04): custody cash and investments at cost per entity vs Campfire's trial balance, with unposted and awaiting-approval amounts explained | `gl/services/tieout.py` |
 | "General ledger" page in Campfire's sidebar | `/fo/frame/gl` (standalone: `/fo/gl`) |
 | "Records" page: set up and maintain families, branches, people, entities, ownership, roles, asset classes, securities, accounts, commitments, capital calls, transactions (incl. opening positions), NAV statements and prices. Choices scoped to the workspace; every change audited (before/after); ledger and ownership checks undo a bad change; GL-posted, imported and call-paid transactions are locked; deletes never cascade through the books | `records/` |
+| Onboarding from one Excel workbook (Records → Onboard a family): branches, people, entities, ownership, roles, securities, accounts with opening cash, prices, opening positions as tax lots, fund commitments with flows to date, marks, optional history; validate → review → import, all or nothing; re-upload adds nothing; sets the GL start date after the opening date. The same workbook exports a family (example and backup) | `records/onboarding.py` |
 | Fictional demo family with entities and investments (dates relative to today) | `python manage.py seed_demo` |
 
 ## Local development

@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Onboard a family{% endblock %}
+{% block content %}
+<p><a href="{{ home_url }}">← Records</a></p>
+<h1>Onboard a family</h1>
+<p class="muted">{{ workspace }} · load a family's structure, accounts and opening positions from one Excel workbook.</p>
+
+<ol class="steps">
+  <li><strong>Download the workbook.</strong> <a href="{{ template_url }}">Blank template</a>{% for fam, url in families %} · <a href="{{ url }}">{{ fam }} as it is today</a>{% endfor %}<br>
+    <span class="muted small">A family's own workbook is a filled-in example, and a backup. Each sheet's header notes say what goes in each column.</span></li>
+  <li><strong>Fill in the sheets you need</strong>: {% for s in sheets %}{{ s.name }}{% if not forloop.last %}, {% endif %}{% endfor %}.
+    <br><span class="muted small">Rows refer to each other by name. Opening positions are tax lots: quantity, cost basis and the original purchase date.</span></li>
+  <li><strong>Upload it with the opening-balance date.</strong> Nothing is imported until you've reviewed the result.</li>
+</ol>
+
+{% if error %}<div class="issues">{{ error }}</div>{% endif %}
+<form method="post" action="{{ action }}" enctype="multipart/form-data" class="record-form">
+  {% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
+  <div class="fields">
+    <div class="field"><label for="family">Family *</label>
+      <select name="family" id="family">
+        {% for fam, _ in families %}<option value="{{ fam.pk }}">{{ fam }}</option>{% endfor %}
+        <option value="new" {% if not families %}selected{% endif %}>A new family…</option>
+      </select></div>
+    <div class="field"><label for="family_name">New family's name</label><input id="family_name" name="family_name" placeholder="e.g. Alder Family"></div>
+    <div class="field"><label for="family_code">New family's short code</label><input id="family_code" name="family_code" placeholder="e.g. alder"><span class="muted small">Used in reports and as a Campfire tag value.</span></div>
+    <div class="field"><label for="as_of">Opening-balance date *</label><input type="date" id="as_of" name="as_of" max="{{ today|date:'Y-m-d' }}" required>
+      <span class="muted small">Opening cash, positions and fund flows to date are booked on this date.</span></div>
+    <div class="field"><label class="checkline"><input type="checkbox" name="set_gl_start" checked> Start posting to the GL the day after</label>
+      <span class="muted small">These balances are already in Campfire's opening balances, so they shouldn't be posted again.{% if gl_start %} Now: {{ gl_start|date:"Y-m-d" }}.{% endif %}</span></div>
+    <div class="field"><label for="file">Workbook (.xlsx) *</label><input type="file" id="file" name="file" accept=".xlsx" required></div>
+  </div>
+  <div class="actions"><button class="btn" type="submit">Check the workbook</button></div>
+</form>
+
+{% if batches %}
+<h2>Earlier uploads</h2>
+<table><tbody>
+{% for b in batches %}<tr><td><a href="{{ b.url }}">{{ b.created_at|date:"Y-m-d H:i" }}</a></td><td>{{ b.file_name }}</td><td>{{ b.family|default:"" }}</td>
+  <td><span class="pill status-{{ b.status }}">{{ b.get_status_display }}</span></td><td class="num">{{ b.rows_new }} new</td></tr>{% endfor %}
+</tbody></table>
+{% endif %}
+{% endblock %}

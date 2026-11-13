@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Onboarding {{ batch.file_name }}{% endblock %}
+{% block content %}
+<p><a href="{{ back }}">← Onboard a family</a></p>
+<h1>{{ batch.file_name }} <span class="pill status-{{ batch.status }}">{{ batch.get_status_display }}</span></h1>
+<p class="muted">{% if batch.family %}{{ batch.family }} · {% endif %}opening balances as of {{ as_of }} · uploaded {{ batch.created_at|date:"Y-m-d H:i" }}{% if batch.created_by %} by {{ batch.created_by }}{% endif %}</p>
+{% if message %}<div class="notice">{{ message }}</div>{% endif %}
+
+<div class="cards">
+  <div class="card"><div class="label">{% if batch.status == "committed" %}Added{% else %}To add{% endif %}</div><div class="value">{{ batch.rows_new }}</div></div>
+  <div class="card"><div class="label">Already there (left as is)</div><div class="value">{{ batch.rows_duplicate }}</div></div>
+  <div class="card"><div class="label">Errors</div><div class="value">{{ error_count }}</div></div>
+</div>
+
+{% if batch.status == "validated" %}
+<form method="post" action="{{ action }}" class="actions">
+  {% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
+  <button class="btn" type="submit" name="action" value="commit">Import</button>
+  <button class="btn secondary" type="submit" name="action" value="discard">Discard</button>
+  <span class="muted">All of it or none of it; the checks run again when you import.</span>
+</form>
+{% elif batch.status == "rejected" %}
+<div class="issues">Nothing was imported. Fix the rows below in the workbook and upload it again.</div>
+{% elif batch.status == "committed" %}
+<p><a class="btn" href="{{ investments_url }}">See the family's investments</a></p>
+{% endif %}
+
+{% if counts %}
+<h2>By sheet</h2>
+<table><thead><tr><th>Sheet</th><th class="num">{% if batch.status == "committed" %}Added{% else %}To add{% endif %}</th><th class="num">Already there</th></tr></thead><tbody>
+{% for name, new, old in counts %}<tr><td>{{ name }}</td><td class="num">{{ new }}</td><td class="num">{{ old }}</td></tr>{% endfor %}
+</tbody></table>
+{% endif %}
+
+{% if issues %}
+<h2>Findings</h2>
+<table><thead><tr><th>Severity</th><th>Sheet</th><th>Row</th><th>Finding</th></tr></thead><tbody>
+{% for i in issues %}<tr><td><span class="pill sev-{{ i.severity }}">{{ i.get_severity_display }}</span></td><td>{{ i.code }}</td><td>{{ i.row_number|default:"" }}</td><td>{{ i.message }}</td></tr>{% endfor %}
+</tbody></table>
+{% endif %}
+{% endblock %}
