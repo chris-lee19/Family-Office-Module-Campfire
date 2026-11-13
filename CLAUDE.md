@@ -43,7 +43,7 @@ columns, search, locks, after-save checks, delete guards); forms scoped by `reco
 `AuditEntry` before/after; fifth sidebar page "Records" · Phase A2 onboarding (`records/onboarding.py`): one .xlsx
 (openpyxl) with `SHEETS`, staged like custodian files (`ImportBatch` source "onboarding", content base64), opening
 balances on the opening date (marked holdings dated ≤ first mark so roll-forward doesn't double count), export =
-same workbook (`family_rows`); round-trip test reproduces the portfolio exactly. 105 tests passing.
+same workbook (`family_rows`); round-trip test reproduces the portfolio exactly. 104 tests passing.
 
 ## Next steps (in order) — roadmap Phase A (usable without us), then B (native feel), then C (differentiators)
 - A3 review queue (accept/reject held marks, import exceptions; preparer ≠ reviewer) · A5 month-end close page ·
