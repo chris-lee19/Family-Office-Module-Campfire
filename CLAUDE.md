@@ -163,7 +163,7 @@ end. Held marks aren't used; non-USD accounts are skipped. Securities without a 
    consolidated; drill-down). API: `/ca/api/get_balance_sheet`, `get_income_statement`, `get_cash_flow`,
    `get_trial_balance`, `/coa/api/general-ledger`, `/coa/api/transaction`.
 3. ~~Cash~~ (page done 2026-11-13, see below; bank reconciliation `/coa/api/v2/reconciliation` still to do).
-4. Bills and payments (`/coa/api/v1/bill`, `bill-draft`, `bill-payments`, `/coa/api/vendor`). 5. Journal entries
+4. ~~Bills and payments~~ (page done 2026-11-13, see below). 5. Journal entries
    (`/coa/api/journal_entry`, `intercompany-journal-entry`). 6. Approvals in the app. 7. Roles and per-user access.
    Later: budgets, fixed assets (property, art), documents/K-1s, liquidity, reporting pack.
 - Added by the user 2026-11-13 (don't lose): **partnership accounting and K-1s** (capital accounts per partner,
@@ -202,6 +202,22 @@ end. Held marks aren't used; non-USD accounts are skipped. Securities without a 
   menu: no group headings, icons or counts on the items. Splitting into several groups is possible but untested.
   149 tests. `push_manifest` applied 2026-11-13 (menu live; `transactions:write` waits in a development version for the
   user to Promote and reconnect).
+
+## Bills page and branding (2026-11-13)
+- `gl/services/bills.py` + `gl/bill_views.py`, sidebar "Bills" (`gl:bills`; framed URL `/fo/frame/bills-page`, because
+  `/fo/frame/bills` is the bill-list panel): open bills from `/coa/api/v1/bill` (overdue / due soon), KPIs, "Enter a
+  bill" form -> `BillRequest` (pending) -> approval IN THE APP by someone other than who entered it
+  (`ControlSettings.require_second_person`, actor ids) -> `POST /coa/api/v1/bill` (source "Family Office", source_id
+  `fo-bill-<pk>`): 201 = in Campfire, 202 = Campfire also holds it for approval (draft-tier connection; to make the
+  app's approval the only one set `CAMPFIRE_POSTING_MODE=direct` on Render and reconnect: that also posts journal
+  entries directly, user to decide). Reject needs a reason. "Mark paid" -> `POST /coa/api/v1/bill/<id>/pay` with
+  `empty_transactions` [{account_id, account_name, amount, payment_date, memo, external_id}] from a BANK account.
+- NOT verified against the live API: bill pay. Needs `bill_payments:write` (in the defaults; pending promote).
+  Campfire's public API has no endpoint to approve its own drafts (bill-draft is the invoice inbox), so approval lives
+  in the app.
+- Branding (user: make it feel like Campfire, "Family Office on Campfire"): sidebar brand, sign-in card, page titles
+  "<page> · Family Office on Campfire"; light theme uses warm neutrals like Campfire's interface (cream sidebar).
+  Campfire's logo is not used. 154 tests.
 
 ## Sign-in and new permissions (lesson, 2026-11-13)
 - Adding `transactions:write` to the defaults broke sign-in for everyone: Campfire answers `invalid_scope` ("This app may

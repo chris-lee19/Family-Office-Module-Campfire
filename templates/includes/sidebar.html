@@ -1,5 +1,5 @@
 {% load nav %}<aside class="side" id="fo-side">
-  <a class="brand" href="{% url 'home' %}"><span class="brand-mark">F</span><span>Family Office</span></a>
+  <a class="brand" href="{% url 'home' %}"><span class="brand-mark">F</span><span class="brand-name">Family Office<small>on Campfire</small></span></a>
   <nav aria-label="Main">
   {% for i in nav %}
     {% if i.group %}<div class="nav-group">{{ i.group }}</div>{% endif %}

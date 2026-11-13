@@ -23,6 +23,7 @@ NAV = [
     ("Operations", "Review", "records:review", "check", "review"),
     ("Operations", "Month-end close", "gl:close", "calendar", ""),
     ("Books", "Cash", "gl:cash", "bank", ""),
+    ("Books", "Bills", "gl:bills", "bill", "bills"),
     ("Books", "Financial statements", "gl:statements", "report", ""),
     ("Books", "General ledger", "gl:gl", "book", ""),
     ("Data", "Records", "records:home", "database", ""),
@@ -30,6 +31,7 @@ NAV = [
 
 # Quick actions: (label, hint, page name, args, fragment)
 ACTIONS = [
+    ("Enter a bill", "For approval, then into the payables", "gl:bills", (), "#enter"),
     ("Upload a custodian file", "Transactions, prices or positions from the custodian", "investments:imports", (), ""),
     ("Record a capital call notice", "Then send it to Campfire as a bill", "records:new", ("capital-calls",), ""),
     ("Record a distribution", "Return of capital, income and gains from a fund", "gl:calls", (), "#distribution"),
@@ -50,6 +52,7 @@ ICONS = {
     "book": '<path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"/><path d="M5 17a3 3 0 0 1 3-3h11"/>',
     "database": '<ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6"/><path d="M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/>',
     "bank": '<path d="M3 10 12 4l9 6"/><path d="M5 10v8M9.5 10v8M14.5 10v8M19 10v8"/><path d="M3 20h18"/>',
+    "bill": '<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>',
     "report": '<path d="M6 3h9l4 4v14H6z"/><path d="M15 3v4h4"/><path d="M9 12h7M9 16h7M9 8h3"/>',
     "search": '<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/>',
     "plus": '<path d="M12 5v14M5 12h14"/>',
@@ -71,7 +74,9 @@ def _badges(workspace: Any) -> dict[str, int]:
     review = (Valuation.objects.filter(account__family__workspace=workspace, status=Valuation.Status.HELD).count()
               + ImportBatch.objects.filter(workspace=workspace, status=ImportBatch.Status.VALIDATED).count())
     calls = CapitalCall.objects.filter(commitment__account__family__workspace=workspace, status__in=CapitalCall.OPEN_STATUSES).count()
-    return {"review": review, "calls": calls}
+    from gl.models import BillRequest
+
+    return {"review": review, "calls": calls, "bills": BillRequest.objects.filter(workspace=workspace, status=BillRequest.Status.PENDING).count()}
 
 
 def _search_index(request: Any, framed: bool, workspace: Any, nav: list[dict[str, Any]], actions: list[dict[str, Any]]) -> list[dict[str, str]]:

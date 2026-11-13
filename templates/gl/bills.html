@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% load money %}
+{% block title %}Bills{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Bills</h1>
+    <p class="muted">{{ workspace }} · enter → approve → pay · as of {{ today|date:"M j, Y" }}</p>
+  </div>
+  <div class="page-actions"><a class="btn" href="#enter" data-open="#enter">Enter a bill</a></div>
+</div>
+{% if message %}<div class="notice" data-toast="success">{{ message }}</div>{% endif %}
+{% if error %}<div class="issues">{{ error }}</div>{% endif %}
+
+<div class="kpis">
+  <div class="kpi"><div class="label">Open bills</div><div class="value">{{ stats.open|money }}</div><div class="sub">{{ stats.count }} bill{{ stats.count|pluralize }} to pay</div></div>
+  <div class="kpi"><div class="label">Overdue</div><div class="value">{{ stats.overdue|money }}</div><div class="sub">{% if stats.overdue_count %}<span class="err">{{ stats.overdue_count }} past the due date</span>{% else %}Nothing is late{% endif %}</div></div>
+  <div class="kpi"><div class="label">Due in 7 days</div><div class="value">{{ stats.soon|money }}</div><div class="sub">{{ stats.soon_count }} bill{{ stats.soon_count|pluralize }}</div></div>
+  <div class="kpi"><div class="label">Waiting for approval</div><div class="value">{{ pending|length }}</div><div class="sub">{% if pending %}Entered here, not in the books yet{% else %}Nothing to approve{% endif %}</div></div>
+</div>
+
+{% if pending %}
+<h2>To approve <span class="count-chip">{{ pending|length }}</span></h2>
+{% for b in pending %}
+<article class="box decision">
+  <div class="decision-main">
+    <div class="decision-title"><strong>{{ b.vendor_name }}</strong><span class="amount-chip out">{{ b.amount|acct:2 }}</span>{% if b.error %}<span class="pill sev-error">Campfire refused it</span>{% endif %}</div>
+    <div class="muted small">Bill {{ b.bill_number }} · {{ b.entity_label }} · dated {{ b.bill_date|date:"M j, Y" }} · due {{ b.due_date|date:"M j, Y" }}</div>
+    <p>{{ b.description }} <span class="muted">→ {{ b.account_label }}</span></p>
+    <div class="muted small">Entered by {{ b.created_by|default:"—" }}, {{ b.created_at|date:"M j, H:i" }}{% if b.error %} · {{ b.error|truncatechars:160 }}{% endif %}</div>
+  </div>
+  <div class="decision-actions">
+    {% if b.created_by_id and b.created_by_id == me %}<p class="small muted">You entered this bill. Someone else approves it (preparer ≠ approver).</p>{% endif %}
+    <form method="post" action="{{ action }}" class="decide">
+      {% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}<input type="hidden" name="bill" value="{{ b.pk }}">
+      <input class="input" name="note" placeholder="Note (required to reject)" aria-label="Note">
+      <div class="actions">
+        <button class="btn small" type="submit" name="action" value="approve">Approve</button>
+        <button class="btn secondary small" type="submit" name="action" value="reject">Reject</button>
+      </div>
+    </form>
+  </div>
+</article>
+{% endfor %}
+{% endif %}
+
+<details class="settings" id="enter"{% if reopen %} open{% endif %}>
+  <summary>Enter a bill</summary>
+  <form method="post" action="{{ action }}" class="record-form flat">
+    {% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}<input type="hidden" name="action" value="enter">
+    <div class="fields">
+      <div class="field"><label>Payee <span class="req">*</span></label><select name="vendor" required><option value="">Choose</option>{% for id, name in ref.vendors.items %}<option value="{{ id }}" {% if entered.vendor == id|stringformat:"s" %}selected{% endif %}>{{ name }}</option>{% endfor %}</select></div>
+      <div class="field"><label>Paid by (entity) <span class="req">*</span></label><select name="entity" required><option value="">Choose</option>{% for id, name in ref.entities.items %}<option value="{{ id }}" {% if entered.entity == id|stringformat:"s" %}selected{% endif %}>{{ name }}</option>{% endfor %}</select></div>
+      <div class="field"><label>Bill number <span class="req">*</span></label><input name="bill_number" value="{{ entered.bill_number }}" required></div>
+      <div class="field"><label>Bill date <span class="req">*</span></label><input type="date" name="bill_date" value="{{ entered.bill_date }}" required></div>
+      <div class="field"><label>Due date <span class="req">*</span></label><input type="date" name="due_date" value="{{ entered.due_date }}" required></div>
+      <div class="field"><label>Amount <span class="req">*</span></label><input name="amount" inputmode="decimal" value="{{ entered.amount }}" required></div>
+      <div class="field"><label>What it is for <span class="req">*</span></label><input name="description" value="{{ entered.description }}" required></div>
+      <div class="field"><label>Account <span class="req">*</span></label><select name="account" required><option value="">Choose</option>{% for id, name in ref.accounts.items %}<option value="{{ id }}" {% if entered.account == id|stringformat:"s" %}selected{% endif %}>{{ name }}</option>{% endfor %}</select></div>
+    </div>
+    <div class="actions"><button class="btn" type="submit">Enter for approval</button><span class="muted small">Nothing reaches the books until someone approves it.</span></div>
+  </form>
+</details>
+
+<section class="box">
+  <div class="box-head"><h2>Open bills</h2>
+    {% if open_bills %}<div class="aside"><input type="search" placeholder="Filter bills" aria-label="Filter bills" data-filter="#open-bills"></div>{% endif %}</div>
+  {% if open_bills %}
+  <table data-sort id="open-bills">
+    <thead><tr><th>Payee</th><th>Entity</th><th>Due</th><th>Status</th><th class="num">Amount due</th><th></th></tr></thead>
+    <tbody>
+    {% for b in open_bills %}
+      <tr>
+        <td><strong>{{ b.vendor }}</strong><br><span class="muted small">{{ b.number }} · {{ b.description }}</span></td>
+        <td>{{ b.entity }}</td>
+        <td class="nowrap" data-v="{{ b.due_date|date:'Y-m-d' }}">{{ b.due_date|date:"M j, Y" }}</td>
+        <td>{% if b.overdue %}<span class="pill sev-error">{{ b.days|stringformat:"d"|slice:"1:" }} day{{ b.days|stringformat:"d"|slice:"1:"|pluralize }} overdue</span>{% elif b.days is not None and b.days <= 7 %}<span class="pill sev-warning">Due in {{ b.days }} day{{ b.days|pluralize }}</span>{% else %}<span class="pill">Open</span>{% endif %}{% if b.status == "partial" %} <span class="pill plain">Part-paid</span>{% endif %}</td>
+        <td class="num"><strong>{{ b.due|acct:2 }}</strong>{% if b.due != b.total %}<br><span class="muted small">of {{ b.total|acct:2 }}</span>{% endif %}</td>
+        <td>
+          <details><summary>Mark paid</summary>
+            <form method="post" action="{{ action }}" class="decide pay">
+              {% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
+              <input type="hidden" name="action" value="pay"><input type="hidden" name="bill" value="{{ b.id }}">
+              <select name="account" required aria-label="Paid from">{% for id, name in ref.cash.items %}<option value="{{ id }}">{{ name }}</option>{% endfor %}</select>
+              <input type="date" name="date" value="{{ today|date:'Y-m-d' }}" required aria-label="Payment date">
+              <input name="amount" value="{{ b.due }}" inputmode="decimal" aria-label="Amount">
+              <button class="btn small" type="submit">Record payment</button>
+            </form>
+          </details>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<div class="empty"><strong>No open bills</strong>Bills appear here once they are approved.</div>{% endif %}
+</section>
+
+{% if recent %}
+<section class="box">
+  <div class="box-head"><h2>Recently decided here</h2></div>
+  <ul class="rows">
+    {% for b in recent %}<li><div><strong>{{ b.vendor_name }} · {{ b.bill_number }}</strong><span class="small muted">{{ b.get_status_display }}{% if b.decided_by %} by {{ b.decided_by }}{% endif %}{% if b.note %} · {{ b.note }}{% endif %}</span></div><span class="amount">{{ b.amount|acct:2 }}</span></li>{% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if paid %}
+<section class="box">
+  <div class="box-head"><h2>Paid</h2></div>
+  <table data-sort><thead><tr><th>Payee</th><th>Entity</th><th>Bill</th><th class="num">Amount</th></tr></thead><tbody>
+    {% for b in paid %}<tr><td>{{ b.vendor }}</td><td>{{ b.entity }}</td><td>{{ b.number }}</td><td class="num">{{ b.total|acct:2 }}</td></tr>{% endfor %}
+  </tbody></table>
+</section>
+{% endif %}
+{% endblock %}

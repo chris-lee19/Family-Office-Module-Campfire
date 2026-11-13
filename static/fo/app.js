@@ -185,6 +185,13 @@
     ["dragleave", "drop"].forEach(function (ev) { zone.addEventListener(ev, function () { zone.classList.remove("over"); }); });
   });
 
+  /* ---- a link can open a folded section (and a #hash that names one opens it on load) ---- */
+  var unfold = function (sel) { var el = sel && sel.length > 1 ? d.querySelector(sel) : null; if (el && el.tagName === "DETAILS") { el.open = true; return el; } return null; };
+  d.querySelectorAll("[data-open]").forEach(function (a) {
+    a.addEventListener("click", function () { var el = unfold(a.getAttribute("data-open")); if (el) { var f = el.querySelector("select, input:not([type=hidden])"); if (f) f.focus(); } });
+  });
+  unfold(location.hash);
+
   /* ---- a filter bar applies itself when a choice changes ---- */
   d.querySelectorAll("form[data-autosubmit]").forEach(function (form) {
     form.addEventListener("change", function (e) { if (e.target.tagName === "SELECT") form.submit(); });

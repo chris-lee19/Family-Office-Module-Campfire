@@ -258,3 +258,48 @@ class BankLineDismissal(models.Model):
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["workspace", "bank_line_id"], name="bank_dismissal_unique")]
+
+
+class BillRequest(models.Model):
+    """A bill entered in the app. It waits for approval here (by someone other than whoever entered it, when the
+    workspace asks for a second person), and only then goes to Campfire's payables."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Waiting for approval"
+        SENT = "sent", "In Campfire"
+        AWAITING = "awaiting", "Approved here; awaiting approval in Campfire"
+        REJECTED = "rejected", "Rejected"
+        FAILED = "failed", "Campfire refused it"
+
+    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE, related_name="bill_requests")
+    campfire_entity_id = models.BigIntegerField()
+    entity_label = models.CharField(max_length=255)
+    campfire_vendor_id = models.BigIntegerField()
+    vendor_name = models.CharField(max_length=255)
+    bill_number = models.CharField(max_length=120)
+    bill_date = models.DateField()
+    due_date = models.DateField()
+    description = models.CharField(max_length=255)
+    campfire_account_id = models.BigIntegerField()
+    account_label = models.CharField(max_length=255)
+    amount = models.DecimalField(**MONEY)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING)
+    created_by = models.CharField(max_length=255, blank=True)
+    created_by_id = models.CharField(max_length=64, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    decided_by = models.CharField(max_length=255, blank=True)
+    decided_by_id = models.CharField(max_length=64, blank=True)
+    decided_at = models.DateTimeField(null=True, blank=True)
+    note = models.CharField(max_length=255, blank=True)
+    campfire_bill_id = models.BigIntegerField(null=True, blank=True)
+    error = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+
+    def __str__(self) -> str:
+        return f"{self.vendor_name} {self.bill_number} {self.amount} ({self.get_status_display()})"
+
+    @property
+    def source_id(self) -> str:
+        return f"fo-bill-{self.pk}"
