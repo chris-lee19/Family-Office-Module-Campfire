@@ -124,7 +124,7 @@ end. Held marks aren't used; non-USD accounts are skipped. Securities without a 
 - `CAMPFIRE_API_KEY` (sandbox) is set as an environment secret and `api.meetcampfire.com` / `docs.campfire.ai` are
   reachable (verified 2026-11-13); real JE, entity, account, tag and trial-balance payloads were inspected for the
   GL bridge. Header: `Authorization: Token <key>`; base URL `https://api.meetcampfire.com`; docs index
-  `https://docs.campfire.ai/llms.txt`. Read-only calls only until the user says otherwise.
+  `https://docs.campfire.ai/llms.txt`. Sandbox writes were approved for the clean-up and the demo books (2026-11-13); ask before other writes.
 
 ## Answered from the docs / live API (2026-11-13)
 - Scope strings: live catalog `GET /ca/api/v1/oauth-apps/scopes` (works with the API key). Default set in settings.
@@ -158,7 +158,7 @@ end. Held marks aren't used; non-USD accounts are skipped. Securities without a 
 - App connected 2026-11-13 (v2 promoted): token has `journal_entries:draft`, `bills:draft`.
 
 ## App-as-the-face build order (agreed 2026-11-13)
-1. Clean the sandbox and seed Alder dummy data (opening balances, bank accounts with activity, household/adviser bills).
+1. ~~Clean the sandbox and seed Alder dummy data~~ (done, see below).
 2. Financial statements in the app (balance sheet, income statement, cash flow, trial balance; per entity and
    consolidated; drill-down). API: `/ca/api/get_balance_sheet`, `get_income_statement`, `get_cash_flow`,
    `get_trial_balance`, `/coa/api/general-ledger`, `/coa/api/transaction`.
@@ -168,15 +168,28 @@ end. Held marks aren't used; non-USD accounts are skipped. Securities without a 
    Later: budgets, fixed assets (property, art), documents/K-1s, liquidity, reporting pack.
 - Gaps for the CTO: approve endpoints; close checklist and period locks; keep sidebar scroll on navigation.
 
-## Sandbox inventory (read-only, 2026-11-13) — the CTO allows wiping non-family-office data; user approved in
-## principle and asked for the list first. NOTHING deleted yet: wait for the user's OK on the list.
-- Keep: 10 Alder entities, 44 GL accounts (FO chart + role accounts), 9 Alder payees, 3 FO tag groups + 18 tags.
-- Not family office (all on Entity 1/2/3): 115 invoices, 91 bills, 168 manual/CSV journal entries (394 incl. the ones
-  behind invoices/bills), 10 intercompany entries, 8 customers, 5 contracts, 6 products, 51 vendors, 7 departments,
-  6 ungrouped tags, entities "Entity 1 (USD)" 55929, "Entity 2 (USD)" 55930, "Entity 3 (EUR)" 55931, "Eliminations" 55932,
-  54 default accounts (revenue/COGS/payroll/startup equity; some are structural: AP, AR, intercompany, opening balance
-  equity, FX gain/loss, 000000 Uncategorized). No bank accounts, bank lines, budgets, fixed assets, files.
-- Missing FO setup seen: tag groups FO Family Branch / Tax Treatment / Custodian not created yet; no FO entries posted.
+## Sandbox clean-up and demo books (2026-11-13, user: "OK to delete, and add the data needed to operate as a family office")
+- Removed (sample data on Entity 1/2/3, nothing refused): 115 invoices, 91 bills, 10 intercompany entries, 168 journal
+  entries, 87 revenue transactions, 5 contracts, 8 customers, 6 products, 51 vendors, 7 departments, 6 "Product Tag" tags,
+  36 default accounts (revenue, COGS, payroll, startup equity...). Kept as structural: AR x2, AP x2, intercompany x6,
+  Unapplied Credits, Deferred Revenue 230000, CTA, Opening Balance Equity, Realized/Unrealized Gain/Loss (FX),
+  000000 Uncategorized, and 3000 Equity (parent of two of them).
+- The 4 sample entities can't be deleted ("referenced by other objects"): set `active` false instead (PATCH).
+- Mistake to remember: the FO chart had reused the default "Insurance Expense" (same name, different case), the wipe
+  matched names case-sensitively and deleted it; `campfire_demo_setup` recreated 6550 Insurance expense (1514133).
+  Match account names case-insensitively before deleting anything.
+- `python manage.py campfire_demo_books` (source "Alder demo books", `--dry-run`, `--teardown`): per entity an opening
+  entry on 2025-12-31 (operating cash, note receivable, art, mortgage 4.2M, related-party balances, plus custody cash and
+  investments at cost from the app's investment book on that date, equity as the balancing line), one "Operating
+  activity" entry per entity and month Jan-Oct 2026 (rent, mortgage, property tax, fees, grants, distributions,
+  estimated taxes), 8 operating bank accounts on 1040 with 10 recent uncategorized lines (one names the Summit fund:
+  bank matching), 8 open bills (67,500; one overdue). Read back: every entity balances; assets 24.7M, liabilities 4.3M.
+- Campfire facts learned: bank feed lines are de-duplicated on `external_transaction_id` (without one only the first
+  line per account is kept); a list filtered with `source=` was served stale minutes after creates (a rerun duplicated
+  67 entries, removed again), so list unfiltered and compare (entity, date, memo) too; bank feed lines post entries of
+  type expense/deposit against 000000 Uncategorized; bills post type bill to 210000 Accounts Payable.
+- In the app (user): General ledger -> Setup: Link by matching name; Preview suggested setup -> Create (also creates the
+  missing FO Family Branch / Tax Treatment / Custodian tag groups); "Post activity from" 2026-01-01; then Send.
 
 ## Waiting on the user
 - Render: live at `https://family-office-wl37.onrender.com` (2026-11-13). `push_manifest` applied for that URL:
