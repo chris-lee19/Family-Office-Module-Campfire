@@ -200,7 +200,8 @@ end. Held marks aren't used; non-USD accounts are skipped. Securities without a 
 - Campfire's own sidebar: one "Family Office" group, items in the app's order (Home; Investments, Entities; Capital
   calls, Imports, Review, Month-end close; Cash, Financial statements, General ledger; Records). Campfire draws that
   menu: no group headings, icons or counts on the items. Splitting into several groups is possible but untested.
-  149 tests.
+  149 tests. `push_manifest` applied 2026-11-13 (menu live; `transactions:write` waits in a development version for the
+  user to Promote and reconnect).
 
 ## Sandbox clean-up and demo books (2026-11-13, user: "OK to delete, and add the data needed to operate as a family office")
 - Removed (sample data on Entity 1/2/3, nothing refused): 115 invoices, 91 bills, 10 intercompany entries, 168 journal
