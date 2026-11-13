@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}{% if obj %}{{ obj }}{% else %}New {{ kind.label|lower }}{% endif %}{% endblock %}
+{% block content %}
+<p><a href="{{ list_url }}">← {{ kind.plural }}</a></p>
+<h1>{% if obj %}{{ obj }}{% else %}New {{ kind.label|lower }}{% endif %}</h1>
+{% if lock %}<div class="notice">{{ lock }}</div>{% endif %}
+{% if error %}<div class="issues">{{ error }}</div>{% endif %}
+{% if form.non_field_errors %}<div class="issues">{% for e in form.non_field_errors %}<div>{{ e }}</div>{% endfor %}</div>{% endif %}
+
+<form method="post" action="{{ action }}" class="record-form">
+  {% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
+  <div class="fields">
+  {% for field in form %}
+    <div class="field{% if field.errors %} has-error{% endif %}">
+      {% if field.field.widget.input_type == 'checkbox' %}
+      <label class="checkline">{{ field }} {{ field.label }}</label>
+      {% else %}
+      <label for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} <span class="req">*</span>{% endif %}</label>
+      {{ field }}
+      {% endif %}
+      {% if field.help_text %}<span class="muted small">{{ field.help_text }}</span>{% endif %}
+      {% for e in field.errors %}<span class="err small">{{ e }}</span>{% endfor %}
+    </div>
+  {% endfor %}
+  </div>
+  {% if not lock %}
+  <div class="actions">
+    <button class="btn" type="submit">Save</button>
+    {% if not obj %}<button class="btn secondary" type="submit" name="then" value="another">Save and add another</button>{% endif %}
+    <a class="btn secondary" href="{{ list_url }}">Cancel</a>
+  </div>
+  {% endif %}
+</form>
+{% if can_delete %}
+<form method="post" action="{{ action }}" class="actions" onsubmit="return confirm('Delete {{ obj|escapejs }}? This is recorded in the audit trail.');">
+  {% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
+  <button class="btn secondary" type="submit" name="action" value="delete">Delete</button>
+</form>
+{% endif %}
+
+{% if delete_blocked %}<p class="muted small">Not deletable: {{ delete_blocked }}</p>{% endif %}
+
+{% if history %}
+<h2>History</h2>
+<table><tbody>
+{% for a in history %}
+  <tr><td class="nowrap">{{ a.at|date:"Y-m-d H:i" }}</td><td>{{ a.actor }}</td><td>{{ a.get_action_display }}</td>
+    <td>{% for label, change in a.changes.items %}<div class="small"><strong>{{ label|capfirst }}</strong>: {{ change.0|default:"—" }} → {{ change.1|default:"—" }}</div>{% endfor %}</td></tr>
+{% endfor %}
+</tbody></table>
+{% endif %}
+{% endblock %}

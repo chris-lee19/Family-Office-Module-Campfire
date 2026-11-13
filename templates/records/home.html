@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Records{% endblock %}
+{% block content %}
+<h1>Records</h1>
+<p class="muted">{{ workspace }} · set up and maintain the family's structure, accounts and holdings. Every change is audited.</p>
+
+<div class="notice small">
+  <strong>Setting up a family?</strong> Work down the lists: family → branches and people → entities → ownership and roles →
+  securities and funds → accounts (with the custodian account number) → opening positions (transactions: transfers in with
+  cost basis) → commitments and NAV statements. Custodian files and the demo button can fill much of this for you.
+</div>
+
+<div class="grid2">
+{% for group, kinds in groups %}
+  <div>
+    <h2>{{ group }}</h2>
+    <table><tbody>
+    {% for k, count, list_url, new_url in kinds %}
+      <tr>
+        <td><a href="{{ list_url }}"><strong>{{ k.plural }}</strong></a>{% if k.help %}<br><span class="muted small">{{ k.help }}</span>{% endif %}</td>
+        <td class="num">{{ count }}</td>
+        <td class="num"><a class="btn secondary small" href="{{ new_url }}">Add</a></td>
+      </tr>
+    {% endfor %}
+    </tbody></table>
+  </div>
+{% endfor %}
+</div>
+
+<h2>Recent changes</h2>
+{% if recent %}
+<table><tbody>
+{% for a in recent %}<tr><td class="nowrap">{{ a.at|date:"Y-m-d H:i" }}</td><td>{{ a.actor }}</td><td>{{ a.get_action_display }}</td><td>{{ a.object_repr }}<br><span class="muted small">{{ a.kind }}</span></td></tr>{% endfor %}
+</tbody></table>
+{% else %}<p class="muted">No changes yet.</p>{% endif %}
+{% endblock %}

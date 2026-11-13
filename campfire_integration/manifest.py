@@ -16,6 +16,7 @@ NAV_PAGES: list[tuple[str, str, str, str]] = [
     ("entities", "Entities & Ownership", "users", "/fo/frame/entities"),
     ("imports", "Imports", "upload", "/fo/frame/imports"),
     ("gl", "General ledger", "book-open", "/fo/frame/gl"),
+    ("records", "Records", "database", "/fo/frame/records"),
 ]
 
 # Event topics to receive at /campfire/events (each needs a read scope in allowed_scopes). Add a topic only

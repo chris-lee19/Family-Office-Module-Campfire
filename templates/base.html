@@ -42,12 +42,17 @@
     .small { font-size:12px; } .err { color:#991b1b; } table.inner td { padding:4px 6px; font-size:12px; } .btn.small { padding:4px 10px; font-size:12px; }
     .btn[disabled] { opacity:.5; cursor:not-allowed; } select { max-width:320px; } .nowrap { white-space:nowrap; }
     input[type=date] { font:inherit; padding:5px; border:1px solid var(--line); border-radius:6px; }
+    .record-form .fields { display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:14px 24px; max-width:900px; margin:12px 0; }
+    .record-form .field { display:grid; gap:4px; align-content:start; } .record-form label.checkline { display:flex; gap:8px; align-items:center; margin-top:22px; }
+    .record-form .field.has-error input, .record-form .field.has-error select { border-color:#991b1b; }
+    .record-form input:not([type=checkbox]), .record-form select, .record-form textarea, input.input { font:inherit; padding:6px 8px; border:1px solid var(--line); border-radius:6px; width:100%; max-width:420px; }
+    .req { color:#991b1b; } a.btn { text-decoration:none; }
   </style>
 </head>
 <body class="{% if framed %}framed{% endif %}">
   {% if not framed %}
   <header class="top">
-    <nav><strong>Family Office</strong>{% if request.session.campfire_user %} &nbsp; <a href="{% url 'investments:investments' %}">Investments</a> · <a href="{% url 'home' %}">Entities &amp; Ownership</a> · <a href="{% url 'investments:imports' %}">Imports</a> · <a href="{% url 'gl:gl' %}">General ledger</a>{% endif %}</nav>
+    <nav><strong>Family Office</strong>{% if request.session.campfire_user %} &nbsp; <a href="{% url 'investments:investments' %}">Investments</a> · <a href="{% url 'home' %}">Entities &amp; Ownership</a> · <a href="{% url 'investments:imports' %}">Imports</a> · <a href="{% url 'gl:gl' %}">General ledger</a> · <a href="{% url 'records:home' %}">Records</a>{% endif %}</nav>
     {% if request.session.campfire_user %}
       <form method="post" action="{% url 'campfire:logout' %}">{% csrf_token %}
         <span class="muted">{% firstof request.session.campfire_user.name request.session.campfire_user.email "Campfire user" %}{% if workspace %} · {{ workspace }}{% endif %}</span>

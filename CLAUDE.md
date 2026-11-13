@@ -37,11 +37,17 @@ Campfire entity and month, summarized by account + tags, sent as drafts (connect
 lineage in native fields (`source`="Family Office", `source_id`=`fo-posting-<pk>`, line `external_id`); 201/202
 handling, `JournalEntry.*` events + `refresh_statuses`, release; `GLSettings.post_from` go-live date; setup of
 accounts/tags; REC-04 tie-out vs trial balance. Fourth sidebar page: General ledger. `push_manifest` applies the
-manifest over the API (API key). Render deploy (`render.yaml`) + "Load the demo family" button (`ALLOW_DEMO_DATA`).
-86 tests passing.
+manifest over the API (API key). Render deploy (`render.yaml`) + "Load the demo family" button (`ALLOW_DEMO_DATA`) ·
+Phase A1 Records (`records/`): generic list/add/edit/delete per record type from `records/registry.py` (`Kind`: form,
+columns, search, locks, after-save checks, delete guards); forms scoped by `records.forms.scoped` (fail closed);
+`AuditEntry` before/after; fifth sidebar page "Records". 98 tests passing.
 
-## Next steps (in order)
-1. **Capital call → Campfire bill** (draft, `bills:draft`) → `Bill.paid` event (add to `EVENT_TOPICS`) →
+## Next steps (in order) — roadmap Phase A (usable without us), then B (native feel), then C (differentiators)
+- A2 onboarding wizard + opening balances (spreadsheet of entities/accounts/positions with lots as of go-live) ·
+  A3 review queue (accept/reject held marks, import exceptions; preparer ≠ reviewer) · A5 month-end close page ·
+  A6 "needs attention" home. B: panels on Campfire JE/bill records, net worth incl. Campfire cash/liabilities,
+  roles + per-user connections. C: documents & AI, family reports, FMV JEs, liquidity.
+1. **Capital call → Campfire bill** (= A4) (draft, `bills:draft`) → `Bill.paid` event (add to `EVENT_TOPICS`) →
    `investments.services.privates.mark_call_paid`. The bill's line account should be the investments-at-cost mapping:
    the GL bridge skips contributions whose call has a `campfire_bill_id` (the bill booked them).
 2. GL follow-ups: period-end unrealized gain (FMV) entries; FX for non-USD accounts; lock-period check before sending

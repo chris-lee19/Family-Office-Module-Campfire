@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}{{ kind.plural }}{% endblock %}
+{% block content %}
+<p><a href="{{ home_url }}">← Records</a></p>
+<h1>{{ kind.plural }}</h1>
+{% if kind.help %}<p class="muted">{{ kind.help }}</p>{% endif %}
+<form method="get" action="{{ list_url }}" class="actions">
+  {% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
+  {% if kind.search %}<input type="search" name="q" value="{{ q }}" placeholder="Search" class="input">{% endif %}
+  {% if families|length > 1 %}<select name="family"><option value="">All families</option>{% for fam in families %}<option value="{{ fam.pk }}" {% if fam.pk|stringformat:"s" == family %}selected{% endif %}>{{ fam }}</option>{% endfor %}</select>{% endif %}
+  {% if kind.search or families|length > 1 %}<button class="btn secondary" type="submit">Filter</button>{% endif %}
+  <a class="btn" href="{{ new_url }}">Add {{ kind.label|lower }}</a>
+</form>
+{% if rows %}
+<table>
+  <thead><tr>{% for header, _ in kind.columns %}<th>{{ header }}</th>{% endfor %}</tr></thead>
+  <tbody>
+  {% for obj, cells, url in rows %}
+    <tr>{% for cell in cells %}<td>{% if forloop.first %}<a href="{{ url }}">{{ cell }}</a>{% else %}{{ cell }}{% endif %}</td>{% endfor %}</tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% if total > limit %}<p class="muted">Showing {{ limit }} of {{ total }}; search or filter to narrow it down.</p>{% endif %}
+{% else %}
+<p class="muted">{% if q or family %}Nothing matches.{% else %}None yet.{% endif %}</p>
+{% endif %}
+{% endblock %}

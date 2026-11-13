@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block title %}Saved{% endblock %}
+{% block content %}
+<h1>Saved: {{ obj }}</h1>
+<div class="notice">{{ note }}</div>
+<p><a class="btn" href="{{ list_url }}">Back to {{ kind.plural|lower }}</a> <a class="btn secondary" href="{{ view_url }}">View it</a></p>
+{% endblock %}

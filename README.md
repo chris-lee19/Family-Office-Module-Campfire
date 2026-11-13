@@ -28,6 +28,7 @@ Plan and requirement mapping: [`docs/PLAN.md`](docs/PLAN.md), [`docs/campfire_fi
 | GL setup: link entities, map roles to GL accounts (narrower mappings by entity / asset class / account in `/admin`), create the suggested FO accounts and the FO Family / Asset Class / Holding dimensions | `gl/services/setup.py` |
 | Subledger-to-GL tie-out (REC-04): custody cash and investments at cost per entity vs Campfire's trial balance, with unposted and awaiting-approval amounts explained | `gl/services/tieout.py` |
 | "General ledger" page in Campfire's sidebar | `/fo/frame/gl` (standalone: `/fo/gl`) |
+| "Records" page: set up and maintain families, branches, people, entities, ownership, roles, asset classes, securities, accounts, commitments, capital calls, transactions (incl. opening positions), NAV statements and prices. Choices scoped to the workspace; every change audited (before/after); ledger and ownership checks undo a bad change; GL-posted, imported and call-paid transactions are locked; deletes never cascade through the books | `records/` |
 | Fictional demo family with entities and investments (dates relative to today) | `python manage.py seed_demo` |
 
 ## Local development
@@ -154,6 +155,7 @@ entities/               M1: families, branches, people, entities, ownership, rol
 investments/            M2: instruments, accounts, transactions, marks, commitments; ledger, valuation, privates, portfolio;
                         importers/ (custodian file layouts, parsing, validation and import)
 gl/                     M3: posting rules, journal postings to Campfire, entity/account/tag setup, tie-out
+records/                setup and data entry for everything above (registry of record types, audit trail)
 templates/              server-rendered pages (frames + standalone)
 tests/                  pytest
 docs/                   plan and requirement mapping (client workbooks stay in docs/client/, gitignored)

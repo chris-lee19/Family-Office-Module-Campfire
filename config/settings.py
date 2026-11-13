@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     "entities",
     "investments",
     "gl",
+    "records",
 ]
 
 MIDDLEWARE = [
