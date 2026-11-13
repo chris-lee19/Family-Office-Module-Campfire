@@ -1,4 +1,5 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Any
 from datetime import date
 from decimal import Decimal
 
@@ -43,6 +44,8 @@ class FamilyInvestments:
     by_asset_class: list[Breakdown]
     by_liquidity: list[Breakdown]
     by_tax_treatment: list[Breakdown]
+    net_worth: Any = None  # gl.services.networth.NetWorth
+    net_by_person: list[Breakdown] = field(default_factory=list)
 
     @property
     def attention_count(self) -> int:
@@ -50,7 +53,10 @@ class FamilyInvestments:
 
 
 def family_investments(family: Family, as_of: date) -> FamilyInvestments:
-    p = build_portfolio(family, as_of)
+    from gl.services.networth import build_net_worth
+
+    nw = build_net_worth(family, as_of)
+    p = nw.portfolio
     calls = list(
         CapitalCall.objects.filter(commitment__account__family=family)
         .exclude(status__in=[CapitalCall.Status.PAID, CapitalCall.Status.CANCELLED])
@@ -67,6 +73,8 @@ def family_investments(family: Family, as_of: date) -> FamilyInvestments:
         by_asset_class=breakdown(p.by_asset_class, p.total),
         by_liquidity=breakdown(p.by_liquidity, p.total),
         by_tax_treatment=breakdown(p.by_tax_treatment, p.total),
+        net_worth=nw,
+        net_by_person=breakdown(nw.by_person, nw.net) if nw.lines else [],
     )
 
 
@@ -79,10 +87,26 @@ def demo_url(request: HttpRequest, workspace: Workspace, framed: bool) -> str:
 
 def investments_page(request: HttpRequest, workspace: Workspace, framed: bool) -> HttpResponse:
     as_of = timezone.localdate()
+    message = ""
+    if request.method == "POST" and request.POST.get("action") == "refresh_balances":
+        import requests
+
+        from campfire_integration.client import CampfireClient, CampfireError, NotConnected
+        from gl.services.networth import refresh_balances
+
+        try:
+            n = len(refresh_balances(workspace, CampfireClient(workspace), as_of))
+            message = f"Read balances for {n} Campfire entit{'ies' if n != 1 else 'y'}."
+        except (CampfireError, NotConnected, requests.RequestException) as e:
+            message = f"Couldn't read balances from Campfire ({type(e).__name__})."
+    elif request.method not in ("GET", "POST"):
+        return HttpResponseNotAllowed(["GET", "POST"])
     families = [family_investments(f, as_of) for f in Family.objects.filter(workspace=workspace, is_active=True)]
     return render(request, "investments/overview.html", {
         "workspace": workspace, "families": families, "as_of": as_of, "framed": framed,
-        "demo_url": demo_url(request, workspace, framed), "review_url": pages.page_url(request, framed, "records:review"), "calls_url": pages.page_url(request, framed, "gl:calls"),
+        "demo_url": demo_url(request, workspace, framed), "review_url": pages.page_url(request, framed, "records:review"),
+        "message": message, "action": pages.page_url(request, framed, "investments:investments"),
+        "frame_token": getattr(request, "fo_frame_token", ""), "calls_url": pages.page_url(request, framed, "gl:calls"),
     })
 
 

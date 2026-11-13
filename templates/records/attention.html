@@ -6,6 +6,7 @@
 <p class="muted">{{ workspace }} · {{ today|date:"l, F j, Y" }}</p>
 
 <div class="cards">
+  {% if head.has_campfire_balances %}<div class="card"><div class="label">Net worth (incl. Campfire)</div><div class="value"><a href="{{ links.investments }}">{{ head.net_worth|money }}</a></div></div>{% endif %}
   <div class="card"><div class="label">Investments ({{ head.families }} famil{{ head.families|pluralize:"y,ies" }})</div><div class="value"><a href="{{ links.investments }}">{{ head.total|money }}</a></div></div>
   <div class="card"><div class="label">Unfunded commitments</div><div class="value">{{ head.unfunded|money }}</div></div>
   <div class="card"><div class="label">Capital calls due in 30 days</div><div class="value"><a href="{{ links.calls }}">{{ head.calls_due_30|money }}</a></div></div>

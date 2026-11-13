@@ -1,13 +1,32 @@
 {% extends "base.html" %}
-{% load money %}
+{% load money nw_extras %}
 {% block title %}Investments{% endblock %}
 {% block content %}
 <h1>Investments</h1>
 <p class="muted">{{ workspace }} · as of {{ as_of }}</p>
 
+{% if message %}<div class="notice">{{ message }}</div>{% endif %}
 {% for fi in families %}
-{% with p=fi.portfolio %}
+{% with p=fi.portfolio nw=fi.net_worth %}
   <h2>{{ fi.family.name }}</h2>
+  <div class="networth">
+    <table class="nw"><tbody>
+      <tr><td>Investments (Family Office, at market value)</td><td class="num">{{ nw.investments|money }}</td></tr>
+      <tr><td>+ Bank cash (Campfire)</td><td class="num">{{ nw|nw_total:"cash"|money }}</td></tr>
+      <tr><td>+ Other assets (Campfire)</td><td class="num">{{ nw|nw_total:"other"|money }}</td></tr>
+      <tr><td>− Liabilities (Campfire)</td><td class="num">{{ nw|nw_total:"liability"|money }}</td></tr>
+      <tr class="total"><td><strong>Net worth</strong></td><td class="num"><strong>{{ nw.net|money }}</strong></td></tr>
+    </tbody></table>
+    <div class="small muted">
+      {% if nw.fetched_at %}Campfire balances as of {{ nw.balances_as_of|date:"Y-m-d" }}, read {{ nw.fetched_at|date:"Y-m-d H:i" }}.{% else %}No Campfire balances read yet.{% endif %}
+      {% if nw.missing %}Not read yet: {{ nw.missing|join:", " }}.{% endif %}
+      <form method="post" action="{{ action }}" style="display:inline">{% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
+        <button class="btn secondary small" type="submit" name="action" value="refresh_balances">Refresh from Campfire</button></form>
+      {% if nw.lines %}<details><summary>Campfire accounts in net worth</summary><table class="inner"><tbody>
+        {% for ln in nw.lines %}<tr><td>{{ ln.entity }}</td><td>{{ ln.label }}</td><td class="muted">{{ ln.category }}</td><td class="num">{{ ln.amount|money }}</td></tr>{% endfor %}
+      </tbody></table></details>{% endif %}
+    </div>
+  </div>
   <div class="cards">
     <div class="card"><div class="label">Total investments</div><div class="value">{{ p.total|money }}</div></div>
     <div class="card"><div class="label">Unfunded commitments</div><div class="value">{{ p.unfunded|money }}</div></div>
@@ -28,8 +47,12 @@
   {% endif %}
 
   <div class="grid2">
+    {% if fi.net_by_person %}<div>
+      <h3>Net worth by person (look-through)</h3>
+      <table><tbody>{% for r in fi.net_by_person %}<tr><td>{{ r.label }}</td><td class="num">{{ r.value|money }}</td><td class="num">{{ r.pct }}%</td><td><div class="bar"><span style="width:{{ r.pct }}%"></span></div></td></tr>{% endfor %}</tbody></table>
+    </div>{% endif %}
     <div>
-      <h3>By person (look-through)</h3>
+      <h3>Investments by person (look-through)</h3>
       <table><tbody>{% for r in fi.by_person %}<tr><td>{{ r.label }}</td><td class="num">{{ r.value|money }}</td><td class="num">{{ r.pct }}%</td><td><div class="bar"><span style="width:{{ r.pct }}%"></span></div></td></tr>{% endfor %}</tbody></table>
     </div>
     <div>

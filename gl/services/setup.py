@@ -40,6 +40,8 @@ SUGGESTED_ACCOUNTS = [
     SuggestedAccount(Role.FUND_INCOME, "7120", "Fund income distributions", "OTHER_INCOME", "OTHER_INCOME"),
     SuggestedAccount(Role.REALIZED_GAIN, "7200", "Realized gain / loss on investments", "OTHER_INCOME", "REALIZED_GAIN_LOSS"),
     SuggestedAccount(Role.INVESTMENT_FEES, "8100", "Investment management fees", "OTHER_EXPENSE", "OTHER_EXPENSE"),
+    SuggestedAccount(Role.UNREALIZED, "1630", "Unrealized appreciation on investments", "ASSET", "OTHER_ASSET"),
+    SuggestedAccount(Role.UNREALIZED_GAIN, "7300", "Unrealized gain / loss on investments", "OTHER_INCOME", "UNREALIZED_GAIN_LOSS"),
 ]
 
 TAG_GROUPS = {

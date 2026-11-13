@@ -153,6 +153,15 @@ def collect(workspace: Workspace, today: date | None = None) -> list[Item]:
             add(Item(URGENT, "Close", "Tie-out doesn't tie for " + _plural(len(breaks), "entity", "entities") + f" ({last:%B})",
                      "; ".join(f"{d['label']}: {Decimal(d['difference']):,.2f}" for d in breaks[0].tieout_detail[:2]), "gl:close", "See the differences"))
 
+    # Campfire balances (net worth)
+    if booked:
+        from gl.models import CampfireBalanceSnapshot
+
+        last = CampfireBalanceSnapshot.objects.filter(workspace=workspace).order_by("-fetched_at").first()
+        if last is None or (timezone.now() - last.fetched_at).days >= 7:
+            add(Item(INFO, "Net worth", "Campfire balances " + ("never read" if last is None else f"last read {timezone.localdate(last.fetched_at)}"),
+                     "Net worth adds bank cash, other assets and liabilities from Campfire; refresh them.", "investments:investments", "Refresh"))
+
     # Setup
     unlinked = Entity.objects.filter(family__workspace=workspace, campfire_entity_id__isnull=True, accounts__isnull=False).distinct()
     if unlinked.exists() and booked:
@@ -184,20 +193,25 @@ class Headline:
     total: Decimal
     unfunded: Decimal
     calls_due_30: Decimal
+    net_worth: Decimal = Decimal(0)
+    has_campfire_balances: bool = False
 
 
 def headline(workspace: Workspace, today: date | None = None) -> Headline:
     from entities.models import Family
-    from investments.services.portfolio import build_portfolio
+    from gl.services.networth import build_net_worth
 
     today = today or timezone.localdate()
-    total = unfunded = Decimal(0)
+    total = unfunded = net = Decimal(0)
+    has_balances = False
     families = list(Family.objects.filter(workspace=workspace, is_active=True))
     for f in families:
-        p = build_portfolio(f, today)
-        total += p.total
-        unfunded += p.unfunded
+        nw = build_net_worth(f, today)
+        total += nw.investments
+        unfunded += nw.portfolio.unfunded
+        net += nw.net
+        has_balances = has_balances or nw.fetched_at is not None
     due = CapitalCall.objects.filter(commitment__account__family__workspace=workspace, status__in=CapitalCall.OPEN_STATUSES,
                                      due_date__lte=today + timedelta(days=30)).aggregate(s=Sum("amount"))["s"] or Decimal(0)
-    return Headline(len(families), total, unfunded, due)
+    return Headline(len(families), total, unfunded, due, net, has_balances)
 

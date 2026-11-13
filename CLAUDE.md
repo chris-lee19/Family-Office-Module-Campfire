@@ -58,10 +58,17 @@ sign-off confirmed, tie-out stored and stale once something posts later; posting
 urgent / to do / FYI with target page. **Phase A complete.** · Phase B1 panels (`gl/panel_views.py`; manifest
 `RECORD_BUTTONS` / `RECORD_PANELS`): bill drawer + bill edit tab + bill list tab work today; journal-entry tab/button
 are declared and show once Campfire adds extensions to that page (docs: buttons today on invoice page, invoice list,
-bill page; panels on invoices and bill list/edit). `pages.record_framed` binds the frame to `{{record.id}}`. 126 tests passing.
+bill page; panels on invoices and bill list/edit). `pages.record_framed` binds the frame to `{{record.id}}` · Phase B2a
+net worth with Campfire (`gl/services/networth.py`, `CampfireBalanceSnapshot`): trial balance per booked entity,
+ASSET/LIABILITY only, role-mapped accounts excluded; new roles UNREALIZED (1630) / UNREALIZED_GAIN (7300) so the
+unrealized account is excluded now and FMV entries can use it later. Verified read-only on sandbox Entity 1. 128 tests passing.
 
 ## Next steps (in order) — Phase A (usable without us) is done; then B (native feel), then C (differentiators)
-- B (remaining): net worth incl. Campfire cash/liabilities; roles + per-user connections.
+- Agreed order (user, 2026-11-13): B2b bank-feed matching (Cash Management: wires ↔ capital calls / distributions;
+  sandbox has no bank accounts or transactions yet) → fold Month-end close into Campfire Close Management
+  (`close_checklist:write`) → FMV / unrealized entries into the GL → roles + per-user connections.
+- Seamless Campfire (user question): FO staff roles without Revenue/AR; a clean sandbox workspace for the demo; ask the
+  partner contact for per-workspace module switches, an app page as landing page, and app widgets on Campfire Home.
   C: documents & AI, family reports, FMV JEs, liquidity.
 1. GL follow-ups: period-end unrealized gain (FMV) entries; FX for non-USD accounts; lock-period check before sending
    (`lock_periods:read`); tie-out drill-down to GL lines (`transactions:read`).

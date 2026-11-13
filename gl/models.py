@@ -28,6 +28,8 @@ class Role(models.TextChoices):
     FUND_INCOME = "fund_income", "Fund income distributions"
     REALIZED_GAIN = "realized_gain", "Realized gain / loss"
     INVESTMENT_FEES = "investment_fees", "Investment fees"
+    UNREALIZED = "unrealized", "Unrealized appreciation (balance sheet)"
+    UNREALIZED_GAIN = "unrealized_gain", "Unrealized gain / loss (P&L)"
 
 
 # Roles whose balances the tie-out compares with the GL (REC-04). The others are clearing or P&L accounts.
@@ -193,3 +195,21 @@ class MonthClose(models.Model):
 
     def __str__(self) -> str:
         return f"Close {self.month:%Y-%m} entity {self.campfire_entity_id}"
+
+
+class CampfireBalanceSnapshot(models.Model):
+    """A Campfire entity's balance-sheet balances on a date, read from its trial balance (for net worth). Kept so
+    pages don't call Campfire on every view; refreshed on demand."""
+
+    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE, related_name="balance_snapshots")
+    campfire_entity_id = models.BigIntegerField()
+    as_of = models.DateField()
+    fetched_at = models.DateTimeField(auto_now=True)
+    lines = models.JSONField(default=list, help_text="account_id, number, name, account_type, subtype, net (debit - credit)")
+
+    class Meta:
+        ordering = ["-as_of", "campfire_entity_id"]
+        constraints = [models.UniqueConstraint(fields=["workspace", "campfire_entity_id", "as_of"], name="balance_snapshot_unique")]
+
+    def __str__(self) -> str:
+        return f"Campfire balances {self.campfire_entity_id} {self.as_of}"
