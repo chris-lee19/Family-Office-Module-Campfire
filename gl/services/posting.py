@@ -78,7 +78,14 @@ class Tags:
 
     def for_leg(self, leg: Leg, missing: set[str]) -> tuple[int, ...]:
         txn, D = leg.txn, DimensionTag.Dimension
-        wanted = [(D.FAMILY, txn.account.family.code, txn.account.family.name)]
+        account = txn.account
+        wanted = [(D.FAMILY, account.family.code, account.family.name),
+                  (D.TAX_TREATMENT, account.tax_treatment, account.get_tax_treatment_display())]
+        branch = account.owner.branch if account.owner is not None else None
+        if branch is not None:
+            wanted.append((D.BRANCH, str(branch.pk), branch.name))
+        if account.custodian:
+            wanted.append((D.CUSTODIAN, account.custodian[:100], account.custodian))
         if leg.role in INSTRUMENT_ROLES and txn.instrument is not None:
             wanted += [(D.ASSET_CLASS, txn.instrument.asset_class.code, txn.instrument.asset_class.name),
                        (D.HOLDING, str(txn.instrument.pk), str(txn.instrument))]
@@ -179,7 +186,7 @@ class Preview:
 def unposted(workspace: Workspace, through: date):  # type: ignore[no-untyped-def]
     return (
         Transaction.objects.filter(account__family__workspace=workspace, trade_date__lte=through, gl_item__isnull=True)
-        .select_related("account__entity", "account__person", "account__family", "instrument__asset_class")
+        .select_related("account__entity__branch", "account__person__branch", "account__family", "instrument__asset_class")
         .order_by("trade_date", "id")
     )
 

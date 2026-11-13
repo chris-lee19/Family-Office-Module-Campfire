@@ -145,7 +145,13 @@ def test_dimension_tags(alder: Family) -> None:
     j = journal(preview, "Robert Alder Revocable Trust", month_end(TODAY - timedelta(days=200)))
     gain = next(ln for ln in j.lines if Role.REALIZED_GAIN in ln.roles)
     cash = next(ln for ln in j.lines if Role.CASH in ln.roles)
-    assert gain.tags == (11, 21) and cash.tags == (11,)  # cash lines carry the family only
+    assert gain.tags == (11, 21) and cash.tags == (11,)  # cash lines carry account-level dimensions only
+
+    # Account-level dimensions (branch, tax treatment, custodian) go on every line, cash included.
+    DimensionTag.objects.create(workspace=ws, dimension="tax_treatment", key="taxable", campfire_tag_id=31, label="Taxable")
+    DimensionTag.objects.create(workspace=ws, dimension="branch", key=str(Entity.objects.get(name="Robert Alder Revocable Trust").branch_id), campfire_tag_id=41, label="Founders (G1)")
+    j = journal(build_preview(ws, through=TODAY), "Robert Alder Revocable Trust", month_end(TODAY - timedelta(days=200)))
+    assert next(ln for ln in j.lines if Role.CASH in ln.roles).tags == (11, 31, 41)
     assert not any("Holding" in w for w in j.warnings)  # holding dimension isn't set up at all
     assert any("Asset class 'Fixed income'" in w for jj in preview.journals for w in jj.warnings)
 
@@ -282,7 +288,9 @@ def test_setup_accounts_and_dimensions(workspace: Workspace) -> None:
     created.clear()
     setup_dimensions(workspace, client, create=True)  # type: ignore[arg-type]
     groups = [b for b in created if "group" not in b]
-    assert [g["name"] for g in groups] == ["FO Family", "FO Asset Class", "FO Holding"]
+    assert [g["name"] for g in groups] == ["FO Family", "FO Family Branch", "FO Tax Treatment", "FO Custodian", "FO Asset Class", "FO Holding"]
+    assert set(DimensionTag.objects.filter(dimension="tax_treatment").values_list("label", flat=True)) == {"Taxable", "Tax-deferred", "Tax-exempt"}
+    assert DimensionTag.objects.filter(dimension="custodian").count() == 1  # the demo's one custodian
     assert DimensionTag.objects.filter(dimension="holding").count() == workspace.instruments.count()
 
 

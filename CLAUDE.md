@@ -75,8 +75,15 @@ manifest over the API (API key). Render deploy (`render.yaml`) + "Load the demo 
 ## Sandbox demo structure (2026-11-13, user approved)
 - `campfire_demo_setup` created in workspace "Holthouse" (customer 37990): "Alder Family (Consolidated)" (58617) with
   the 8 Alder entities (58618–58625) and "Alder Family - Eliminations" (58626, linked as the parent's eliminations
-  entity); operating accounts 1040/1180/1250/2150/2180/6510/6520; vendors Summit Growth Partners, Crescent Ventures.
-  `--teardown` removes them. The sandbox's own 1500 is "Intercompany Receivable": setup now matches accounts by
+  entity); the FO chart of accounts (35 accounts: operating cash, due to/from, real estate, art, notes, capital calls
+  payable, mortgage, equity by entity kind, K-1 income, unrealized G/L, rental income, fees, grants, interest, taxes);
+  9 fictional payees (fund GPs, trustee, counsel, custodian, CPA, adviser, insurance, property manager).
+  `--teardown` removes them. Not used for the FO: departments (tags instead), products/rate cards/contract
+  templates/tax rates/withholding (revenue side; MFO billing is P2), cost allocations (split by account/tag, not
+  entity: management-company recharges will be intercompany JEs), fixed assets (lifestyle assets, P3).
+- The app's first GL setup ran before the name-matching fix and mapped "Investments at cost" to 1500 Intercompany
+  Receivable; 1501 Investments at cost (1511871) was created and the user must remap the role on the GL page.
+- Dimensions now also Family Branch, Tax Treatment, Custodian (account-level, on every line). The sandbox's own 1500 is "Intercompany Receivable": setup now matches accounts by
   name, never by number alone (`gl.services.setup.plan_accounts`).
 - App connected 2026-11-13 (v2 promoted): token has `journal_entries:draft`, `bills:draft`.
 

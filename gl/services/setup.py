@@ -10,9 +10,9 @@ from typing import Any
 
 from campfire_integration.client import CampfireClient, CampfireError
 from campfire_integration.models import Workspace
-from entities.models import Family
+from entities.models import Branch, Family
 from gl.models import AccountMapping, DimensionTag, Role
-from investments.models import AssetClass, Instrument
+from investments.models import Account, AssetClass, Instrument
 
 ENTITY_PATH = "/coa/api/entity"
 ACCOUNT_PATH = "/coa/api/account"
@@ -44,6 +44,9 @@ SUGGESTED_ACCOUNTS = [
 
 TAG_GROUPS = {
     DimensionTag.Dimension.FAMILY: "FO Family",
+    DimensionTag.Dimension.BRANCH: "FO Family Branch",
+    DimensionTag.Dimension.TAX_TREATMENT: "FO Tax Treatment",
+    DimensionTag.Dimension.CUSTODIAN: "FO Custodian",
     DimensionTag.Dimension.ASSET_CLASS: "FO Asset Class",
     DimensionTag.Dimension.HOLDING: "FO Holding",
 }
@@ -160,8 +163,12 @@ def setup_accounts(workspace: Workspace, client: CampfireClient, *, create: bool
 
 def _wanted_tags(workspace: Workspace) -> dict[str, list[tuple[str, str]]]:
     D = DimensionTag.Dimension
+    custodians = Account.objects.filter(family__workspace=workspace).exclude(custodian="").values_list("custodian", flat=True)
     return {
         D.FAMILY: [(f.code, f.name) for f in Family.objects.filter(workspace=workspace, is_active=True)],
+        D.BRANCH: [(str(b.pk), f"{b.family.name}: {b.name}"[:100]) for b in Branch.objects.filter(family__workspace=workspace).select_related("family")],
+        D.TAX_TREATMENT: [(v, label) for v, label in Account.TaxTreatment.choices],
+        D.CUSTODIAN: [(c[:100], c[:100]) for c in sorted(set(custodians))],
         D.ASSET_CLASS: [(a.code, a.name) for a in AssetClass.objects.filter(workspace=workspace)],
         D.HOLDING: [(str(i.pk), (f"{i.ticker} – {i.name}" if i.ticker else i.name)[:100]) for i in Instrument.objects.filter(workspace=workspace)],
     }

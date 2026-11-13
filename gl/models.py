@@ -94,6 +94,9 @@ class DimensionTag(models.Model):
 
     class Dimension(models.TextChoices):
         FAMILY = "family", "Family"
+        BRANCH = "branch", "Family branch"
+        TAX_TREATMENT = "tax_treatment", "Tax treatment"
+        CUSTODIAN = "custodian", "Custodian"
         ASSET_CLASS = "asset_class", "Asset class"
         HOLDING = "holding", "Holding / fund"
 

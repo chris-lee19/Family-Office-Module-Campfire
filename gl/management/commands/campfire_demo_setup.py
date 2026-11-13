@@ -7,10 +7,11 @@
 Creates, matching by name so nothing is duplicated and nothing existing is touched:
 - entities: "Alder Family (Consolidated)" with the eight Alder entities and an eliminations entity under it,
   named exactly as the demo seed names them, so the app's "Link by matching name" links them in one click;
-- operating GL accounts a family office needs next to the investment accounts the app creates (operating
-  cash, due to/from related entities, capital calls payable, estimated taxes, trustee and advisory fees),
-  on the suggested number or the next free one;
-- vendors for the demo funds' general partners (payees of capital-call bills).
+- the family-office chart of accounts next to the investment accounts the app creates (operating cash, due
+  to/from related entities, real estate, art, notes, capital calls payable, mortgage, equity by kind of entity,
+  K-1 income, unrealized gain/loss, rental income, trustee/legal/tax/insurance/property/custody fees, grants,
+  interest and taxes), on the suggested number or the next free one;
+- payees: the demo funds' general partners (capital-call bills) and the usual family-office vendors.
 The investment accounts and FO tags are created by the app itself (General ledger → Preview suggested setup).
 """
 
@@ -30,16 +31,64 @@ ALDER_ENTITIES = [
     "Claire Moreno 2019 GST Trust", "Alder Management LLC", "Alder Family Investments LP",
     "Alder Real Estate Holdings LLC", "Alder Family Foundation",
 ]
+# The family-office chart next to the investment accounts the app creates (cash, clearing, investments at cost,
+# dividend/interest/fund income, realized gain/loss, investment fees). (number, name, type, subtype); a taken
+# number moves to the next free one, an account with the same name is left as it is.
 OPERATING_ACCOUNTS = [
+    # Assets
     ("1040", "Operating cash - family entities", "ASSET", "BANK"),
     ("1180", "Due from related entities", "ASSET", "OTHER_CURRENT_ASSET"),
     ("1250", "Estimated tax payments", "ASSET", "OTHER_CURRENT_ASSET"),
+    ("1260", "Prepaid insurance", "ASSET", "PREPAID"),
+    ("1600", "Real estate held for investment", "ASSET", "OTHER_ASSET"),
+    ("1610", "Art and collectibles", "ASSET", "OTHER_ASSET"),
+    ("1620", "Notes receivable - related parties", "ASSET", "OTHER_ASSET"),
+    ("1630", "Unrealized appreciation on investments", "ASSET", "OTHER_ASSET"),
+    # Liabilities
     ("2150", "Capital calls payable", "LIABILITY", "OTHER_CURRENT_LIABILITY"),
+    ("2160", "Accrued expenses - family entities", "LIABILITY", "OTHER_CURRENT_LIABILITY"),
     ("2180", "Due to related entities", "LIABILITY", "OTHER_CURRENT_LIABILITY"),
+    ("2400", "Income taxes payable", "LIABILITY", "OTHER_CURRENT_LIABILITY"),
+    ("2600", "Mortgage payable", "LIABILITY", "LONG_TERM_LIABILITY"),
+    ("2610", "Notes payable - related parties", "LIABILITY", "LONG_TERM_LIABILITY"),
+    # Equity, by kind of entity
+    ("3900", "Trust principal (corpus)", "EQUITY", "EQUITY"),
+    ("3910", "Partners' capital", "EQUITY", "EQUITY"),
+    ("3920", "Members' capital", "EQUITY", "EQUITY"),
+    ("3930", "Contributions from grantors and owners", "EQUITY", "EQUITY"),
+    ("3940", "Distributions to beneficiaries and owners", "EQUITY", "EQUITY"),
+    # Income (the app adds dividend, interest, fund income and realized gain/loss)
+    ("4100", "Management fee income - related parties", "REVENUE", "INCOME"),
+    ("7130", "K-1 ordinary business income", "OTHER_INCOME", "OTHER_INCOME"),
+    ("7140", "K-1 portfolio income", "OTHER_INCOME", "OTHER_INCOME"),
+    ("7150", "K-1 capital gains", "OTHER_INCOME", "REALIZED_GAIN_LOSS"),
+    ("7300", "Unrealized gain / loss on investments", "OTHER_INCOME", "UNREALIZED_GAIN_LOSS"),
+    ("7400", "Rental income", "OTHER_INCOME", "OTHER_INCOME"),
+    # Expenses (the app adds investment management fees)
     ("6510", "Trustee fees", "OPERATING_EXPENSES", "EXPENSE"),
     ("6520", "Professional and advisory fees", "OPERATING_EXPENSES", "EXPENSE"),
+    ("6530", "Legal fees", "OPERATING_EXPENSES", "EXPENSE"),
+    ("6540", "Tax preparation and accounting fees", "OPERATING_EXPENSES", "EXPENSE"),
+    ("6550", "Insurance expense", "OPERATING_EXPENSES", "EXPENSE"),
+    ("6560", "Property taxes and maintenance", "OPERATING_EXPENSES", "EXPENSE"),
+    ("6570", "Bank and custody fees", "OPERATING_EXPENSES", "EXPENSE"),
+    ("6580", "Management fees - related party", "OPERATING_EXPENSES", "EXPENSE"),
+    ("6900", "Charitable grants", "OPERATING_EXPENSES", "EXPENSE"),
+    ("8200", "Interest expense", "OTHER_EXPENSE", "OTHER_EXPENSE"),
+    ("8300", "Income tax expense", "OTHER_EXPENSE", "OTHER_EXPENSE"),
 ]
-VENDORS = ["Summit Growth Partners", "Crescent Ventures"]  # GPs of the demo funds
+# Payees (all fictional). The funds' GPs receive capital-call bills; the rest are a family office's usual vendors.
+VENDORS = [
+    ("Summit Growth Partners", "General partner, Summit Growth Partners IV (demo fund)"),
+    ("Crescent Ventures", "General partner, Crescent Venture Fund II (demo fund)"),
+    ("Northwind Trust Company", "Corporate trustee, Alder 2012 Dynasty Trust"),
+    ("Hollis & Park LLP", "Trusts and estates counsel; trust protector"),
+    ("Bayview Securities", "Custodian of the family's brokerage accounts"),
+    ("Marlowe Finch CPAs", "Tax preparation and fiduciary accounting"),
+    ("Granite Peak Advisors", "Investment adviser"),
+    ("Harborline Insurance Brokers", "Property, casualty and umbrella insurance"),
+    ("Seabright Property Management", "Manager of the Harbor Street property"),
+]
 REASON = {"reason": "Alder demo setup teardown"}
 
 
@@ -93,13 +142,13 @@ class Command(BaseCommand):
 
         self.stdout.write("Vendors:")
         vendors = {_norm(v.get("name")) for v in _all(self.client, VENDOR_PATH)}
-        for name in VENDORS:
+        for name, note in VENDORS:
             if _norm(name) in vendors:
                 self.say("exists", name)
             elif self.dry:
                 self.say("create", name)
             else:
-                v = _post(self.client, VENDOR_PATH, {"name": name, "vendor_type": "vendor", "notes": "General partner of a demo fund (fictional)"})
+                v = _post(self.client, VENDOR_PATH, {"name": name, "vendor_type": "vendor", "notes": f"{note} (fictional, demo)"})
                 self.say("created", f"{name} (id {v['id']})")
 
     def entity(self, entities: dict[str, dict[str, Any]], name: str, body: dict[str, Any]) -> dict[str, Any] | None:
@@ -128,7 +177,7 @@ class Command(BaseCommand):
 
     def teardown(self) -> None:
         vendors = {_norm(v.get("name")): v for v in _all(self.client, VENDOR_PATH)}
-        for name in VENDORS:
+        for name, _ in VENDORS:
             if _norm(name) in vendors:
                 self.delete(VENDOR_PATH, vendors[_norm(name)]["id"], f"vendor {name}")
         accounts = {_norm(a.get("name")): a for a in list_accounts(self.client)}
