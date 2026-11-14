@@ -3,7 +3,7 @@
 {% block title %}General ledger{% endblock %}
 {% block content %}
 <h1>General ledger</h1>
-<p class="muted">{{ workspace }} · investment activity into Campfire as summarized journal entries, one per entity and month · as of {{ today|date:"Y-m-d" }}</p>
+<p class="muted">{{ workspace }} · investment activity posted to the books · as of {{ today|date:"M j, Y" }}</p>
 {% if message %}<div class="notice" data-toast="success">{{ message }}</div>{% endif %}
 {% if error %}<div class="issues">{{ error }}</div>{% endif %}
 
@@ -145,7 +145,7 @@
   {% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
   <label>Book market value from <input type="date" name="fair_value_from" value="{{ gl_settings.fair_value_from|date:'Y-m-d' }}"></label>
   <button class="btn secondary" type="submit" name="action" value="fair_value_from">Save</button>
-  <span class="muted">{% if gl_settings.fair_value_from %}Each month end from {{ gl_settings.fair_value_from|date:"F Y" }} gets an entry for unrealized gain or loss. Clear the date to keep the books at cost.{% else %}Empty: the books stay at cost. Set a date to add a month-end entry that brings investments to market value (unrealized gain or loss).{% endif %}</span>
+  <span class="muted">{% if gl_settings.fair_value_from %}Market value entries from {{ gl_settings.fair_value_from|date:"F Y" }}. Clear the date to keep the books at cost.{% else %}Empty: books at cost. Set a date for month-end market value entries.{% endif %}</span>
 </form>
 <form method="post" action="{{ action }}" class="actions">
   {% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}

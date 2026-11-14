@@ -278,6 +278,9 @@
       .catch(function () { if (note) note.textContent = "Couldn't read the books just now"; });
   });
 
+  /* ---- print the page (the print styles keep the statement and drop everything else) ---- */
+  d.querySelectorAll("[data-print]").forEach(function (button) { button.addEventListener("click", function () { window.print(); }); });
+
   /* ---- a filter bar applies itself when a choice changes ---- */
   d.querySelectorAll("form[data-autosubmit]").forEach(function (form) {
     form.addEventListener("change", function (e) { if (e.target.tagName === "SELECT") form.submit(); });

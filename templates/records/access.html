@@ -12,7 +12,7 @@
 
 {% if not on %}
 <div class="callout">
-  <strong>Roles are off.</strong> Everyone who can open the app in this Campfire workspace can do everything. Turn roles on to decide who enters, who approves and who only views. You become the admin and can then set everyone else's role.
+  <strong>Roles are off.</strong> Everyone in this workspace can do everything. Turn roles on to decide who enters, approves or only views; you become the admin.
   <form method="post" action="{{ action }}" class="actions">{% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
     <button class="btn" type="submit" name="action" value="turn_on">Turn roles on and make me the admin</button></form>
 </div>
@@ -59,7 +59,7 @@
     {% for key, label, what in roles %}<tr><td class="nowrap"><strong>{{ label }}</strong></td><td>{{ what }}</td></tr>{% endfor %}
   </tbody></table>
 </section>
-<p class="muted small">Where a second person is required (Review → Control), nobody approves their own work, whatever their role. Roles apply to the whole workspace; limiting a person to certain entities is not available yet.</p>
+<p class="muted small">Nobody approves their own work where a second person is required, whatever their role. Roles cover the whole workspace, not single entities.</p>
 
 {% if on and is_admin %}
 <details class="settings"><summary>Turn roles off</summary>

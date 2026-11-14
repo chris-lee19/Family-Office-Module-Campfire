@@ -189,6 +189,9 @@ def test_statements_pages(client, workspace: Workspace) -> None:  # type: ignore
         assert "Total liabilities and net worth" in page and "Statement of Net Worth" in page and "Alder Family (Consolidated): all entities" in page and "1,000" in page
         assert "Statement of Changes in Net Worth" in page and "Tax Basis and Unrealized Gain Report" in page and "Estimated current value (ASC 274)" in page
         assert "/fo/frame/statements/account/11?" in page and "view=is" in page and "Download CSV" in page
+        # On paper: a heading that says whose statement it is, on what basis and as of when; a button to print it.
+        head = page.split('class="print-only print-head"')[1].split("</header>")[0]
+        assert "<h1>Statement of Net Worth</h1>" in head and "Estimated current value (ASC 274) · As of " in head and "Unaudited" in head and "data-print" in page
         token = unquote(page.split('name="fo_t" value="')[1].split('"')[0])
         income = client.get("/fo/frame/statements", {"fo_t": token, "view": "is", "entity": "2", "cols": "monthly"}).content.decode()
         assert "Excess of income over expenses" in income and "Change in equity" in income and "Oct 2026" in income and "Alder Real Estate Holdings LLC" in income

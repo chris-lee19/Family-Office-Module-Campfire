@@ -128,6 +128,8 @@ def statements_page(request: HttpRequest, workspace: Workspace, framed: bool) ->
         "views": [(k, (scope.names if scope else svc.NAMES[svc.ENTITY])[k], _with(base, {**current, "view": k}), k == c["view"]) for k in svc.VIEWS],
         "columns": svc.COLUMNS, "periods": svc.PERIODS, "headline": _headline(statement) if statement else [],
         "csv_url": _with(base, {**current, "format": "csv"}), "cents": c["view"] == "tb",
+        "print_sub": " · ".join(x for x in (scope.label if scope else "", scope.names["basis"] if scope else "",
+                                            f"As of {end:%B %-d, %Y}" if c["view"] in ("bs", "tx") else f"{start:%B %-d, %Y} to {end:%B %-d, %Y}") if x),
     })
 
 

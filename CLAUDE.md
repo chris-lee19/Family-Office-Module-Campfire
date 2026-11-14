@@ -402,9 +402,26 @@ end. Held marks aren't used; non-USD accounts are skipped. Securities without a 
   `.meter` and `.ring` (a ratio against a limit), `{% alloc %}` stacked bar. Series colours in fixed order
   (`--s1`, `--s2`, ...); status red only with a label. Reuse these on other pages.
 - Sidebar: 21 items, rows tightened; the signed-in person stays visible at the bottom.
-- Proposed next for the UX pass (not built): an ownership structure diagram on Entities; charts on Cash (in / out by
-  month), Bills (ageing), Capital calls (called / unfunded over time), Partnerships (capital account bridge),
-  Investments (value over time, performance); fewer words on the working pages; print-ready statements. 180 tests.
+- UX pass (user agreed to the three steps, 2026-11-14), done:
+  1. Ownership structure diagram on Entities (`entities/services/structure.py` computes the layout in pixels: people on
+     the top row, an entity one row below its lowest owner, rows ordered to cut crossings, one line + percentage per
+     active interest; `[data-structure]` in app.js traces a name up and down on hover / focus). Nodes and links are
+     `dataclass(eq=False)` (they point at each other), and row positions are taken BEFORE sorting a row (a list reads as
+     empty while it is being sorted: a cycle in the data broke the layout that way).
+  2. Charts from shared helpers (`gl/services/charts.py`: `ranked`, `pairs`, `trend`, `changes`; partials
+     `templates/includes/trend.html`, `pairs.html`, `changes.html`): Bills (when due, by entity, by payee), Cash (money
+     in and out by month from the ledger's BANK lines via `cash.flow_by_month`, and where the cash is), Capital calls
+     (cumulative paid in and returned by quarter against the total committed, `privates.paid_in_history`; called vs
+     committed meters), Investments (value at each month end, `investments.views.value_trend`), Partnerships (what
+     moved partners' capital: the changes as bars on their own scale, opening and closing as figures; a waterfall from
+     zero hid the changes beside a 5.6M balance, so it was dropped).
+  3. Wording: page subtitles and the long explanatory passages shortened. Print: `@media print` in app.css (light on
+     paper whatever the theme, no navigation / filters / buttons, `.no-print` and `.print-only` helpers, the forecast
+     prints landscape through a named page), `includes/print_head.html` (workspace, statement title, scope / basis /
+     period, "Prepared <date> ... Unaudited.") and a "Print or save as PDF" button (`[data-print]`) on Financial
+     statements, the Liquidity forecast, Capital account statements and a bank reconciliation.
+  Still open on UX: charts on the remaining pages only where they answer a question (Review, Imports, General ledger
+  have none on purpose); dashboard snapshot not yet invalidated by Campfire events. 186 tests.
 
 ## Sign-in and new permissions (lesson, 2026-11-13)
 - Adding `transactions:write` to the defaults broke sign-in for everyone: Campfire answers `invalid_scope` ("This app may

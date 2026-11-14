@@ -131,6 +131,7 @@ def liquidity_page(request: HttpRequest, workspace: Workspace, framed: bool) -> 
         "cash_url": pages.page_url(request, framed, "gl:cash"), "bills_url": pages.page_url(request, framed, "gl:bills"),
         "calls_url": pages.page_url(request, framed, "gl:calls"), "journals_url": pages.page_url(request, framed, "gl:journals"),
         "tiers": _tiers(fc) if fc else [], **(_totals(fc) if fc else {}),
+        "print_sub": f"{fc.entity or 'All entities'} · next {horizon} months · as of {today:%B %-d, %Y}" if fc else "",
     })
 
 

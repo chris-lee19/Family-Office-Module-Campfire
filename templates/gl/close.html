@@ -17,11 +17,10 @@
 
 <div class="callout">
   {% if all_closed %}
-  <strong>The family-office close for {{ month|date:"F" }} is done.</strong> Tick <em>Investments closed</em> in Campfire's Close checklist
-  for {{ month|date:"F" }}; Campfire's own close (bank recs, bills, lock the period) carries on there.
+  <strong>The family-office close for {{ month|date:"F" }} is done.</strong> Tick <em>Investments closed</em> in Campfire's Close checklist; locking the period happens there.
   {% else %}
-  <strong>This is the investment part of Campfire's month-end close.</strong> Work each entity to <em>Closed</em> here, then tick
-  <em>Investments closed</em> in Campfire's Close checklist. Bank recs, bills, review and locking the period stay in Campfire.
+  <strong>This is the investment part of Campfire's month-end close.</strong> Work each entity to <em>Closed</em>, then tick
+  <em>Investments closed</em> in Campfire's Close checklist. Locking the period stays in Campfire.
   {% endif %}
   <details><summary class="small">Tasks to add to the Campfire Close checklist (once)</summary>
     <ol class="small">
@@ -92,8 +91,7 @@
   </div>
 </article>
 {% endfor %}
-<p class="muted small">Reviewed, posted and approved are checked from the data. Data loaded is your confirmation; the tie-out compares custody cash
-  and investments at cost with Campfire's trial balance at month end. Sign-off needs every step, and someone other than whoever sent the month's entries.</p>
+<p class="muted small">Reviewed, posted and approved come from the data; the tie-out compares cash and investments at cost with the books. Sign-off needs every step, by someone other than who sent the entries.</p>
 {% else %}
 <section class="box"><div class="empty"><strong>No entity is linked to Campfire yet</strong><a href="{{ links.gl }}">Link them on the General ledger page.</a></div></section>
 {% endif %}

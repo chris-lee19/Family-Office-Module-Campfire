@@ -69,6 +69,7 @@ def partnerships_page(request: HttpRequest, workspace: Workspace, framed: bool) 
         moved = charts.changes(("Opening capital", statement.total("opening")), steps,
                                ("Closing capital", statement.total("closing") + statement.other_changes))
     return render(request, "gl/partnerships.html", {"moved": moved,
+        "print_sub": f"{statement.entity.name} · {statement.start:%B %-d, %Y} to {statement.end:%B %-d, %Y}" if statement else "",
         "workspace": workspace, "framed": framed, "frame_token": getattr(request, "fo_frame_token", ""), "today": today, "message": message, "error": error,
         "view": view, "views": [(k, label, link(view=k), k == view) for k, label in VIEWS.items()], "entities": entities, "chosen": chosen,
         "years": years, "year": year, "k1_years": k1_years, "tax_year": tax_year, "statement": statement, "expected": expected,

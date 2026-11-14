@@ -3,13 +3,15 @@
 {% block title %}Bank reconciliation{% endblock %}
 {% block content %}
 {% if detail %}
-<p class="small"><a href="{{ overview_url }}">← All bank accounts</a></p>
+{% include "includes/print_head.html" with title="Bank Reconciliation" sub=print_sub %}
+<p class="small no-print"><a href="{{ overview_url }}">← All bank accounts</a></p>
 <div class="page-head">
   <div>
     <h1>{{ report.entity }}</h1>
     <p class="muted">{{ report.account }} · statement {{ report.start|date:"M j, Y" }} to {{ report.end|date:"M j, Y" }}
       <span class="pill {% if report.status == 'APPROVED' %}booked{% elif report.status == 'PENDING_APPROVAL' %}sev-warning{% else %}att-info{% endif %}">{{ report.status_label }}</span></p>
   </div>
+  <div class="page-actions"><button class="btn secondary" type="button" data-print>Print or save as PDF</button></div>
 </div>
 {% if message %}<div class="notice" data-toast="success">{{ message }}</div>{% endif %}
 {% if error %}<div class="issues">{{ error }}</div>{% endif %}
@@ -65,7 +67,7 @@
         <tr class="grand recon-proof{% if not detail.unexplained %} is-zero{% endif %}" data-recon-proof-state><td>Difference</td><td class="num" data-recon-proof>{% if detail.unexplained %}{{ detail.unexplained|acct:2 }}{% else %}0.00{% endif %}</td></tr>
       </tbody>
     </table>
-    <p class="muted small box-body">Lines not ticked and dated on or before the statement's last day count as in transit (money in) or outstanding (money out).{% if detail.unexplained and detail.reconciles %} The statement reconciles, but the books hold lines from before it that no statement has cleared: tick them, or start the account's first statement where the books start.{% endif %}</p>
+    <p class="muted small box-body">Unticked lines up to the statement date count as in transit (in) or outstanding (out).{% if detail.unexplained and detail.reconciles %} The statement reconciles, but earlier lines are still open: tick them, or start the account's first statement where the books start.{% endif %}</p>
   </section>
   <section class="box">
     <div class="box-head"><h2>Statement</h2></div>
@@ -107,7 +109,7 @@
       <tbody>
       {% for ln, on in rows %}
         <tr{% if on %} class="is-cleared"{% endif %}>
-          <td class="tick"><input type="checkbox" name="line" value="{{ ln.id }}" data-amount="{{ ln.amount|stringformat:'s' }}"{% if ln.from_feed %} data-feed{% endif %}{% if on %} checked{% endif %}{% if not report.editable %} disabled{% endif %} aria-label="Cleared: {{ ln.posted|date:'M j' }}, {{ ln.description|default:'ledger line' }}, {{ ln.amount|acct:2 }}"></td>
+          <td class="tick"><input type="checkbox" name="line" value="{{ ln.id }}" data-amount="{{ ln.amount|stringformat:'s' }}"{% if ln.from_feed %} data-feed{% endif %}{% if on %} checked{% endif %}{% if not report.editable %} disabled{% endif %} aria-label="Cleared: {{ ln.posted|date:'M j' }}, {{ ln.description|default:'ledger line' }}, {{ ln.amount|acct:2 }}">{% if on %}<span class="print-only">✓</span>{% endif %}</td>
           <td class="nowrap">{{ ln.posted|date:"Y-m-d" }}</td>
           <td>{{ ln.description|default:"—" }}{% if ln.from_feed %} <span class="pill plain">Bank feed</span>{% endif %}</td>
           <td class="muted small">{{ ln.entry }}</td>
@@ -124,7 +126,7 @@
         <button class="btn" type="submit" name="action" value="finish">Finish and send for approval</button></div>
     </div>
     {% endif %}
-    <p class="muted small box-body">{% if detail.later %}{{ detail.later }} later line{{ detail.later|pluralize }} (after {{ report.end|date:"M j" }}) belong{{ detail.later|pluralize:"s," }} to a later statement and {{ detail.later|pluralize:"is,are" }} not shown. {% endif %}{% if detail.truncated %}This account has more lines than fit here; the oldest are shown. {% endif %}A line the bank doesn't have yet stays unticked: it carries to the next statement. Something on the statement that isn't in the books? Add it on <a href="{{ journals_url }}">Journal entries</a> or categorize it on <a href="{{ cash_url }}">Cash</a>, then come back.</p>
+    <p class="muted small box-body">{% if detail.later %}{{ detail.later }} later line{{ detail.later|pluralize }} belong{{ detail.later|pluralize:"s," }} to a later statement. {% endif %}{% if detail.truncated %}More lines than fit here; the oldest are shown. {% endif %}Unticked lines carry to the next statement. Missing from the books? Add it on <a href="{{ journals_url }}">Journal entries</a> or <a href="{{ cash_url }}">Cash</a>.</p>
   </section>
 </form>
 
@@ -132,7 +134,7 @@
 <div class="page-head">
   <div>
     <h1>Bank reconciliation</h1>
-    <p class="muted">{{ workspace }} · every bank account proved against its statement · target: reconciled through {{ target|date:"M j, Y" }}</p>
+    <p class="muted">{{ workspace }} · target: every account reconciled through {{ target|date:"M j, Y" }}</p>
   </div>
   <div class="page-actions"><a class="btn" href="#start" data-open="#start">Reconcile an account</a></div>
 </div>
@@ -199,7 +201,7 @@
       <div class="field"><label>Ending balance on the statement <span class="req">*</span></label><input name="ending" inputmode="decimal" value="{{ entered.ending }}" required></div>
     </div>
     <details class="inline-more"><summary>First statement of an account: where it starts</summary>
-      <p class="muted small">Leave these empty and the first statement starts where the books start, from a balance of zero, so every line is accounted for. Fill them in only to start part-way: lines before that date then stay open. Later statements always continue from the one before.</p>
+      <p class="muted small">Leave empty to start where the books start, from zero. Fill in only to start part-way; earlier lines then stay open.</p>
       <div class="fields">
         <div class="field"><label>Statement's first day</label><input type="date" name="start" value="{{ entered.start }}"></div>
         <div class="field"><label>Starting balance on the statement</label><input name="starting" inputmode="decimal" value="{{ entered.starting }}"></div>

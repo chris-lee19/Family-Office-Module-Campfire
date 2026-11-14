@@ -2,13 +2,14 @@
 {% load money viz %}
 {% block title %}Liquidity and Cash Flow Forecast{% endblock %}
 {% block content %}
-<div class="page-head">
+{% if fc %}{% include "includes/print_head.html" with title="Liquidity and Cash Flow Forecast" sub=print_sub %}{% endif %}
+<div class="page-head{% if fc %} no-print{% endif %}">
   <div>
     <h1>Liquidity and Cash Flow Forecast</h1>
     <p class="muted">{{ workspace }} · {% if fc.entity %}{{ fc.entity }}{% else %}all entities{% endif %} · next {{ choices.months }} months · as of {{ today|date:"M j, Y" }}</p>
   </div>
   <div class="page-actions">
-    {% if fc %}<a class="btn secondary" href="{{ csv_url }}">Download CSV</a>{% endif %}
+    {% if fc %}<button class="btn secondary" type="button" data-print>Print or save as PDF</button><a class="btn secondary" href="{{ csv_url }}">Download CSV</a>{% endif %}
     <a class="btn" href="#plan" data-open="#plan">Add an expected receipt or payment</a>
   </div>
 </div>
@@ -34,7 +35,7 @@
   <ul class="plain">
     {% for e in fc.short_entities %}<li><strong>{{ e.entity }}</strong>: short by {{ e.low|acct }} in {{ e.low_month }}{% if e.covered %} (its liquid investments of {{ e.liquid|money }} would cover it){% endif %}.</li>{% endfor %}
   </ul>
-  <p class="small">Move cash ahead of time with <a href="{{ journals_url }}#transfer">Transfer between entities</a>, or raise it from liquid investments.</p>
+  <p class="small no-print">Move cash ahead of time with <a href="{{ journals_url }}#transfer">Transfer between entities</a>, or raise it from liquid investments.</p>
 </div>
 {% endif %}
 
@@ -130,11 +131,11 @@
 </div>
 {% endif %}
 
-<h2 id="expected">What you expect <span class="count-chip">{{ planned|length }}</span></h2>
-<p class="muted">Receipts and payments that aren't a bill or a capital call notice yet: distributions to the family, tax payments, rent, debt service, fund distributions. Open bills are counted on their own, on their due dates, so leave out costs you already enter as bills.</p>
+<h2 id="expected" class="no-print">What you expect <span class="count-chip">{{ planned|length }}</span></h2>
+<p class="muted no-print">Cash that isn't a bill or a capital call notice yet: distributions, taxes, rent, debt service. Open bills are counted on their own, so leave out costs you enter as bills.</p>
 
 {% if suggestions %}
-<section class="box" id="suggest">
+<section class="box no-print" id="suggest">
   <div class="box-head"><h2>Suggested from the books</h2><div class="aside"><span>What moved cash regularly, {{ suggestions.start|date:"M Y" }} to {{ suggestions.end|date:"M Y" }}</span></div></div>
   {% if suggestions.items %}
   <form method="post" action="{{ post_action }}">
@@ -178,7 +179,7 @@
   </form>
 </details>
 
-<section class="box">
+<section class="box no-print">
   <div class="box-head"><h2>In the forecast</h2><div class="aside"><a class="btn secondary small" href="{{ suggest_url }}">Suggest from the books</a></div></div>
   {% if planned %}
   <table data-sort>
@@ -197,7 +198,7 @@
 </section>
 
 {% if fc and fc.flows %}
-<section class="box">
+<section class="box no-print">
   <div class="box-head"><h2>Coming up, next {{ soon_days }} days <span class="count-chip">{{ soon|length }}</span></h2>
     <div class="aside"><input type="search" placeholder="Filter by entity, payee or kind" aria-label="Filter what is coming up" data-filter="#flows"></div></div>
   {% if soon %}{% include "gl/_flows.html" with flows=soon table_id="flows" %}

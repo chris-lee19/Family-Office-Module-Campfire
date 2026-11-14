@@ -2,11 +2,13 @@
 {% load money gl_extras %}
 {% block title %}Partnerships & K-1s{% endblock %}
 {% block content %}
-<div class="page-head">
+{% if statement and view == "capital" %}{% include "includes/print_head.html" with title="Capital Account Statements" sub=print_sub %}{% endif %}
+<div class="page-head{% if statement and view == 'capital' %} no-print{% endif %}">
   <div>
     <h1>Partnerships &amp; K-1s</h1>
-    <p class="muted">{{ workspace }} · partners' capital, the K-1s the family's partnerships issue, and the K-1s it is waiting for</p>
+    <p class="muted">{{ workspace }} · partners' capital and K-1s</p>
   </div>
+  {% if statement %}<div class="page-actions"><button class="btn secondary" type="button" data-print>Print or save as PDF</button></div>{% endif %}
 </div>
 {% if message %}<div class="notice" data-toast="success">{{ message }}</div>{% endif %}
 {% if error %}<div class="issues">{{ error }}</div>{% endif %}
@@ -52,7 +54,7 @@
       <td class="num">{{ statement|stmt_total:"income"|acct }}</td><td class="num">{{ statement|stmt_total:"distributions"|acct }}</td><td class="num">{{ statement|stmt_total:"closing"|acct }}</td></tr></tfoot>
   </table>
 </section>
-<p class="muted small">{{ statement.entity.name }}, {{ statement.start|date:"M j" }} to {{ statement.end|date:"M j, Y" }}, from its books. Each figure is split by the partners' ownership on {{ statement.end|date:"M j, Y" }}; special allocations and uneven contributions are not reflected.{% if statement.other_changes %} {{ statement.other_changes|acct }} of other movement in the books (such as bank lines not categorized yet) is not allocated.{% endif %}</p>
+<p class="muted small">{{ statement.entity.name }}, {{ statement.start|date:"M j" }} to {{ statement.end|date:"M j, Y" }}, from its books, split by ownership on {{ statement.end|date:"M j, Y" }}. Special allocations and uneven contributions are not reflected.{% if statement.other_changes %} {{ statement.other_changes|acct }} of other movement (such as bank lines not categorized) is not allocated.{% endif %}</p>
 {% endif %}
 
 {% if statement and view == "issue" %}
@@ -70,7 +72,7 @@
     </tbody>
   </table>
 </section>
-<p class="muted small">Working figures for the tax preparer, from the books: each kind of income is split by ownership. Tax adjustments (depreciation, tax-exempt income, state items) are the preparer's.</p>
+<p class="muted small">Working figures for the tax preparer, split by ownership. Tax adjustments are the preparer's.</p>
 {% endif %}
 
 {% if view == "receive" %}

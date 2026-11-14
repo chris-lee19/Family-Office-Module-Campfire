@@ -2,12 +2,13 @@
 {% load money %}
 {% block title %}Financial statements{% endblock %}
 {% block content %}
-<div class="page-head">
+{% if statement %}{% include "includes/print_head.html" with title=statement.title sub=print_sub %}{% endif %}
+<div class="page-head{% if statement %} no-print{% endif %}">
   <div>
     <h1>Financial statements</h1>
     <p class="muted">{{ workspace }}{% if scope %} · {{ scope.label }} · {{ scope.names.basis }}{% endif %} · {{ start|date:"M j, Y" }} to {{ end|date:"M j, Y" }}</p>
   </div>
-  {% if statement %}<div class="page-actions"><a class="btn secondary" href="{{ csv_url }}">Download CSV</a></div>{% endif %}
+  {% if statement %}<div class="page-actions"><button class="btn secondary" type="button" data-print>Print or save as PDF</button><a class="btn secondary" href="{{ csv_url }}">Download CSV</a></div>{% endif %}
 </div>
 
 <form method="get" action="{{ action }}" class="filters" data-autosubmit>
@@ -49,7 +50,7 @@
     </tbody>
   </table>
 </section>
-<p class="muted small">{% if statement.note %}{{ statement.note }} {% endif %}{% if choices.view != "tx" %}Figures come from the general ledger{% if scope.fair_value %}, with investments brought to {{ scope.names.value }} from the investment records{% endif %}. Select an account to see the entries behind it.{% endif %}</p>
+<p class="muted small">{% if statement.note %}{{ statement.note }} {% endif %}{% if choices.view != "tx" %}Figures come from the general ledger{% if scope.fair_value %}, with investments brought to {{ scope.names.value }} from the investment records{% endif %}.<span class="no-print"> Select an account to see the entries behind it.</span>{% endif %}</p>
 {% if scope.kind == "family" or choices.view == "tx" %}
 <details class="settings">
   <summary>Estimated income taxes: {% if tax_rate %}{{ tax_rate|floatformat:"-2" }}% of unrealized appreciation{% else %}not shown{% endif %}</summary>

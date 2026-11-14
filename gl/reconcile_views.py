@@ -98,7 +98,11 @@ def reconcile_page(request: HttpRequest, workspace: Workspace, framed: bool) -> 
     }
     if detail is not None:
         selected = detail.suggested
-        context.update({"detail": detail, "report": detail.report, "post_action": _with(base, {"report": detail.report.id}), "suggested": selected,
+        r = detail.report
+        signed = " · ".join(x for x in (f"prepared by {r.record.prepared_by}" if r.record and r.record.prepared_by else "",
+                                        f"approved by {r.record.approved_by}" if r.record and r.record.approved_by else "") if x)
+        context.update({"print_sub": f"{r.entity} · {r.account} · statement {r.start:%B %-d, %Y} to {r.end:%B %-d, %Y} · {r.status_label}" + (f" · {signed}" if signed else ""),
+                        "detail": detail, "report": detail.report, "post_action": _with(base, {"report": detail.report.id}), "suggested": selected,
                         "rows": [(ln, ln.cleared or ln.id in selected) for ln in detail.lines], "feed_count": sum(1 for ln in detail.lines if ln.from_feed)})
     else:
         target = today.replace(day=1) - timedelta(days=1)
