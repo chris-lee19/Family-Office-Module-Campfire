@@ -164,8 +164,8 @@ end. Held marks aren't used; non-USD accounts are skipped. Securities without a 
    `get_trial_balance`, `/coa/api/general-ledger`, `/coa/api/transaction`.
 3. ~~Cash~~ (page done 2026-11-13, see below; bank reconciliation `/coa/api/v2/reconciliation` still to do).
 4. ~~Bills and payments~~ (done). 5. ~~Journal entries~~ (done, see below). Agreed next (user 2026-11-13, in this order):
-   partnership accounting and K-1s -> Connectors page -> roles and per-user access -> bank reconciliation -> liquidity
-   forecast -> family reporting pack.
+   ~~partnership accounting and K-1s~~ (done) -> ~~Connectors page~~ (done) -> roles and per-user access -> bank
+   reconciliation -> liquidity forecast -> family reporting pack.
    Later: budgets, fixed assets (property, art), documents/K-1s, liquidity, reporting pack.
 - Added by the user 2026-11-13 (don't lose): **partnership accounting and K-1s** (capital accounts per partner,
   allocations of income/gain, K-1 tracking and figures by entity and person) and a **Connectors page** to bring in
@@ -238,6 +238,24 @@ end. Held marks aren't used; non-USD accounts are skipped. Securities without a 
   and approving again sends the rest. Campfire's intercompany endpoint is not used (write shape unclear).
 - Lesson from the write test: removing a bill payment (DELETE .../payment/<id>/void) leaves the payment's entry behind
   as an uncategorized entry; delete that journal entry too. 158 tests.
+
+## Partnerships & K-1s and Connectors (2026-11-14)
+- `gl/services/partnership.py` + `gl/partnership_views.py`, sidebar "Partnerships & K-1s" (`gl:partnerships`, tabs by
+  `?view=`): partnerships = entities with tax classification Partnership or type LP/GP. Capital accounts for a year
+  from the entity's trial balance (opening/closing = assets - liabilities; contributions = credits and distributions =
+  debits on equity accounts; income by K-1 line from the income account's name: interest, dividend, gain, rent, else
+  ordinary; expenses = deductions), split pro rata by direct ownership on the period's last day (`active_interests`),
+  rounding to the largest partner; what doesn't allocate (uncategorized bank lines) is stated. No partner dimension in
+  the ledger: special allocations and uneven contributions are not reflected (said on the page). "K-1s to issue" =
+  the same figures per partner for the preparer. "K-1s to receive": `investments.K1` (account, instrument, tax year,
+  status expected/estimate/final, received date, figures); one expected per private-fund / direct-private interest
+  with activity up to the tax year; recorded in place, audited.
+- Connectors (`investments/connectors.py` catalog, `connector_views.py`, `investments:connectors`): honest statuses.
+  Connected = Campfire, bank accounts through Campfire; By file = custodian files, onboarding workbook; On request =
+  J.P. Morgan, Schwab, Fidelity, Pershing, Northern Trust, Goldman, Morgan Stanley, Addepar, Masttro, Black Diamond,
+  Orion, Arch, Canoe, iCapital, Carta (no adapters built: "Request" stores `ConnectorRequest`, never pretends to be
+  connected). Next real adapter to build is whichever the user's prospects ask for first.
+- Page tests pin `timezone.localdate` (a test broke when the date rolled over). 163 tests.
 
 ## Sign-in and new permissions (lesson, 2026-11-13)
 - Adding `transactions:write` to the defaults broke sign-in for everyone: Campfire answers `invalid_scope` ("This app may

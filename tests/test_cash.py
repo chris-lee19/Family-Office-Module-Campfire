@@ -99,7 +99,7 @@ def test_cash_page(client, workspace: Workspace) -> None:  # type: ignore[no-unt
     from tests.conftest import context_token
 
     cf = FakeCampfire()
-    with mock.patch("gl.cash_views.CampfireClient", return_value=cf):
+    with mock.patch("gl.cash_views.CampfireClient", return_value=cf), mock.patch("gl.cash_views.timezone.localdate", return_value=TODAY):
         page = client.get(f"/fo/frame/cash?cf_ctx={context_token(customer_id=workspace.customer_id, surface='nav', user_id=3)}").content.decode()
         assert "$917,070" in page and "To categorize" in page and "SEABRIGHT PROPERTY MGMT" in page and "Suggested from last time" in page
         assert '<optgroup label="Expenses">' in page and "1040 Operating cash" not in page and "Uncategorized</option>" not in page

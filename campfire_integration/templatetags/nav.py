@@ -18,6 +18,7 @@ NAV = [
     ("", "Home", "records:attention", "home", ""),
     ("Family", "Investments", "investments:investments", "chart", ""),
     ("Family", "Entities & Ownership", "entities:entities", "tree", ""),
+    ("Family", "Partnerships & K-1s", "gl:partnerships", "partners", ""),
     ("Operations", "Capital calls", "gl:calls", "calls", "calls"),
     ("Operations", "Imports", "investments:imports", "upload", ""),
     ("Operations", "Review", "records:review", "check", "review"),
@@ -27,6 +28,7 @@ NAV = [
     ("Books", "Journal entries", "gl:journals", "journal", "journals"),
     ("Books", "Financial statements", "gl:statements", "report", ""),
     ("Books", "General ledger", "gl:gl", "book", ""),
+    ("Data", "Connectors", "investments:connectors", "plug", ""),
     ("Data", "Records", "records:home", "database", ""),
 ]
 
@@ -56,6 +58,8 @@ ICONS = {
     "bank": '<path d="M3 10 12 4l9 6"/><path d="M5 10v8M9.5 10v8M14.5 10v8M19 10v8"/><path d="M3 20h18"/>',
     "bill": '<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>',
     "journal": '<path d="M5 4h14v16H5z"/><path d="M9 4v16"/><path d="M12 9h4M12 13h4"/>',
+    "partners": '<circle cx="8" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M2.5 20c.5-3.5 2.7-5.5 5.5-5.5s5 2 5.5 5.5"/><path d="M14.5 14.6c.8-.4 1.6-.6 2.5-.6 2.3 0 4 1.600 4.500 4.500"/>',
+    "plug": '<path d="M9 3v5M15 3v5"/><path d="M6 8h12v3a6 6 0 0 1-12 0z"/><path d="M12 17v4"/>',
     "report": '<path d="M6 3h9l4 4v14H6z"/><path d="M15 3v4h4"/><path d="M9 12h7M9 16h7M9 8h3"/>',
     "search": '<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/>',
     "plus": '<path d="M12 5v14M5 12h14"/>',

@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Connectors{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Connectors</h1>
+    <p class="muted">{{ workspace }} · where the family office's data comes from, and what can be connected</p>
+  </div>
+</div>
+{% if message %}<div class="notice" data-toast="success">{{ message }}</div>{% endif %}
+{% if error %}<div class="issues">{{ error }}</div>{% endif %}
+
+<div class="kpis">
+  <div class="kpi"><div class="label">Working today</div><div class="value">{{ stats.working }}</div><div class="sub">Connected, or loaded by file</div></div>
+  <div class="kpi"><div class="label">Custody accounts matched to files</div><div class="value">{{ stats.custody_numbered }} of {{ stats.custody }}</div><div class="sub">Have their custodian account number</div></div>
+  <div class="kpi"><div class="label">Last file imported</div><div class="value">{% if stats.last_import %}{{ stats.last_import.committed_at|date:"M j" }}{% else %}–{% endif %}</div><div class="sub">{% if stats.last_import %}{{ stats.last_import.file_name|default:stats.last_import.reference }}{% else %}Nothing imported yet{% endif %}</div></div>
+  <div class="kpi"><div class="label">Requested</div><div class="value">{{ stats.requested }}</div><div class="sub">Connectors you have asked for</div></div>
+</div>
+
+{% for group, items in groups %}
+<h2>{{ group }}</h2>
+<div class="tiles connectors">
+  {% for i in items %}
+  <div class="tile connector">
+    <div class="connector-head"><strong>{{ i.c.name }}</strong>
+      {% if i.c.status == "connected" %}<span class="pill status-committed">Connected</span>{% elif i.c.status == "file" %}<span class="pill att-info">By file</span>{% elif i.request %}<span class="pill sev-warning">Requested</span>{% else %}<span class="pill">On request</span>{% endif %}</div>
+    <p>{{ i.c.brings }}</p>
+    <p class="muted small">{{ i.c.how }}</p>
+    {% if i.url %}<a class="btn secondary small" href="{{ i.url }}">Open</a>
+    {% elif i.request %}
+      <form method="post" action="{{ action }}" class="actions">{% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
+        <input type="hidden" name="connector" value="{{ i.c.key }}"><span class="small muted">Asked for{% if i.request.requested_by %} by {{ i.request.requested_by }}{% endif %}, {{ i.request.created_at|date:"M j" }}</span>
+        <button class="link-btn" type="submit" name="action" value="withdraw">Withdraw</button></form>
+    {% else %}
+      <form method="post" action="{{ action }}" class="actions">{% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
+        <input type="hidden" name="connector" value="{{ i.c.key }}"><button class="btn secondary small" type="submit" name="action" value="request">Request</button></form>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endfor %}
+<p class="muted small">"On request" connectors are not built yet. Requesting one records it for this workspace; until then the tool's export files load through Imports.</p>
+{% endblock %}

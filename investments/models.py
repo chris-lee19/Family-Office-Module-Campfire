@@ -406,3 +406,56 @@ class CapitalCall(models.Model):
     @property
     def bill_source_id(self) -> str:
         return f"fo-call-{self.pk}"
+
+
+class K1(models.Model):
+    """A Schedule K-1 the family receives for a partnership interest it holds: whether it has arrived for the tax
+    year, and its main figures. One per holding account, fund and tax year."""
+
+    class Status(models.TextChoices):
+        EXPECTED = "expected", "Not received"
+        ESTIMATE = "estimate", "Estimate received"
+        FINAL = "final", "Final received"
+
+    account = models.ForeignKey(Account, on_delete=models.CASCADE, related_name="k1s")
+    instrument = models.ForeignKey(Instrument, on_delete=models.CASCADE, related_name="k1s")
+    tax_year = models.PositiveSmallIntegerField()
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.EXPECTED)
+    received_on = models.DateField(null=True, blank=True)
+    ordinary_income = models.DecimalField(**MONEY, default=0, help_text="Ordinary business income (loss)")
+    interest_income = models.DecimalField(**MONEY, default=0)
+    dividend_income = models.DecimalField(**MONEY, default=0)
+    capital_gains = models.DecimalField(**MONEY, default=0, help_text="Net short- and long-term capital gain (loss)")
+    other_income = models.DecimalField(**MONEY, default=0)
+    distributions = models.DecimalField(**MONEY, default=0, help_text="Cash and property distributed, as the K-1 reports it")
+    note = models.CharField(max_length=255, blank=True)
+    recorded_by = models.CharField(max_length=255, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-tax_year", "instrument__name"]
+        constraints = [models.UniqueConstraint(fields=["account", "instrument", "tax_year"], name="k1_unique")]
+        verbose_name = "K-1"
+
+    def __str__(self) -> str:
+        return f"K-1 {self.tax_year} {self.instrument} ({self.get_status_display()})"
+
+    @property
+    def taxable_total(self) -> "Decimal":
+        return self.ordinary_income + self.interest_income + self.dividend_income + self.capital_gains + self.other_income
+
+
+class ConnectorRequest(models.Model):
+    """A workspace asking for a data connector that isn't built yet (Addepar, Masttro, a custodian's API...)."""
+
+    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE, related_name="connector_requests")
+    connector = models.CharField(max_length=40)
+    note = models.CharField(max_length=255, blank=True)
+    requested_by = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["workspace", "connector"], name="connector_request_unique")]
+
+    def __str__(self) -> str:
+        return f"{self.connector} requested by {self.requested_by or 'someone'}"

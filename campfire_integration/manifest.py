@@ -16,6 +16,7 @@ NAV_PAGES: list[tuple[str, str, str, str]] = [
     ("home", "Home", "home", "/fo/frame/home"),
     ("investments", "Investments", "chart-pie", "/fo/frame/investments"),
     ("entities", "Entities & Ownership", "users", "/fo/frame/entities"),
+    ("partnerships", "Partnerships & K-1s", "handshake", "/fo/frame/partnerships"),
     ("calls", "Capital calls", "banknote", "/fo/frame/calls"),
     ("imports", "Imports", "upload", "/fo/frame/imports"),
     ("review", "Review", "check-circle", "/fo/frame/review"),
@@ -25,6 +26,7 @@ NAV_PAGES: list[tuple[str, str, str, str]] = [
     ("journals", "Journal entries", "notebook", "/fo/frame/journals"),
     ("statements", "Financial statements", "file-text", "/fo/frame/statements"),
     ("gl", "General ledger", "book-open", "/fo/frame/gl"),
+    ("connectors", "Connectors", "plug", "/fo/frame/connectors"),
     ("records", "Records", "database", "/fo/frame/records"),
 ]
 

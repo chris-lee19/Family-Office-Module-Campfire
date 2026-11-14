@@ -1,10 +1,13 @@
 from django.urls import path
 
 from investments import import_views, views
+from investments import connector_views
 
 app_name = "investments"
 
 urlpatterns = [
+    path("frame/connectors", connector_views.frame_connectors, name="frame_connectors"),
+    path("connectors", connector_views.standalone_connectors, name="connectors"),
     path("frame/investments", views.frame_investments, name="frame_investments"),
     path("investments", views.standalone_investments, name="investments"),
     path("frame/demo", views.frame_load_demo, name="frame_load_demo"),

@@ -120,7 +120,7 @@ def test_bills_page(client, workspace: Workspace) -> None:  # type: ignore[no-un
     from tests.conftest import context_token
 
     cf = FakeCampfire()
-    with mock.patch("gl.bill_views.CampfireClient", return_value=cf):
+    with mock.patch("gl.bill_views.CampfireClient", return_value=cf), mock.patch("gl.bill_views.timezone.localdate", return_value=TODAY):
         ctx = lambda user: f"/fo/frame/bills-page?cf_ctx={context_token(customer_id=workspace.customer_id, surface='nav', user_id=user)}"  # noqa: E731
         page = client.get(ctx(3)).content.decode()
         assert "$12,150" in page and "5 days overdue" in page and "Northwind Trust Company" in page and "Enter a bill" in page
