@@ -27,17 +27,7 @@
   {% if fv.chart.links %}
   <section class="box">
     <div class="box-head"><h2>Ownership structure</h2><div class="aside"><span class="key"><i class="st-key person"></i>Family member</span><span class="key"><i class="st-key"></i>Entity</span><span class="key"><i class="st-key booked"></i>Keeps books</span></div></div>
-    <div class="structure" data-structure role="img" aria-label="Ownership structure of {{ fv.family.name }}: {{ fv.chart.summary }}. The table below lists every owner and percentage.">
-      <div class="st-canvas" style="width: {{ fv.chart.width }}px; height: {{ fv.chart.height }}px">
-        <svg width="{{ fv.chart.width }}" height="{{ fv.chart.height }}" viewBox="0 0 {{ fv.chart.width }} {{ fv.chart.height }}" aria-hidden="true">
-          {% for k in fv.chart.links %}<path d="{{ k.path }}" data-from="{{ k.source.key }}" data-to="{{ k.target.key }}"/>{% endfor %}
-        </svg>
-        {% for k in fv.chart.links %}<span class="st-pct" data-from="{{ k.source.key }}" data-to="{{ k.target.key }}" style="left: {{ k.label_x|floatformat:1 }}px; top: {{ k.label_y|floatformat:1 }}px">{{ k.label }}</span>{% endfor %}
-        {% for n in fv.chart.nodes %}<a class="st-node{% if n.person %} person{% endif %}{% if n.booked %} booked{% endif %}" data-node="{{ n.key }}" href="{{ node_urls|get_item:n.key }}"
-          style="left: {{ n.x|floatformat:1 }}px; top: {{ n.y|floatformat:1 }}px; width: {{ fv.chart.node_w }}px; height: {{ fv.chart.node_h }}px">
-          {% if n.person %}<span class="avatar">{{ n.initials }}</span>{% endif %}<span class="st-text"><strong>{{ n.name }}</strong><small>{{ n.sub }}</small></span></a>{% endfor %}
-      </div>
-    </div>
+{% include "entities/_structure.html" with chart=fv.chart family=fv.family %}
     <p class="muted small box-body">Each line is an ownership interest with its percentage, as of {{ as_of|date:"M j, Y" }}. Point at a name to trace what it owns and who owns it.</p>
   </section>
   {% endif %}

@@ -1,0 +1,16 @@
+{% load money viz %}    <div class="fc-chart" role="img" aria-label="Projected cash at the end of each month, from {{ fc.months.0.label }} to {{ last_month }}. Lowest {{ fc.low|money }} in {{ fc.low_month.label }}. The table below has every figure.">
+      <div class="fc-plot" style="--up: {{ chart.up }}; --down: {{ chart.down }}">
+        {% for c in chart.cols %}
+        <div class="fc-col{% if c.negative %} neg{% endif %}{% if c.edge %} {{ c.edge }}{% endif %}" tabindex="0">
+          <div class="fc-up">{% if not c.negative %}{% if c.label %}<span class="fc-val">{{ c.value|compact }}</span>{% endif %}<i style="height: {{ c.height }}%"></i>{% endif %}</div>
+          <div class="fc-down">{% if c.negative %}<i style="height: {{ c.height }}%"></i>{% if c.label %}<span class="fc-val">{{ c.value|compact }}</span>{% endif %}{% endif %}</div>
+          <div class="fc-x">{{ c.month.short }}{% if forloop.first or c.month.start.month == 1 %}<small>{{ c.month.start|date:"Y" }}</small>{% endif %}</div>
+          <div class="fc-tip" role="tooltip"><strong>{{ c.month.label }}</strong>
+            <span>Cash at the start</span><b>{{ c.opening|acct }}</b>
+            <span>Money in</span><b>{{ c.money_in|acct }}</b>
+            <span>Money out</span><b>{% if c.money_out %}({{ c.money_out|acct }}){% else %}–{% endif %}</b>
+            <span>Cash at the end</span><b>{{ c.value|acct }}</b></div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>

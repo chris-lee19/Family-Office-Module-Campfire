@@ -1,0 +1,11 @@
+{% load gl_extras %}    <div class="structure" data-structure role="img" aria-label="Ownership structure of {{ family.name }}: {{ chart.summary }}. The table below lists every owner and percentage.">
+      <div class="st-canvas" style="width: {{ chart.width }}px; height: {{ chart.height }}px">
+        <svg width="{{ chart.width }}" height="{{ chart.height }}" viewBox="0 0 {{ chart.width }} {{ chart.height }}" aria-hidden="true">
+          {% for k in chart.links %}<path d="{{ k.path }}" data-from="{{ k.source.key }}" data-to="{{ k.target.key }}"/>{% endfor %}
+        </svg>
+        {% for k in chart.links %}<span class="st-pct" data-from="{{ k.source.key }}" data-to="{{ k.target.key }}" style="left: {{ k.label_x|floatformat:1 }}px; top: {{ k.label_y|floatformat:1 }}px">{{ k.label }}</span>{% endfor %}
+        {% for n in chart.nodes %}<a class="st-node{% if n.person %} person{% endif %}{% if n.booked %} booked{% endif %}" data-node="{{ n.key }}" {% if node_urls %}href="{{ node_urls|get_item:n.key }}"{% endif %}
+          style="left: {{ n.x|floatformat:1 }}px; top: {{ n.y|floatformat:1 }}px; width: {{ chart.node_w }}px; height: {{ chart.node_h }}px">
+          {% if n.person %}<span class="avatar">{{ n.initials }}</span>{% endif %}<span class="st-text"><strong>{{ n.name }}</strong><small>{{ n.sub }}</small></span></a>{% endfor %}
+      </div>
+    </div>

@@ -52,3 +52,16 @@ def compact(value: Decimal | None) -> str:
 def get(mapping: object, key: str) -> object:
     """A value from a dict by key, for data that reached the template as plain JSON."""
     return mapping.get(key, "") if isinstance(mapping, dict) else ""
+
+
+@register.filter
+def private_total(report: object, name: str) -> Decimal:
+    """A column's total across the private funds of a performance report."""
+    return report.private_total(name)  # type: ignore[attr-defined]
+
+
+@register.filter
+def gain_pct(holding: object) -> Decimal | None:
+    """Unrealized gain as a fraction of cost."""
+    cost = holding.cost_basis  # type: ignore[attr-defined]
+    return (holding.unrealized / cost) if cost else None  # type: ignore[attr-defined]

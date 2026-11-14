@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% load money viz %}
+{% block title %}Reporting pack{% endblock %}
+{% block content %}
+<div class="page-head no-print">
+  <div>
+    <h1>Reporting pack</h1>
+    <p class="muted">{{ workspace }} · one document for the family, for the period you choose</p>
+  </div>
+  {% if pack %}<div class="page-actions"><button class="btn" type="button" data-print>Print or save as PDF</button></div>{% endif %}
+</div>
+
+<form method="get" action="{{ action }}" class="box pack-options no-print">
+  {% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}<input type="hidden" name="build" value="1">
+  <div class="filters flat">
+    <label>Period
+      <select name="period" data-toggle-custom>{% for k, label in periods.items %}<option value="{{ k }}" {% if k == choices.period %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+    <label>From <input type="date" name="start" value="{{ choices.start }}"></label>
+    <label>To <input type="date" name="end" value="{{ choices.end }}"></label>
+    <button class="btn" type="submit">{% if pack %}Build again{% else %}Build the pack{% endif %}</button>
+    <span class="muted small">{% if pack %}{{ pack.sections|length }} section{{ pack.sections|length|pluralize }} for {{ pack.period }}{% else %}Reads the books and the investment records: allow about ten seconds. The dates apply when the period is "Custom dates".{% endif %}</span>
+  </div>
+  <div class="pack-pick" role="group" aria-label="Sections"><div class="pick-title">Sections</div>
+    {% for key, title, about, on in sections %}<label class="check"><input type="checkbox" name="s" value="{{ key }}" {% if on %}checked{% endif %}><span><strong>{{ title }}</strong><small>{{ about }}</small></span></label>{% endfor %}
+  </div>
+</form>
+
+{% if pack %}
+<div class="pack">
+  <section class="pack-cover">
+    <div class="ph-org">{{ workspace }}</div>
+    <h1>Family Reporting Pack</h1>
+    <p class="pack-period">{{ pack.period }}</p>
+    <ol class="pack-contents">{% for s in pack.sections %}<li><a href="#pack-{{ s.key }}">{{ s.title }}</a><span>{{ s.about }}</span></li>{% endfor %}</ol>
+    <p class="ph-foot">Prepared {{ pack.today|date:"F j, Y" }} from the books and the investment records. Unaudited.{% if pack.scope %} Consolidated: {{ pack.scope.label }}.{% endif %}</p>
+  </section>
+
+  {% for s in pack.sections %}
+  <section class="pack-section{% if s.wide %} wide{% endif %}" id="pack-{{ s.key }}">
+    <header class="pack-head">
+      <div class="ph-org">{{ workspace }}</div>
+      <h2>{{ s.title }}</h2>
+      <p>{{ s.about }} · {% if s.key == "changes" or s.key == "capital" %}{{ pack.period }}{% elif s.key == "liquidity" %}from {{ pack.today|date:"F j, Y" }}{% else %}as of {{ pack.end|date:"F j, Y" }}{% endif %}</p>
+    </header>
+    {% if s.error %}<div class="callout warn">{{ s.error }}</div>
+    {% elif s.key == "glance" %}
+      {% include "includes/nw_hero.html" with nw=s.data.nw %}
+      <div class="grid2 even">
+        <section class="box"><div class="box-head"><h3>Net worth by entity</h3></div><div class="box-body">{% include "includes/nw_entities.html" with nw=s.data.nw %}
+          {% if s.data.nw.has_tax %}<p class="muted small">Before the family's estimated income taxes of {{ s.data.nw.estimated_tax|money }}.</p>{% endif %}</div></section>
+        <section class="box"><div class="box-head"><h3>Investments by asset class</h3><div class="aside"><span>{{ s.data.investments|money }}</span></div></div>
+          <div class="box-body">{% alloc s.data.allocation "Investments by asset class" %}</div></section>
+      </div>
+    {% elif s.key == "net_worth" or s.key == "by_entity" or s.key == "by_person" or s.key == "changes" %}
+      {% include "includes/statement_plain.html" with statement=s.data %}
+    {% elif s.key == "schedule" %}
+      <section class="box box-flush">
+        <div class="table-scroll"><table class="statement wide">
+          <thead><tr><th>Schedule of Investments</th><th>Held by</th><th class="num">Quantity</th><th class="num">Cost</th><th class="num">Value</th><th class="num">Gain (loss)</th><th>Valued</th></tr></thead>
+          <tbody>
+          {% for g in s.data.groups %}
+            <tr class="st-section"><td colspan="7">{{ g.name }} <span class="muted">· {{ g.share }}% of the investments</span></td></tr>
+            {% for ln in g.lines %}<tr class="st-account lvl-1"><td>{{ ln.holding }}<br><span class="muted small">{{ ln.account }}</span></td><td>{{ ln.owner }}</td>
+              <td class="num">{% if ln.quantity %}{{ ln.quantity|acct }}{% endif %}</td><td class="num">{{ ln.cost|acct }}</td><td class="num">{{ ln.value|acct }}</td><td class="num">{{ ln.gain|acct }}</td>
+              <td class="nowrap small">{{ ln.valued }}{% if ln.stale %} <span class="pill stale">Stale</span>{% endif %}</td></tr>{% endfor %}
+            <tr class="st-total"><td>Total {{ g.name|lower }}</td><td></td><td></td><td class="num">{{ g.cost|acct }}</td><td class="num">{{ g.value|acct }}</td><td class="num">{{ g.gain|acct }}</td><td></td></tr>
+          {% endfor %}
+            <tr class="st-grand"><td>All investments ({{ s.data.count }} holdings)</td><td></td><td></td><td class="num">{{ s.data.cost|acct }}</td><td class="num">{{ s.data.value|acct }}</td><td class="num">{{ s.data.gain|acct }}</td><td></td></tr>
+          </tbody>
+        </table></div>
+      </section>
+    {% elif s.key == "performance" %}
+      {% for x in s.data %}{% if s.data|length > 1 %}<h3>{{ x.r.family.name }}</h3>{% endif %}{% include "investments/_performance.html" with r=x.r growth=x.growth periods=performance_periods %}{% endfor %}
+    {% elif s.key == "liquidity" %}
+      {% with fc=s.data.fc %}
+      {% if s.note %}<p class="muted small">{{ s.note }}</p>{% endif %}
+      <div class="kpis">
+        <div class="kpi"><div class="label">Cash today</div><div class="value">{{ fc.opening|money }}</div><div class="sub">Operating {{ fc.operating|money }} · at custodians {{ fc.custody|money }}</div></div>
+        <div class="kpi"><div class="label">Lowest point</div><div class="value">{{ fc.low|money }}</div><div class="sub">{% if fc.low < 0 %}<span class="err">Short of cash in {{ fc.low_month.label }}</span>{% else %}At the end of {{ fc.low_month.label }}{% endif %}</div></div>
+        <div class="kpi"><div class="label">Due in the next 30 days</div><div class="value">{{ s.data.due_soon_total|money }}</div><div class="sub">{{ fc.due_soon|length }} bill{{ fc.due_soon|length|pluralize }} and capital call{{ fc.due_soon|length|pluralize }}</div></div>
+        <div class="kpi"><div class="label">Unfunded commitments</div><div class="value">{{ fc.total_unfunded|money }}</div><div class="sub">{% if fc.coverage %}Covered {{ fc.coverage }}x by cash and liquid investments{% else %}None open{% endif %}</div></div>
+      </div>
+      {% if fc.short_entities %}<p class="short-list">{% for e in fc.short_entities %}<span class="pill {% if e.covered %}sev-warning{% else %}sev-error{% endif %}">{{ e.entity }}: short by {{ e.low|acct }} in {{ e.low_month }}</span>{% endfor %}</p>{% endif %}
+      {% if s.data.chart %}<section class="box"><div class="box-head"><h3>Projected cash at month end</h3></div><div class="box-body">{% include "gl/_forecast_chart.html" with chart=s.data.chart %}</div></section>{% endif %}
+      <section class="box box-flush">{% include "gl/_forecast_table.html" with total_in=s.data.total_in total_out=s.data.total_out total_net=s.data.total_net %}</section>
+      {% endwith %}
+    {% elif s.key == "capital" %}
+      {% for statement in s.data %}<h3>{{ statement.entity.name }}</h3>{% include "gl/_capital_table.html" %}
+        {% if statement.other_changes %}<p class="muted small">{{ statement.other_changes|acct }} of other movement in its books (such as bank lines not categorized) is not allocated to the partners.</p>{% endif %}{% endfor %}
+      <p class="muted small">From each partnership's books, split by ownership at the end of the period. Special allocations and uneven contributions are not reflected.</p>
+    {% elif s.key == "structure" %}
+      {% for family, chart in s.data %}{% if chart.links %}<section class="box">{% if s.data|length > 1 %}<div class="box-head"><h3>{{ family.name }}</h3></div>{% endif %}{% include "entities/_structure.html" %}</section>
+      {% else %}<p class="muted">{{ family.name }}: no ownership interests recorded.</p>{% endif %}{% endfor %}
+    {% endif %}
+  </section>
+  {% endfor %}
+</div>
+{% else %}
+<section class="box"><div class="empty"><strong>Choose the period and the sections, then build the pack</strong>It opens here as one document, ready to print or save as a PDF.</div></section>
+{% endif %}
+{% endblock %}

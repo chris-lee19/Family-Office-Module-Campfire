@@ -1,0 +1,61 @@
+{% load money %}
+<div class="kpis">
+  <div class="kpi"><div class="label">Priced holdings</div><div class="value">{{ r.total.market_value|money }}</div><div class="sub">Securities with a market price</div></div>
+  <div class="kpi"><div class="label">Return, year to date</div><div class="value">{{ r.total.returns.ytd|pct:1 }}</div><div class="sub">Time-weighted</div></div>
+  <div class="kpi"><div class="label">Return, 1 year</div><div class="value">{{ r.total.returns.y1|pct:1 }}</div><div class="sub">{% if r.total.returns.itd is not None %}{{ r.total.returns.itd|pct:1 }} {% if r.total.annualized %}a year {% endif %}since {{ r.total.since|date:"M Y" }}{% else %}Time-weighted{% endif %}</div></div>
+  <div class="kpi"><div class="label">Private funds, IRR</div><div class="value">{{ r.pooled_irr|pct:1 }}</div><div class="sub">{% if r.private_tvpi %}{{ r.private_tvpi|multiple }} value to paid-in, {{ r.privates|length }} fund{{ r.privates|length|pluralize }}{% else %}No private funds{% endif %}</div></div>
+</div>
+
+{% if growth %}
+<section class="box">
+  <div class="box-head"><h2>Growth of 100</h2><div class="aside"><span>Priced holdings, time-weighted, the last twelve months</span></div></div>
+  <div class="chart-box">{% include "includes/trend.html" with chart=growth label="What 100 invested in the priced holdings a year ago has grown to, by month." %}</div>
+</section>
+{% endif %}
+
+{% if r.total %}
+<section class="box box-flush">
+  <div class="table-scroll"><table class="statement wide returns">
+    <thead><tr><th>Priced holdings: time-weighted return</th><th class="num">Market value</th>{% for key, label in periods %}<th class="num">{{ label }}</th>{% endfor %}</tr></thead>
+    <tbody>
+      <tr class="st-section"><td colspan="{{ periods|length|add:2 }}">By asset class</td></tr>
+      {% for row in r.by_asset_class %}<tr class="st-account lvl-1"><td>{{ row.label }}</td><td class="num">{{ row.market_value|acct }}</td>{% for v in row.cells %}<td class="num{% if v is not None and v < 0 %} err{% endif %}">{{ v|pct:1 }}{% if forloop.last and row.annualized %}<span class="muted"> p.a.</span>{% endif %}</td>{% endfor %}</tr>{% endfor %}
+      <tr class="st-section"><td colspan="{{ periods|length|add:2 }}">By account</td></tr>
+      {% for row in r.by_account %}<tr class="st-account lvl-1"><td>{{ row.label }}{% if row.detail %} <span class="muted small">{{ row.detail }}</span>{% endif %}</td><td class="num">{{ row.market_value|acct }}</td>{% for v in row.cells %}<td class="num{% if v is not None and v < 0 %} err{% endif %}">{{ v|pct:1 }}{% if forloop.last and row.annualized %}<span class="muted"> p.a.</span>{% endif %}</td>{% endfor %}</tr>{% endfor %}
+      <tr class="st-section"><td colspan="{{ periods|length|add:2 }}">By holding</td></tr>
+      {% for row in r.by_holding %}<tr class="st-account lvl-1"><td>{{ row.label }} <span class="muted small">{{ row.detail }}</span></td><td class="num">{{ row.market_value|acct }}</td>{% for v in row.cells %}<td class="num{% if v is not None and v < 0 %} err{% endif %}">{{ v|pct:1 }}{% if forloop.last and row.annualized %}<span class="muted"> p.a.</span>{% endif %}</td>{% endfor %}</tr>{% endfor %}
+      <tr class="st-grand"><td>{{ r.total.label }}</td><td class="num">{{ r.total.market_value|acct }}</td>{% for v in r.total.cells %}<td class="num">{{ v|pct:1 }}{% if forloop.last and r.total.annualized %}<span class="muted"> p.a.</span>{% endif %}</td>{% endfor %}</tr>
+    </tbody>
+  </table></div>
+</section>
+<p class="muted small">Time-weighted: each month is measured on what was invested in it, so money added or withdrawn doesn't change the result. Dividends and interest count as return; cash and fees charged to cash are left out. A dash means the holding wasn't there for the whole period. p.a. = a yearly rate.</p>
+{% endif %}
+
+{% if r.privates %}
+<section class="box box-flush">
+  <div class="table-scroll"><table class="statement wide returns">
+    <thead><tr><th>Private funds: IRR and multiples</th><th class="num">Committed</th><th class="num">Paid in</th><th class="num">Distributed</th><th class="num">Net asset value</th>
+      <th class="num" title="Distributed to paid-in">DPI</th><th class="num" title="Residual value to paid-in">RVPI</th><th class="num" title="Total value to paid-in">TVPI</th><th class="num">IRR</th></tr></thead>
+    <tbody>
+      {% for c, irr in r.privates %}<tr class="st-account lvl-0"><td>{{ c.commitment.instrument.name }}{% if c.nav_stale %} <span class="pill stale">Stale mark</span>{% endif %}<br><span class="muted small">{{ c.commitment.account.name }}{% if c.nav_date %} · valued {{ c.nav_date|date:"M j, Y" }}{% endif %}</span></td>
+        <td class="num">{{ c.commitment.amount|acct }}</td><td class="num">{{ c.contributed|acct }}</td><td class="num">{{ c.distributed|acct }}</td><td class="num">{{ c.nav|acct }}</td>
+        <td class="num">{{ c.dpi|multiple }}</td><td class="num">{{ c.rvpi|multiple }}</td><td class="num">{{ c.tvpi|multiple }}</td><td class="num">{{ irr|pct:1 }}</td></tr>{% endfor %}
+      <tr class="st-grand"><td>All private funds</td><td class="num">{{ r|private_total:"commitment"|acct }}</td><td class="num">{{ r|private_total:"contributed"|acct }}</td><td class="num">{{ r|private_total:"distributed"|acct }}</td>
+        <td class="num">{{ r|private_total:"nav"|acct }}</td><td></td><td></td><td class="num">{{ r.private_tvpi|multiple }}</td><td class="num">{{ r.pooled_irr|pct:1 }}</td></tr>
+    </tbody>
+  </table></div>
+</section>
+<p class="muted small">IRR is the yearly rate that the capital paid in, the distributions received and today's net asset value work out to. Multiples are against paid-in capital.</p>
+{% endif %}
+
+{% if r.other %}
+<section class="box box-flush">
+  <div class="table-scroll"><table class="statement wide returns">
+    <thead><tr><th>Appraised and direct holdings</th><th class="num">Cost</th><th class="num">Value</th><th class="num">Gain (loss)</th><th class="num">On cost</th><th>Valued</th></tr></thead>
+    <tbody>
+      {% for h in r.other %}<tr class="st-account lvl-0"><td>{{ h.name }}<br><span class="muted small">{{ h.account.name }}</span></td><td class="num">{{ h.cost_basis|acct }}</td><td class="num">{{ h.market_value|acct }}</td>
+        <td class="num">{{ h.unrealized|acct }}</td><td class="num">{{ h|gain_pct|pct:1 }}</td><td class="nowrap">{{ h.method_label }}{% if h.value_date %}, {{ h.value_date|date:"M j, Y" }}{% endif %}{% if h.is_stale %} <span class="pill stale">Stale</span>{% endif %}</td></tr>{% endfor %}
+    </tbody>
+  </table></div>
+</section>
+{% endif %}

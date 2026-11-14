@@ -1,0 +1,29 @@
+{% load money viz nav %}<section class="box hero">
+  <div class="hero-figure">
+    <div class="label">Net worth <span class="muted">· {{ nw.basis }}</span></div>
+    <div class="hero-value"><a href="{{ links.statements }}">{{ nw.value|money }}</a></div>
+    <div class="hero-deltas">
+      {% if nw.month_change %}<div><span class="delta {% if nw.month_up %}up{% else %}down{% endif %}">{% if nw.month_up %}▲{% else %}▼{% endif %} {{ nw.month_change|money }} ({{ nw.month_pct }}%)</span> <span class="muted">since {{ nw.month_label }}</span></div>{% endif %}
+      {% if nw.year_change %}<div><span class="delta {% if nw.year_up %}up{% else %}down{% endif %}">{% if nw.year_up %}▲{% else %}▼{% endif %} {{ nw.year_change|money }} ({{ nw.year_pct }}%)</span> <span class="muted">this year</span></div>{% endif %}
+    </div>
+    <dl class="equation">
+      <div><dt>Total assets</dt><dd>{{ nw.assets|money }}</dd></div>
+      <div class="op">−</div>
+      <div><dt>Liabilities</dt><dd>{{ nw.liabilities|money }}</dd></div>
+      {% if nw.has_tax %}<div class="op">−</div><div><dt>Estimated income taxes</dt><dd>{{ nw.estimated_tax|money }}</dd></div>{% endif %}
+    </dl>
+  </div>
+  <div class="hero-chart">
+    <div class="chart-title">Net worth at each month end</div>
+    <div class="trend" role="img" aria-label="Net worth at each month end, {{ nw.trend.0.label }} to {{ nw.trend|last|get:'label' }}: from {{ nw.trend.0.compact }} to {{ nw.trend|last|get:'compact' }}. The Statement of Net Worth has the figures.">
+      <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><polygon class="trend-area" points="{{ nw.area }}"/><polyline class="trend-line" points="{{ nw.line }}" vector-effect="non-scaling-stroke"/></svg>
+      <div class="trend-hit" style="--n: {{ nw.trend|length }}">
+        {% for p in nw.trend %}<div class="trend-col{% if p.edge %} {{ p.edge }}{% endif %}{% if forloop.last %} now{% endif %}{% if p.below %} below{% endif %}" tabindex="0" style="--y: {{ p.y }}%">
+          <i></i>{% if p.show %}<span class="trend-val">{{ p.compact }}</span>{% endif %}
+          <div class="fc-tip" role="tooltip"><strong>{{ p.label }}</strong><span>Net worth</span><b>{{ p.value|acct }}</b>{% if p.change %}<span>Change in the month</span><b>{{ p.change|acct }}</b>{% endif %}</div>
+        </div>{% endfor %}
+      </div>
+    </div>
+    <div class="trend-x" style="--n: {{ nw.trend|length }}">{% for p in nw.trend %}<span>{{ p.short }}{% if p.year %}<small>{{ p.year }}</small>{% endif %}</span>{% endfor %}</div>
+  </div>
+</section>

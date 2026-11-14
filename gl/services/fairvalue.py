@@ -182,3 +182,17 @@ def holdings_for(workspace: Workspace, campfire_entity_ids: Any, as_of: date) ->
 
 def unrealized_for(workspace: Workspace, campfire_entity_ids: Any, as_of: date) -> Decimal:
     return sum((value - cost for _, _, cost, value in holdings_for(workspace, campfire_entity_ids, as_of)), ZERO)
+
+
+def unrealized_by_entity(workspace: Workspace, as_of: date) -> dict[int, Decimal]:
+    """Market value less cost of the investment holdings booked in each Campfire entity (by Campfire entity id)."""
+    out: dict[int, Decimal] = {}
+    for cf_entity, accounts in booked_accounts(workspace).items():
+        total = ZERO
+        for account in accounts:
+            try:
+                total += sum((value - cost for _, cost, value in unrealized_at(account, as_of).values()), ZERO)
+            except LedgerError:
+                continue
+        out[cf_entity] = total
+    return out

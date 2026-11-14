@@ -1,0 +1,4 @@
+{% load money viz nav %}      <div class="hbars" role="table" aria-label="Net worth by entity">
+        {% for e in nw.entities %}<div class="hbar" role="row"><span class="name" role="cell">{{ e.name }}</span><span class="track" role="presentation"><i style="width: {{ e.width }}%"></i></span>
+          <span class="num" role="cell">{{ e.value|money }}</span><span class="num muted" role="cell">{{ e.share }}%</span></div>{% endfor %}
+      </div>

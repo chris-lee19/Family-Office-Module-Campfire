@@ -38,7 +38,7 @@
   {% for label, value in headline %}<div class="kpi"><div class="label">{{ label }}</div><div class="value">{{ value|acct }}</div></div>{% endfor %}
 </div>{% endif %}
 <section class="box box-flush">
-  <table class="statement{% if statement.columns|length > 4 %} wide{% endif %}">
+  <div class="table-scroll"><table class="statement{% if statement.columns|length > 4 %} wide{% endif %}{% if statement.columns|length > 5 %} landscape{% endif %}">
     <thead><tr><th>{{ statement.title }}</th>{% for c in statement.columns %}<th class="num">{{ c }}</th>{% endfor %}</tr></thead>
     <tbody>
     {% for r, url in rows %}
@@ -48,7 +48,7 @@
       </tr>
     {% endfor %}
     </tbody>
-  </table>
+  </table></div>
 </section>
 <p class="muted small">{% if statement.note %}{{ statement.note }} {% endif %}{% if choices.view != "tx" %}Figures come from the general ledger{% if scope.fair_value %}, with investments brought to {{ scope.names.value }} from the investment records{% endif %}.<span class="no-print"> Select an account to see the entries behind it.</span>{% endif %}</p>
 {% if scope.kind == "family" or choices.view == "tx" %}

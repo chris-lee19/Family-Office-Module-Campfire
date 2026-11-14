@@ -40,6 +40,9 @@ NAMES: dict[str, dict[str, str]] = {
 }
 VIEWS = {"bs": "Net worth", "is": "Changes in net worth", "cf": "Cash flow", "tb": "Trial balance", "tx": "Tax basis"}  # the keys; labels come from NAMES
 COLUMNS = {"total": "One column", "monthly": "By month", "quarterly": "By quarter"}
+# The family's Statement of Net Worth can also be split across: a column per entity, or per family member (look-through).
+SPLITS = {"entity": "By entity", "person": "By family member"}
+NOT_HELD = "Not held by a family member"
 PERIODS = {"ytd": "This year to date", "month": "Last month", "quarter": "Last quarter", "year": "Last year", "custom": "Custom dates"}
 
 
@@ -245,6 +248,123 @@ def balance_sheet(client: CampfireClient, scope: Scope, start: date, end: date, 
         out.note += "Bank lines not categorized yet are included as their own line; categorize them on the Cash page. "
     if scope.fair_value and fair is not None and len(keys) > 1:
         out.note = f"Columns over time show the books (investments at cost). Choose one column for {names['value']}. "
+    return out
+
+
+def _spread(amount: Decimal, weights: list[Decimal]) -> list[Decimal]:
+    """An amount split in proportion to weights, to the cent; what rounding leaves goes to the largest share."""
+    total = sum(weights, ZERO)
+    if not amount or not total:
+        return [ZERO] * len(weights)
+    parts = [(amount * w / total).quantize(Decimal("0.01")) for w in weights]
+    parts[max(range(len(parts)), key=lambda i: weights[i])] += amount - sum(parts, ZERO)
+    return parts
+
+
+def net_worth_split(client: CampfireClient, scope: Scope, end: date, split: str, unrealized: dict[int, Decimal], booked: frozenset[int],
+                    tax_rate: Decimal, shares: dict[int, dict[str, Decimal]] | None = None) -> Statement:
+    """The family's Statement of Net Worth with a column per entity, or per family member.
+
+    Each entity's column is its own books at the statement date, with its investments brought to estimated current
+    value (`unrealized`: market less cost of what each Campfire entity holds; `booked`: the GL accounts that already
+    carry unrealized appreciation). The family's estimated income taxes are spread over the entities that have
+    appreciation. A family member's column is every entity's column times the share of it that traces to them
+    (`shares`: Campfire entity id -> {person: fraction}); what traces to nobody (a foundation, or an entity that isn't
+    linked) is its own column. The Total column is the consolidated statement, so the columns always add up to it."""
+    names = scope.names
+    data = client.get_json(BALANCE_SHEET_PATH, params={**scope.params(), "start_date": month_start(end).isoformat(), "end_date": end.isoformat(), "group_by": "entity"})
+    key = next(iter(sorted(data.get("headers", {}), reverse=True)), None)
+    rows = data.get("balance_sheet", [])
+    ids = {s.label: s.entity_id for s in scopes(client) if not s.rollup}
+    entities = [name for name in (data["headers"][key] if key else []) if name != "Total"]
+    vec = lambda r: [_dec(r.get(f"{key}_{name}")) for name in entities]  # noqa: E731
+    add_vec = lambda a, b: [x + y for x, y in zip(a, b)]  # noqa: E731
+    zero = [ZERO] * len(entities)
+    le = "LIABILITIES_AND_EQUITY"
+
+    carried = zero
+    for r in rows:
+        if str((r.get("hierarchy") or [""])[-1]).isdigit() and int(r["hierarchy"][-1]) in booked:
+            carried = add_vec(carried, vec(r))
+    gains = [unrealized.get(ids.get(name, 0), ZERO) for name in entities]
+    adjust = [g - c for g, c in zip(gains, carried)]
+    total_gain = sum(gains, ZERO)
+    tax_total = (max(total_gain, ZERO) * tax_rate / 100).quantize(Decimal("0.01")) if scope.kind == FAMILY else ZERO
+    tax = _spread(tax_total, [max(g, ZERO) for g in gains])
+
+    lines: list[tuple[Row, list[Decimal]]] = []  # each row with its figures per entity
+    put = lambda label, values, kind="account", **kw: lines.append((Row(label, [], kind, **kw), values))  # noqa: E731
+    put("Assets", None, "section")
+    for r in _account_rows(rows, ["ASSET"], lambda r: []):
+        source = next(x for x in rows if str((x.get("hierarchy") or [""])[-1]) == str(r.account_id) and x.get("hierarchy", [])[:1] == ["ASSET"])
+        put(r.label, vec(source), number=r.number, level=r.level, account_id=r.account_id)
+    if any(adjust):
+        put(f"Investments: adjustment to {names['value']}", adjust, level=1)
+    assets = add_vec(vec(_group(rows, ["ASSET"])), adjust)
+    put("Total assets", assets, "total")
+    put("Liabilities", None, "section")
+    for r in _account_rows(rows, [le, "LIABILITY"], lambda r: []):
+        source = next(x for x in rows if str((x.get("hierarchy") or [""])[-1]) == str(r.account_id) and x.get("hierarchy", [])[:2] == [le, "LIABILITY"])
+        put(r.label, vec(source), number=r.number, level=r.level, account_id=r.account_id)
+    if tax_total:
+        put("Estimated income taxes on unrealized appreciation", tax, level=1)
+    liabilities = add_vec(vec(_group(rows, [le, "LIABILITY"])), tax)
+    put("Total liabilities", liabilities, "total")
+    put(names["equity"], [a - b for a, b in zip(assets, liabilities)], "grand")
+
+    if split == "person":
+        shares = shares or {}
+        of = [shares.get(ids.get(name, 0), {NOT_HELD: Decimal(1)}) for name in entities]
+        net = lines[-1][1]
+        held = sorted({p for s in of for p in s if p != NOT_HELD},
+                      key=lambda p: -sum((net[i] * of[i].get(p, ZERO) for i in range(len(entities))), ZERO))
+        columns = held + ([NOT_HELD] if any(NOT_HELD in s and s[NOT_HELD] for s in of) else [])
+
+        def project(values: list[Decimal]) -> list[Decimal]:
+            parts = [sum((values[i] * of[i].get(p, ZERO) for i in range(len(entities))), ZERO).quantize(Decimal("0.01")) for p in columns]
+            if parts:  # shares of a cent: what rounding leaves goes to the largest column, so the row adds up
+                parts[max(range(len(parts)), key=lambda i: abs(parts[i]))] += sum(values, ZERO) - sum(parts, ZERO)
+            return parts
+    else:
+        keep = [i for i in range(len(entities)) if any(values and values[i] for _, values in lines)]
+        columns = [entities[i] for i in keep]
+        project = lambda values: [values[i] for i in keep]  # noqa: E731
+
+    out = Statement(f"{names['bs']} {SPLITS[split].lower()}", columns + ["Total"])
+    for row, values in lines:
+        row.values = [None] * (len(columns) + 1) if values is None else [*project(values), sum(values, ZERO)]
+        if row.kind != "account" or _nonzero(row):
+            out.rows.append(row)
+    out.note = ("Each family member's column is their share of every entity, traced through the ownership chain. " if split == "person"
+                else "Each entity's own books, with its investments at estimated current value. ")
+    out.note += "The family's estimated income taxes are spread over the entities with unrealized appreciation. " if tax_total else ""
+    return out
+
+
+def look_through(workspace: Any, as_of: date, ids: dict[str, int]) -> dict[int, dict[str, Decimal]]:
+    """For each Campfire entity, the share of it that traces to each family member through the ownership chain
+    (`{campfire entity id: {person: fraction}}`; what traces to nobody is under NOT_HELD). An app entity is matched to
+    its Campfire entity by the link set on General ledger, or else by having the same name (`ids`: name -> id)."""
+    from entities.models import Entity, Family, Person
+    from entities.services.ownership import OwnershipCycleError, effective_ownership
+
+    out: dict[int, dict[str, Decimal]] = {}
+    by_name = {name.lower(): pk for name, pk in ids.items()}
+    for family in Family.objects.filter(workspace=workspace, is_active=True):
+        try:
+            effective = effective_ownership(family, as_of)
+        except OwnershipCycleError:
+            continue
+        people = {p.pk: p.display_name for p in Person.objects.filter(family=family)}
+        for entity in Entity.objects.filter(family=family):
+            cf = entity.campfire_entity_id or by_name.get(entity.name.lower())
+            if not cf:
+                continue
+            shares: dict[str, Decimal] = {}
+            for person_id, fraction in effective.get(entity.pk, {None: Decimal(1)}).items():
+                name = people.get(person_id, NOT_HELD) if person_id else NOT_HELD
+                shares[name] = shares.get(name, ZERO) + fraction
+            out[cf] = shares
     return out
 
 

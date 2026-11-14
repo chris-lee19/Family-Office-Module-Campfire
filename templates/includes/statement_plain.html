@@ -1,0 +1,11 @@
+{% load money %}<section class="box box-flush">
+  <div class="table-scroll"><table class="statement{% if statement.columns|length > 4 %} wide{% endif %}">
+    <thead><tr><th>{{ statement.title }}</th>{% for c in statement.columns %}<th class="num">{{ c }}</th>{% endfor %}</tr></thead>
+    <tbody>
+    {% for r in statement.rows %}
+      <tr class="st-{{ r.kind }} lvl-{{ r.level }}"><td>{% if r.number %}<span class="acct-no">{{ r.number }}</span>{% endif %}{{ r.label }}</td>{% for v in r.values %}<td class="num">{{ v|acct }}</td>{% endfor %}</tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+</section>
+{% if statement.note %}<p class="muted small">{{ statement.note }}</p>{% endif %}

@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% load money %}
+{% block title %}Investment performance{% endblock %}
+{% block content %}
+{% include "includes/print_head.html" with title="Investment Performance Report" sub=print_sub %}
+<div class="page-head no-print">
+  <div>
+    <h1>Investment performance</h1>
+    <p class="muted">{{ workspace }} · as of {{ as_of|date:"M j, Y" }}</p>
+  </div>
+  <div class="page-actions"><button class="btn secondary" type="button" data-print>Print or save as PDF</button><a class="btn secondary" href="{{ investments_url }}">Investments</a></div>
+</div>
+{% if message %}<div class="notice" data-toast="success">{{ message }}</div>{% endif %}
+
+{% for f in families %}
+{% with r=f.report %}
+  {% if families|length > 1 %}<h2>{{ r.family.name }}</h2>{% endif %}
+  {% if f.thin %}
+  <div class="callout no-print"><strong>The demo family has one price per security,</strong> so every return falls in the latest month.
+    <form method="post" action="{{ action }}" class="actions inline" style="margin-top:8px">{% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
+      <button class="btn small" type="submit" name="action" value="demo_prices">Add month-end demo prices</button></form></div>
+  {% endif %}
+  {% include "investments/_performance.html" with r=r growth=f.growth %}
+{% endwith %}
+{% empty %}
+<section class="box"><div class="empty"><strong>No families yet</strong>Performance appears once a family has holdings.</div></section>
+{% endfor %}
+{% endblock %}

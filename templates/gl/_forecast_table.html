@@ -1,0 +1,18 @@
+{% load money viz %}  <div class="table-scroll">
+  <table class="statement wide forecast">
+    <thead><tr><th></th>{% for m in fc.months %}<th class="num">{{ m.short }}{% if forloop.first or m.start.month == 1 %} {{ m.start|date:"y" }}{% endif %}</th>{% endfor %}<th class="num">Total</th></tr></thead>
+    <tbody>
+      <tr class="st-total"><td>Cash at the start</td>{% for v in fc.starts %}<td class="num">{{ v|acct }}</td>{% endfor %}<td></td></tr>
+      <tr class="st-section"><td colspan="{{ fc.months|length|add:2 }}">Money in</td></tr>
+      {% for ln in fc.inflows %}<tr class="st-account"><td class="indent">{{ ln.label }}</td>{% for v in ln.values %}<td class="num">{{ v|acct }}</td>{% endfor %}<td class="num">{{ ln.total|acct }}</td></tr>
+      {% empty %}<tr class="st-account"><td class="indent muted" colspan="{{ fc.months|length|add:2 }}">Nothing expected yet. Add rent, income or fund distributions you expect, or let the books suggest them.</td></tr>{% endfor %}
+      {% if fc.inflows %}<tr class="st-total"><td>Total money in</td>{% for v in fc.money_in %}<td class="num">{{ v|acct }}</td>{% endfor %}<td class="num">{{ total_in|acct }}</td></tr>{% endif %}
+      <tr class="st-section"><td colspan="{{ fc.months|length|add:2 }}">Money out</td></tr>
+      {% for ln in fc.outflows %}<tr class="st-account"><td class="indent">{{ ln.label }}</td>{% for v in ln.values %}<td class="num">{{ v|acct }}</td>{% endfor %}<td class="num">{{ ln.total|acct }}</td></tr>
+      {% empty %}<tr class="st-account"><td class="indent muted" colspan="{{ fc.months|length|add:2 }}">Nothing to pay in this period.</td></tr>{% endfor %}
+      {% if fc.outflows %}<tr class="st-total"><td>Total money out</td>{% for v in fc.money_out %}<td class="num">{{ v|acct }}</td>{% endfor %}<td class="num">{{ total_out|acct }}</td></tr>{% endif %}
+      <tr class="st-total"><td>Net change in cash</td>{% for v in fc.net %}<td class="num">{{ v|acct }}</td>{% endfor %}<td class="num">{{ total_net|acct }}</td></tr>
+      <tr class="st-grand"><td>Cash at the end</td>{% for v in fc.closing %}<td class="num{% if v < 0 %} err{% endif %}">{{ v|acct }}</td>{% endfor %}<td></td></tr>
+    </tbody>
+  </table>
+  </div>

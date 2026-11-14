@@ -13,7 +13,7 @@ from campfire_integration import pages
 from campfire_integration.models import Workspace
 from entities.demo import seed_alder
 from entities.models import Family
-from investments.demo import seed_alder_investments
+from investments.demo import seed_alder_investments, seed_price_history
 from investments.models import CapitalCall, Valuation
 from investments.services.portfolio import Portfolio, build_portfolio
 from investments.services.privates import CommitmentSummary, irr
@@ -138,7 +138,9 @@ def load_demo_page(request: HttpRequest, workspace: Workspace, framed: bool) -> 
     with transaction.atomic():
         Workspace.objects.select_for_update().get(pk=workspace.pk)  # one load at a time per workspace
         if not Family.objects.filter(workspace=workspace, code="alder").exists():
-            seed_alder_investments(seed_alder(workspace), timezone.localdate())
+            family = seed_alder(workspace)
+            seed_alder_investments(family, timezone.localdate())
+            seed_price_history(family, timezone.localdate())  # so returns spread over the months they were earned in
     return redirect(pages.page_url(request, framed, "investments:investments"))
 
 

@@ -165,7 +165,7 @@ end. Held marks aren't used; non-USD accounts are skipped. Securities without a 
 3. ~~Cash~~ (page done 2026-11-13, see below; bank reconciliation `/coa/api/v2/reconciliation` still to do).
 4. ~~Bills and payments~~ (done). 5. ~~Journal entries~~ (done, see below). Agreed next (user 2026-11-13, in this order):
    ~~partnership accounting and K-1s~~ (done) -> ~~Connectors page~~ (done) -> ~~roles~~ (done; entity-level limits and per-user connections not yet) -> ~~liquidity forecast~~ (done 2026-11-14, user moved it first) -> ~~bank
-   reconciliation~~ (done 2026-11-14) -> family reporting pack.
+   reconciliation~~ (done 2026-11-14) -> ~~family reporting pack~~ (done 2026-11-14, see below).
    Later: budgets, fixed assets (property, art), documents/K-1s, liquidity, reporting pack.
 - Added by the user 2026-11-13 (don't lose): **partnership accounting and K-1s** (capital accounts per partner,
   allocations of income/gain, K-1 tracking and figures by entity and person) and a **Connectors page** to bring in
@@ -301,9 +301,7 @@ end. Held marks aren't used; non-USD accounts are skipped. Securities without a 
 - Supporting report names in use: Schedule of investments, Asset allocation, Private investments: performance
   (Investments page), Capital account statements (Partnerships & K-1s).
 - From the reference, NOT built yet (the Liquidity and Cash Flow Forecast is built, see below): Budget vs. Actual / Lifestyle Expense Report (needs spending tags: family member, property,
-  category); Investment Performance Report (time-weighted returns for liquid holdings; only private IRR / multiples
-  exist); Statement of Cash Receipts and Disbursements; Statement of Net Worth with columns by entity or family member;
-  Entity / Ownership Structure Chart as a drawing (a table today); realized vs unrealized gains as separate lines in
+  category); Statement of Cash Receipts and Disbursements; realized vs unrealized gains as separate lines in
   the changes statement; per-entity accounting basis (cash / tax / accrual). 168 tests.
 
 ## Liquidity and Cash Flow Forecast, and Campfire's mark (2026-11-14)
@@ -422,6 +420,46 @@ end. Held marks aren't used; non-USD accounts are skipped. Securities without a 
      statements, the Liquidity forecast, Capital account statements and a bank reconciliation.
   Still open on UX: charts on the remaining pages only where they answer a question (Review, Imports, General ledger
   have none on purpose); dashboard snapshot not yet invalidated by Campfire events. 186 tests.
+
+## Family reporting pack, in three parts (2026-11-14)
+1. **Statement of Net Worth by entity / by family member** (`statements.net_worth_split`, offered as two more choices
+   in the Columns select, only for the family scope's Statement of Net Worth; `SPLITS`). One balance sheet with
+   `group_by=entity`; each entity's column = its books + its holdings' value above cost (`fairvalue.unrealized_by_entity`,
+   less what the UNREALIZED account already carries); the family's estimated income taxes are spread over the entities
+   with appreciation (`_spread`, remainder to the largest). By family member = every entity's column times the share
+   that traces to each person (`statements.look_through`: `effective_ownership`, an app entity matched to its Campfire
+   entity by the link or else by the same name); what traces to nobody (a foundation, an unmatched entity) is the
+   "Not held by a family member" column. The Total column is the consolidated statement, and rows add up to the cent.
+2. **Investment Performance Report** (`investments/services/performance.py`, `performance_views.py`, sidebar
+   "Performance", `investments:performance`, in NAV_PAGES; `?as_of=`). Priced (unitized) holdings: time-weighted return
+   by Modified Dietz per month, linked (purchases / transfers in = money in; sales, transfers out, dividends, interest =
+   money out, so income counts as return; trading fees included; cash and fees charged to cash are not part of it).
+   Rows: total, by asset class, by account, by holding; periods month / quarter / year to date, 1 year, since inception
+   (a yearly rate once there is more than a year). A period shows a dash unless the holding was there for all of it.
+   Growth of 100 over the last year. Private funds: paid in, distributed, NAV, DPI / RVPI / TVPI, IRR and a pooled IRR.
+   Appraised and direct holdings: value against cost. Checked by hand in a test (+10% then +10% with money added
+   half-way = 21%).
+   - The demo family is seeded with ONE price per security, so every return fell in the latest month.
+     `demo.seed_price_history` adds deterministic month-end prices from each security's first purchase to its latest
+     demo price (no randomness); "Load the demo family" now calls it, and the Performance page offers "Add month-end
+     demo prices" to a demo family that lacks them (`needs_price_history`, needs prepare, audited). `seed_alder_investments`
+     itself is unchanged (many tests pin its figures). The live demo family was loaded before this: click the button.
+3. **The pack** (`gl/services/pack.py`, `gl/pack_views.py`, sidebar "Reporting pack", `gl:pack`, in NAV_PAGES): choose
+   the period and the sections, "Build the pack" (GET `?build=1`; nothing is read from Campfire before that; ~13 s),
+   then "Print or save as PDF". Cover + up to ten sections, each built by its page's own service so figures agree: At
+   a glance (dashboard `net_worth` as of the period end + allocation), Statement of Net Worth, by entity, by family
+   member, Statement of Changes in Net Worth, Schedule of Investments (`pack.schedule`: every holding by asset class
+   with owner, quantity, cost, value, gain, how it was valued), Investment Performance Report, Liquidity and Cash Flow
+   Forecast (always from today, said in the section), Capital Account Statements (each booked partnership), Ownership
+   Structure. A section that can't read the books says so and the rest still builds.
+   - Shared partials pulled out of the pages for this: `includes/nw_hero.html`, `includes/nw_entities.html`,
+     `includes/statement_plain.html`, `gl/_forecast_chart.html`, `gl/_forecast_table.html`, `gl/_capital_table.html`,
+     `entities/_structure.html`, `investments/_performance.html`. Check tag balance after cutting a template apart.
+   - Print: each `.pack-section` starts a page; `.pack-section.wide` uses the landscape named page; statement rows are
+     tightened so a statement fits a sheet (14 pages for the demo). Chromium shrinks the whole document when anything
+     overflows sideways, which hid a too-wide table once: check page count and widths after print changes.
+- Not done: saving a built pack (it is rebuilt each time), a PDF made on the server (the browser's print is used),
+  commentary / notes pages, comparative columns (prior period), per-branch packs. 193 tests.
 
 ## Sign-in and new permissions (lesson, 2026-11-13)
 - Adding `transactions:write` to the defaults broke sign-in for everyone: Campfire answers `invalid_scope` ("This app may

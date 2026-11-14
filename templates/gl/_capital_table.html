@@ -1,0 +1,13 @@
+{% load money gl_extras %}<section class="box box-flush">
+  <table class="statement wide" data-sort>
+    <thead><tr><th>Statement of changes in partners' capital</th><th class="num">Share</th><th class="num">Opening capital</th><th class="num">Contributions</th><th class="num">Income (loss)</th><th class="num">Distributions</th><th class="num">Closing capital</th></tr></thead>
+    <tbody>
+    {% for p in statement.partners %}
+      <tr class="st-account lvl-0"><td>{{ p.name }}</td><td class="num">{{ p.percentage|floatformat:"-2" }}%</td><td class="num">{{ p.opening|acct }}</td><td class="num">{{ p.contributions|acct }}</td>
+        <td class="num">{{ p.income|acct }}</td><td class="num">{{ p.distributions|acct }}</td><td class="num"><strong>{{ p.closing|acct }}</strong></td></tr>
+    {% endfor %}
+    </tbody>
+    <tfoot><tr class="st-grand"><td>Total</td><td class="num">100%</td><td class="num">{{ statement|stmt_total:"opening"|acct }}</td><td class="num">{{ statement|stmt_total:"contributions"|acct }}</td>
+      <td class="num">{{ statement|stmt_total:"income"|acct }}</td><td class="num">{{ statement|stmt_total:"distributions"|acct }}</td><td class="num">{{ statement|stmt_total:"closing"|acct }}</td></tr></tfoot>
+  </table>
+</section>

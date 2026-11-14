@@ -32,7 +32,8 @@ def pairs(rows: list[tuple[date, Decimal, Decimal]], names: tuple[str, str]) -> 
     return {"cols": cols, "names": names, "total_a": sum((a for _, a, _ in rows), ZERO), "total_b": sum((b for _, _, b in rows), ZERO)} if most else {}
 
 
-def trend(points: list[tuple[dict[str, str], list[Decimal]]], names: list[str], *, from_zero: bool = False, reference: tuple[str, Decimal] | None = None) -> dict[str, Any]:
+def trend(points: list[tuple[dict[str, str], list[Decimal]]], names: list[str], *, from_zero: bool = False, reference: tuple[str, Decimal] | None = None,
+          plain: bool = False) -> dict[str, Any]:
     """One or more series over time as lines. Each point sits in the middle of its period's column, so the labels
     under the chart and the hover areas line up with it. `reference`: a level to mark (a commitment, a target)."""
     values = [v for _, vs in points for v in vs] + ([reference[1]] if reference else [])
@@ -49,7 +50,7 @@ def trend(points: list[tuple[dict[str, str], list[Decimal]]], names: list[str], 
     lines = [{"name": name, "k": k + 1, "points": " ".join(f"{xs[i]},{y(vs[k])}" for i, (_, vs) in enumerate(points)),
               "last": points[-1][1][k], "last_y": y(points[-1][1][k])} for k, name in enumerate(names)]
     first = points[0][1][0]
-    return {"n": n, "cols": cols, "lines": lines, "single": len(names) == 1,
+    return {"n": n, "cols": cols, "lines": lines, "single": len(names) == 1, "plain": plain,  # plain: an index, not money
             "area": f"{xs[0]},100 {lines[0]['points']} {xs[-1]},100" if len(names) == 1 else "",
             "first": first, "first_y": y(first), "first_below": n > 1 and points[1][1][0] > first,
             "reference": {"name": reference[0], "value": reference[1], "y": y(reference[1])} if reference else None}

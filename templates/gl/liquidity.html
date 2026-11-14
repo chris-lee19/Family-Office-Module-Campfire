@@ -52,22 +52,7 @@
   <div class="box-head"><h2>Projected cash at month end</h2><div class="aside"><span>Cash today {{ fc.opening|money }} · end of {{ last_month }} {{ fc.end|money }}</span></div></div>
   <div class="box-body">
   {% if chart %}
-    <div class="fc-chart" role="img" aria-label="Projected cash at the end of each month, from {{ fc.months.0.label }} to {{ last_month }}. Lowest {{ fc.low|money }} in {{ fc.low_month.label }}. The table below has every figure.">
-      <div class="fc-plot" style="--up: {{ chart.up }}; --down: {{ chart.down }}">
-        {% for c in chart.cols %}
-        <div class="fc-col{% if c.negative %} neg{% endif %}{% if c.edge %} {{ c.edge }}{% endif %}" tabindex="0">
-          <div class="fc-up">{% if not c.negative %}{% if c.label %}<span class="fc-val">{{ c.value|compact }}</span>{% endif %}<i style="height: {{ c.height }}%"></i>{% endif %}</div>
-          <div class="fc-down">{% if c.negative %}<i style="height: {{ c.height }}%"></i>{% if c.label %}<span class="fc-val">{{ c.value|compact }}</span>{% endif %}{% endif %}</div>
-          <div class="fc-x">{{ c.month.short }}{% if forloop.first or c.month.start.month == 1 %}<small>{{ c.month.start|date:"Y" }}</small>{% endif %}</div>
-          <div class="fc-tip" role="tooltip"><strong>{{ c.month.label }}</strong>
-            <span>Cash at the start</span><b>{{ c.opening|acct }}</b>
-            <span>Money in</span><b>{{ c.money_in|acct }}</b>
-            <span>Money out</span><b>{% if c.money_out %}({{ c.money_out|acct }}){% else %}–{% endif %}</b>
-            <span>Cash at the end</span><b>{{ c.value|acct }}</b></div>
-        </div>
-        {% endfor %}
-      </div>
-    </div>
+{% include "gl/_forecast_chart.html" %}
     {% if fc.low < 0 %}<p class="small"><span class="pill sev-error">Shortfall</span> Months drawn below the line end with less than no cash: the forecast needs a transfer, a sale or a later payment.</p>{% endif %}
   {% else %}<div class="empty"><strong>No cash on the books yet</strong>Balances come from Campfire's books; link the entities on General ledger → Setup.</div>{% endif %}
   </div>
@@ -75,24 +60,7 @@
 
 <section class="box box-flush">
   <div class="box-head"><h2>Forecast by month</h2><div class="aside"><span>Bills and capital calls on their due dates, plus what you expect</span></div></div>
-  <div class="table-scroll">
-  <table class="statement wide forecast">
-    <thead><tr><th></th>{% for m in fc.months %}<th class="num">{{ m.short }}{% if forloop.first or m.start.month == 1 %} {{ m.start|date:"y" }}{% endif %}</th>{% endfor %}<th class="num">Total</th></tr></thead>
-    <tbody>
-      <tr class="total"><td>Cash at the start</td>{% for v in fc.starts %}<td class="num">{{ v|acct }}</td>{% endfor %}<td></td></tr>
-      <tr class="section"><td colspan="{{ fc.months|length|add:2 }}">Money in</td></tr>
-      {% for ln in fc.inflows %}<tr class="account"><td class="indent">{{ ln.label }}</td>{% for v in ln.values %}<td class="num">{{ v|acct }}</td>{% endfor %}<td class="num">{{ ln.total|acct }}</td></tr>
-      {% empty %}<tr class="account"><td class="indent muted" colspan="{{ fc.months|length|add:2 }}">Nothing expected yet. Add rent, income or fund distributions you expect, or let the books suggest them.</td></tr>{% endfor %}
-      {% if fc.inflows %}<tr class="total"><td>Total money in</td>{% for v in fc.money_in %}<td class="num">{{ v|acct }}</td>{% endfor %}<td class="num">{{ total_in|acct }}</td></tr>{% endif %}
-      <tr class="section"><td colspan="{{ fc.months|length|add:2 }}">Money out</td></tr>
-      {% for ln in fc.outflows %}<tr class="account"><td class="indent">{{ ln.label }}</td>{% for v in ln.values %}<td class="num">{{ v|acct }}</td>{% endfor %}<td class="num">{{ ln.total|acct }}</td></tr>
-      {% empty %}<tr class="account"><td class="indent muted" colspan="{{ fc.months|length|add:2 }}">Nothing to pay in this period.</td></tr>{% endfor %}
-      {% if fc.outflows %}<tr class="total"><td>Total money out</td>{% for v in fc.money_out %}<td class="num">{{ v|acct }}</td>{% endfor %}<td class="num">{{ total_out|acct }}</td></tr>{% endif %}
-      <tr class="total"><td>Net change in cash</td>{% for v in fc.net %}<td class="num">{{ v|acct }}</td>{% endfor %}<td class="num">{{ total_net|acct }}</td></tr>
-      <tr class="grand"><td>Cash at the end</td>{% for v in fc.closing %}<td class="num{% if v < 0 %} err{% endif %}">{{ v|acct }}</td>{% endfor %}<td></td></tr>
-    </tbody>
-  </table>
-  </div>
+{% include "gl/_forecast_table.html" %}
 </section>
 {% if fc.notes %}<p class="muted small">{{ fc.notes|join:" " }}</p>{% endif %}
 

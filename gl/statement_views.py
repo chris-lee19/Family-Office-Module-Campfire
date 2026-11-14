@@ -31,7 +31,7 @@ def _choices(request: HttpRequest) -> dict[str, str]:
     g = request.GET
     return {
         "view": g.get("view") if g.get("view") in svc.VIEWS else "bs",
-        "cols": g.get("cols") if g.get("cols") in svc.COLUMNS else "total",
+        "cols": g.get("cols") if g.get("cols") in svc.COLUMNS or g.get("cols") in svc.SPLITS else "total",
         "period": g.get("period") if g.get("period") in svc.PERIODS else "ytd",
         "entity": g.get("entity", ""), "start": g.get("start", ""), "end": g.get("end", ""),
     }
@@ -97,8 +97,17 @@ def statements_page(request: HttpRequest, workspace: Workspace, framed: bool) ->
         client = _client(workspace)
         options = svc.classify(workspace, svc.scopes(client))
         scope = _scope(options, c["entity"])
+        # A split across entities or family members is the family's Statement of Net Worth; anywhere else it is one column.
+        split = c["cols"] if c["cols"] in svc.SPLITS and scope is not None and scope.kind == svc.FAMILY and c["view"] == "bs" else ""
+        if c["cols"] in svc.SPLITS and not split:
+            c["cols"] = "total"
         if scope is None:
             error = "No entities in Campfire yet."
+        elif split:
+            ids = {s.label: s.entity_id for s in options if not s.rollup}
+            booked = frozenset(AccountMapping.objects.filter(workspace=workspace, role=Role.UNREALIZED).values_list("campfire_account_id", flat=True))
+            statement = svc.net_worth_split(client, scope, end, split, fairvalue.unrealized_by_entity(workspace, end), booked, settings.estimated_tax_rate,
+                                            svc.look_through(workspace, end, ids) if split == "person" else None)
         elif c["view"] == "tx":
             statement = svc.tax_basis_report(scope, fairvalue.holdings_for(workspace, scope.members, end), settings.estimated_tax_rate)
         else:
@@ -126,7 +135,7 @@ def statements_page(request: HttpRequest, workspace: Workspace, framed: bool) ->
         "statement": statement, "rows": rows, "error": error, "options": options, "scope": scope, "choices": current,
         "start": start, "end": end, "message": message, "tax_rate": settings.estimated_tax_rate, "post_action": base,
         "views": [(k, (scope.names if scope else svc.NAMES[svc.ENTITY])[k], _with(base, {**current, "view": k}), k == c["view"]) for k in svc.VIEWS],
-        "columns": svc.COLUMNS, "periods": svc.PERIODS, "headline": _headline(statement) if statement else [],
+        "columns": {**svc.COLUMNS, **(svc.SPLITS if scope is not None and scope.kind == svc.FAMILY and c["view"] == "bs" else {})}, "periods": svc.PERIODS, "headline": _headline(statement) if statement else [],
         "csv_url": _with(base, {**current, "format": "csv"}), "cents": c["view"] == "tb",
         "print_sub": " · ".join(x for x in (scope.label if scope else "", scope.names["basis"] if scope else "",
                                             f"As of {end:%B %-d, %Y}" if c["view"] in ("bs", "tx") else f"{start:%B %-d, %Y} to {end:%B %-d, %Y}") if x),

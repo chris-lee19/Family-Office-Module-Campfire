@@ -193,6 +193,12 @@ def test_statements_pages(client, workspace: Workspace) -> None:  # type: ignore
         head = page.split('class="print-only print-head"')[1].split("</header>")[0]
         assert "<h1>Statement of Net Worth</h1>" in head and "Estimated current value (ASC 274) · As of " in head and "Unaudited" in head and "data-print" in page
         token = unquote(page.split('name="fo_t" value="')[1].split('"')[0])
+        # The family's Statement of Net Worth can be split by entity or by family member; other statements can't.
+        assert '<option value="entity"' in page and '<option value="person"' in page
+        split = client.get("/fo/frame/statements", {"fo_t": token, "cols": "person"}).content.decode()
+        assert "Statement of Net Worth by family member" in split and '<option value="person" selected' in split
+        other = client.get("/fo/frame/statements", {"fo_t": token, "view": "is", "cols": "entity"}).content.decode()
+        assert "by entity" not in other and '<option value="entity"' not in other and '<option value="total" selected' in other
         income = client.get("/fo/frame/statements", {"fo_t": token, "view": "is", "entity": "2", "cols": "monthly"}).content.decode()
         assert "Excess of income over expenses" in income and "Change in equity" in income and "Oct 2026" in income and "Alder Real Estate Holdings LLC" in income
         assert "Statement of Income and Expenses" in income and "Entity Balance Sheet" in income  # a single entity gets the entity names

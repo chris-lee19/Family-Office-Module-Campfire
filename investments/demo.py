@@ -185,3 +185,41 @@ def alder_price_file(today: date) -> str:
         ["", "ZQXV", as_of, "18.20"],  # a security no Alder account holds: skipped
     ]
     return _csv(["CUSIP", "Symbol", "Price Date", "Price"], rows)
+
+
+def needs_price_history(family: Family) -> bool:
+    """The demo family as first loaded: each security has one price, so every return would land in the latest month."""
+    priced = Instrument.objects.filter(workspace=family.workspace, is_unitized=True, prices__source="demo").distinct()
+    return family.code == "alder" and any(inst.prices.count() < 3 for inst in priced)
+
+
+def seed_price_history(family: Family, today: date) -> int:
+    """Month-end prices for the demo securities, from each one's first purchase to its latest demo price, along a
+    steady path with a small, fixed wobble. Fictional like the rest of the demo; nothing is drawn at random, so the
+    same family always gets the same history. Returns how many prices were added."""
+    import math
+
+    added = 0
+    for inst in Instrument.objects.filter(workspace=family.workspace, is_unitized=True, prices__source="demo").distinct():
+        last = inst.prices.filter(source="demo").order_by("-as_of").first()
+        first = (Transaction.objects.filter(account__family=family, instrument=inst, txn_type=Transaction.Type.BUY, quantity__gt=0)
+                 .order_by("trade_date", "id").first())
+        if last is None or first is None or first.trade_date >= last.as_of:
+            continue
+        start_price = first.amount / first.quantity
+        span = (last.as_of - first.trade_date).days
+        wobble = Decimal("0") if last.price == start_price else Decimal("0.03") if inst.kind != Instrument.Kind.FIXED_INCOME else Decimal("0.006")
+        when, k = first.trade_date.replace(day=1), 0
+        while True:
+            when = (when.replace(day=28) + timedelta(days=4)).replace(day=1)  # the first of the next month
+            end = when - timedelta(days=1)  # the month end before it
+            if end >= last.as_of:
+                break
+            if end > first.trade_date:
+                k += 1
+                elapsed = Decimal((end - first.trade_date).days) / Decimal(span)
+                level = start_price * Decimal(str(math.pow(float(last.price / start_price), float(elapsed))))
+                price = (level * (1 + wobble * Decimal(str(round(math.sin(2.3 * k + inst.pk), 4))))).quantize(Decimal("0.01"))
+                _, made = Price.objects.get_or_create(instrument=inst, as_of=end, defaults={"price": price, "source": "demo"})
+                added += made
+    return added

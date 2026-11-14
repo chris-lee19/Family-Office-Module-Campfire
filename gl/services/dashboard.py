@@ -18,7 +18,6 @@ from gl.services import bills as bill_svc
 from gl.services import fairvalue, liquidity, reconcile
 from gl.services import statements as st
 from gl.services.liquidity import add_months, month_end
-from investments.services.ledger import LedgerError
 
 ZERO = Decimal(0)
 TREND_MONTHS = 12
@@ -40,20 +39,6 @@ def compact(value: Decimal) -> str:
         if v >= size:
             return f"{sign}${(v / size).quantize(Decimal(step), rounding=ROUND_HALF_UP).normalize():f}{unit}"
     return f"{sign}${v.quantize(Decimal('1'), rounding=ROUND_HALF_UP)}"
-
-
-def _unrealized_by_entity(workspace: Workspace, as_of: date) -> dict[int, Decimal]:
-    """Market value less cost of the investment holdings booked in each Campfire entity."""
-    out: dict[int, Decimal] = {}
-    for cf_entity, accounts in fairvalue.booked_accounts(workspace).items():
-        total = ZERO
-        for account in accounts:
-            try:
-                total += sum((value - cost for _, cost, value in fairvalue.unrealized_at(account, as_of).values()), ZERO)
-            except LedgerError:
-                continue
-        out[cf_entity] = total
-    return out
 
 
 def _row(statement: st.Statement, label: str) -> list[Decimal]:
@@ -82,12 +67,12 @@ def net_worth(workspace: Workspace, client: CampfireClient, today: date) -> dict
     for n, when in enumerate(ends):
         if not assets[n] and not liabilities[n]:
             continue  # before the books start
-        unrealized = sum(_unrealized_by_entity(workspace, when).values(), ZERO)
+        unrealized = sum(fairvalue.unrealized_by_entity(workspace, when).values(), ZERO)
         points.append((when, assets[n] + unrealized - in_books[n], liabilities[n] + tax(unrealized)))
     if not points:
         return None
     when, total_assets, total_liabilities = points[-1]
-    unrealized_now = _unrealized_by_entity(workspace, today)
+    unrealized_now = fairvalue.unrealized_by_entity(workspace, today)
     estimated_tax = tax(sum(unrealized_now.values(), ZERO))
     value = total_assets - total_liabilities
     series = [(d, a - b) for d, a, b in points]

@@ -8,9 +8,9 @@
   {% if chart.reference %}<span class="trend-ref-label" style="top: {{ chart.reference.y }}%">{{ chart.reference.name }} {{ chart.reference.value|compact }}</span>{% endif %}
   <div class="trend-hit" style="--n: {{ chart.n }}">
     {% for c in chart.cols %}<div class="trend-col{% if c.edge %} {{ c.edge }}{% endif %}{% if c.last %} now{% endif %}" tabindex="0">
-      {% for v in c.values %}<i class="l{{ v.k }}" style="top: {{ v.y }}%"></i>{% if c.last %}<span class="trend-val" style="--y: {{ v.y }}%">{{ v.value|compact }}</span>{% endif %}{% endfor %}
-      {% if forloop.first and chart.single %}<span class="trend-val{% if chart.first_below %} under{% endif %}" style="--y: {{ chart.first_y }}%">{{ chart.first|compact }}</span>{% endif %}
-      <div class="fc-tip" role="tooltip"><strong>{{ c.label }}</strong>{% for v in c.values %}<span>{{ v.name }}</span><b>{{ v.value|acct }}</b>{% endfor %}</div>
+      {% for v in c.values %}<i class="l{{ v.k }}" style="top: {{ v.y }}%"></i>{% if c.last %}<span class="trend-val" style="--y: {{ v.y }}%">{% if chart.plain %}{{ v.value|floatformat:1 }}{% else %}{{ v.value|compact }}{% endif %}</span>{% endif %}{% endfor %}
+      {% if forloop.first and chart.single %}<span class="trend-val{% if chart.first_below %} under{% endif %}" style="--y: {{ chart.first_y }}%">{% if chart.plain %}{{ chart.first|floatformat:0 }}{% else %}{{ chart.first|compact }}{% endif %}</span>{% endif %}
+      <div class="fc-tip" role="tooltip"><strong>{{ c.label }}</strong>{% for v in c.values %}<span>{{ v.name }}</span><b>{% if chart.plain %}{{ v.value|floatformat:1 }}{% else %}{{ v.value|acct }}{% endif %}</b>{% endfor %}</div>
     </div>{% endfor %}
   </div>
 </div>
