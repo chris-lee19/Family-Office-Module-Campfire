@@ -1,221 +1,49 @@
 {% extends "base.html" %}
-{% load money viz nav %}
-{% block title %}Home{% endblock %}
+{% block title %}Records{% endblock %}
 {% block content %}
 <div class="page-head">
   <div>
-    <div class="eyebrow">{{ today|date:"l, F j, Y" }} · {{ workspace }}</div>
-    <h1>{% if nw %}Where the family stands{% else %}Home{% endif %}</h1>
+    <h1>Records</h1>
+    <p class="muted">{{ workspace }} · set up and maintain the family's structure, accounts and holdings. Every change is audited.</p>
   </div>
   <div class="page-actions">
-    {% if snap %}<span class="muted small updated" data-updated>From the books at {{ snap.built_at|date:"M j, H:i" }}</span>{% endif %}
-    <form method="post" action="{{ action }}"{% if snap and not fresh %} data-auto-refresh="{{ action }}"{% endif %}>
-      {% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
-      <button class="btn secondary" type="submit" name="action" value="refresh">Refresh</button>
-    </form>
+    <input type="search" placeholder="Find a record type" aria-label="Find a record type" data-filter-cards=".tile">
+    <a class="btn" href="{{ onboarding_url }}">Onboard a family from a spreadsheet</a>
   </div>
 </div>
-{% if error %}<div class="issues">{{ error }}</div>{% endif %}
-{% if demo_url %}
-<div class="callout"><strong>No family yet.</strong> Load the fictional Alder family to see the app with data, or onboard your own from Records.
-  <form method="post" action="{{ demo_url }}" class="actions inline" style="margin-top:8px">{% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}<button class="btn small" type="submit">Load the demo family</button></form></div>
-{% endif %}
 
-{% if nw %}
-<section class="box hero">
-  <div class="hero-figure">
-    <div class="label">Net worth <span class="muted">· {{ nw.basis }}</span></div>
-    <div class="hero-value"><a href="{{ links.statements }}">{{ nw.value|money }}</a></div>
-    <div class="hero-deltas">
-      {% if nw.month_change %}<div><span class="delta {% if nw.month_up %}up{% else %}down{% endif %}">{% if nw.month_up %}▲{% else %}▼{% endif %} {{ nw.month_change|money }} ({{ nw.month_pct }}%)</span> <span class="muted">since {{ nw.month_label }}</span></div>{% endif %}
-      {% if nw.year_change %}<div><span class="delta {% if nw.year_up %}up{% else %}down{% endif %}">{% if nw.year_up %}▲{% else %}▼{% endif %} {{ nw.year_change|money }} ({{ nw.year_pct }}%)</span> <span class="muted">this year</span></div>{% endif %}
+<details class="settings guide">
+  <summary>Setting up a family? The order to work in</summary>
+  <ol class="howto inline">
+    <li><strong>Family</strong><span>then branches and people</span></li>
+    <li><strong>Entities</strong><span>then ownership and roles</span></li>
+    <li><strong>Securities and funds</strong><span>what the family holds</span></li>
+    <li><strong>Accounts</strong><span>with the custodian account number</span></li>
+    <li><strong>Opening positions</strong><span>transactions: transfers in with cost basis</span></li>
+    <li><strong>Commitments and NAV statements</strong><span>for private funds</span></li>
+  </ol>
+  <p class="muted small">Custodian files and the onboarding spreadsheet (structure, accounts and opening positions in one Excel workbook) can fill much of this for you.</p>
+</details>
+
+{% for group, kinds in groups %}
+  <h2>{{ group }}</h2>
+  <div class="tiles">
+  {% for k, count, list_url, new_url in kinds %}
+    <div class="tile">
+      <a class="tile-main" href="{{ list_url }}"><strong>{{ k.plural }}</strong><span class="tile-count">{{ count }}</span>
+        {% if k.help %}<span class="muted small">{{ k.help }}</span>{% endif %}</a>
+      <a class="btn secondary small" href="{{ new_url }}">Add</a>
     </div>
-    <dl class="equation">
-      <div><dt>Total assets</dt><dd>{{ nw.assets|money }}</dd></div>
-      <div class="op">−</div>
-      <div><dt>Liabilities</dt><dd>{{ nw.liabilities|money }}</dd></div>
-      {% if nw.has_tax %}<div class="op">−</div><div><dt>Estimated income taxes</dt><dd>{{ nw.estimated_tax|money }}</dd></div>{% endif %}
-    </dl>
+  {% endfor %}
   </div>
-  <div class="hero-chart">
-    <div class="chart-title">Net worth at each month end</div>
-    <div class="trend" role="img" aria-label="Net worth at each month end, {{ nw.trend.0.label }} to {{ nw.trend|last|get:'label' }}: from {{ nw.trend.0.compact }} to {{ nw.trend|last|get:'compact' }}. The Statement of Net Worth has the figures.">
-      <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><polygon class="trend-area" points="{{ nw.area }}"/><polyline class="trend-line" points="{{ nw.line }}" vector-effect="non-scaling-stroke"/></svg>
-      <div class="trend-hit" style="--n: {{ nw.trend|length }}">
-        {% for p in nw.trend %}<div class="trend-col{% if p.edge %} {{ p.edge }}{% endif %}{% if forloop.last %} now{% endif %}{% if p.below %} below{% endif %}" tabindex="0" style="--y: {{ p.y }}%">
-          <i></i>{% if p.show %}<span class="trend-val">{{ p.compact }}</span>{% endif %}
-          <div class="fc-tip" role="tooltip"><strong>{{ p.label }}</strong><span>Net worth</span><b>{{ p.value|acct }}</b>{% if p.change %}<span>Change in the month</span><b>{{ p.change|acct }}</b>{% endif %}</div>
-        </div>{% endfor %}
-      </div>
-    </div>
-    <div class="trend-x" style="--n: {{ nw.trend|length }}">{% for p in nw.trend %}<span>{{ p.short }}{% if p.year %}<small>{{ p.year }}</small>{% endif %}</span>{% endfor %}</div>
-  </div>
+{% endfor %}
+
+<section class="box recent">
+  <div class="box-head"><h2>Recent changes</h2></div>
+  {% if recent %}
+  <table data-sort><thead><tr><th>When</th><th>Who</th><th>What</th><th>Record</th></tr></thead><tbody>
+  {% for a in recent %}<tr><td class="nowrap">{{ a.at|date:"Y-m-d H:i" }}</td><td>{{ a.actor }}</td><td>{{ a.get_action_display }}</td><td>{{ a.object_repr }}<br><span class="muted small">{{ a.kind }}</span></td></tr>{% endfor %}
+  </tbody></table>
+  {% else %}<div class="empty">No changes yet.</div>{% endif %}
 </section>
-{% elif head.families %}
-<div class="kpis">
-  <div class="kpi"><div class="label">Investments ({{ head.families }} famil{{ head.families|pluralize:"y,ies" }})</div><div class="value"><a href="{{ links.investments }}">{{ head.total|money }}</a></div><div class="sub">At market value, from the investment records</div></div>
-  <div class="kpi"><div class="label">Unfunded commitments</div><div class="value">{{ head.unfunded|money }}</div><div class="sub">Still callable by fund managers</div></div>
-  <div class="kpi"><div class="label">Capital calls due in 30 days</div><div class="value">{{ head.calls_due_30|money }}</div><div class="sub">Notices received</div></div>
-</div>
-<div class="callout">Net worth, cash and the forecast appear here once the workspace is connected to Campfire and the entities are linked on General ledger → Setup.</div>
-{% endif %}
-
-<div class="dash">
-  <section class="box">
-    <div class="box-head"><h2>Needs a decision</h2>
-      <div class="aside">{% if counts.urgent %}<span class="pill att-urgent">{{ counts.urgent }} urgent</span>{% endif %}{% if counts.todo %}<span class="pill att-todo">{{ counts.todo }} to do</span>{% endif %}{% if counts.info %}<span class="pill att-info">{{ counts.info }} FYI</span>{% endif %}</div></div>
-    {% if rows %}
-    <ul class="tasks compact">
-    {% for i, url in rows %}
-      <li class="task {{ i.severity }}">
-        <div>
-          <div class="task-title">{{ i.title }}</div>
-          <div class="task-detail">{{ i.area }} · {{ i.detail|truncatechars:110 }}</div>
-        </div>
-        <a class="btn {% if i.severity != 'urgent' %}secondary {% endif %}small" href="{{ url }}">{{ i.action }}</a>
-      </li>
-    {% endfor %}
-    </ul>
-    <p class="box-body small"><a href="{{ links.work }}">{% if more %}See all {{ rows|length|add:more }} in To do{% else %}Open To do{% endif %} {% icon "arrow" 14 %}</a></p>
-    {% else %}<div class="empty"><strong>Nothing needs you</strong>Held marks, late calls, entries to send and months to close appear here.</div>{% endif %}
-  </section>
-  <div>
-    <section class="box">
-      <div class="box-head"><h2>Waiting for approval</h2><div class="aside"><span>{% if approvals_total %}{{ approvals_total }} in all{% else %}Nothing waiting{% endif %}</span></div></div>
-      <div class="approvals">
-        {% for a in approvals %}<a class="approval{% if a.count %} has{% endif %}" href="{{ a.url }}"><span class="n">{{ a.count }}</span><span>{{ a.label }}</span></a>{% endfor %}
-      </div>
-    </section>
-    {% if lq and lq.coming %}
-    <section class="box">
-      <div class="box-head"><h2>Coming due</h2><div class="aside"><a href="{{ links.bills }}">Bills</a> · <a href="{{ links.calls }}">Capital calls</a></div></div>
-      <ul class="rows dated">
-        {% for c in lq.coming|slice:":4" %}<li><span class="date">{{ c.mon }}<b{% if c.late %} class="err"{% endif %}>{{ c.day }}</b></span>
-          <div><strong>{{ c.label }}</strong><span class="muted small">{{ c.entity }} · {{ c.kind }}{% if c.late %} · <span class="err">past due</span>{% endif %}</span></div>
-          <span class="amount">{{ c.amount|money }}</span></li>{% endfor %}
-      </ul>
-    </section>
-    {% endif %}
-  </div>
-</div>
-
-{% if lq %}
-<section class="box">
-  <div class="box-head"><h2>Liquidity</h2><div class="aside"><a href="{{ links.liquidity }}">Liquidity and Cash Flow Forecast {% icon "arrow" 14 %}</a></div></div>
-  <div class="liq">
-    <div class="liq-tiles">
-      <div><div class="label">Cash today</div><div class="value">{{ lq.cash|money }}</div><div class="sub">Operating {{ lq.operating|money }} · custodians {{ lq.custody|money }}</div></div>
-      <div><div class="label">Lowest point, next 12 months</div><div class="value{% if lq.low_negative %} err{% endif %}">{{ lq.low|money }}</div><div class="sub">{% if lq.low_negative %}Short of cash in {{ lq.low_month }}{% else %}At the end of {{ lq.low_month }}{% endif %}</div></div>
-      <div><div class="label">Due in 30 days</div><div class="value">{{ lq.due_soon|money }}</div><div class="sub">{{ lq.due_count }} bill{{ lq.due_count|pluralize }} and call{{ lq.due_count|pluralize }}{% if lq.late %} · <span class="err">{{ lq.late }} past due</span>{% endif %}</div></div>
-      <div><div class="label">Unfunded commitments</div><div class="value">{{ lq.unfunded|money }}</div><div class="sub">{% if lq.coverage %}Covered {{ lq.coverage }}x by cash and liquid investments{% else %}None open{% endif %}</div></div>
-    </div>
-    <div class="liq-chart">
-      <div class="chart-title">Projected cash at month end</div>
-      {% if lq.chart %}
-      <div class="fc-chart" role="img" aria-label="Projected cash at the end of each of the next 12 months. Lowest {{ lq.low|money }} in {{ lq.low_month }}. The forecast page has every figure.">
-        <div class="fc-plot short" style="--up: {{ lq.chart.up }}; --down: {{ lq.chart.down }}">
-          {% for c in lq.chart.cols %}
-          <div class="fc-col{% if c.negative %} neg{% endif %}{% if c.edge %} {{ c.edge }}{% endif %}" tabindex="0">
-            <div class="fc-up">{% if not c.negative %}{% if c.show %}<span class="fc-val">{{ c.compact }}</span>{% endif %}<i style="height: {{ c.height }}%"></i>{% endif %}</div>
-            <div class="fc-down">{% if c.negative %}<i style="height: {{ c.height }}%"></i>{% if c.show %}<span class="fc-val">{{ c.compact }}</span>{% endif %}{% endif %}</div>
-            <div class="fc-x">{{ c.short }}{% if c.year %}<small>{{ c.year }}</small>{% endif %}</div>
-            <div class="fc-tip" role="tooltip"><strong>{{ c.label }}</strong><span>Cash at the start</span><b>{{ c.opening|acct }}</b><span>Money in</span><b>{{ c.money_in|acct }}</b>
-              <span>Money out</span><b>{{ c.money_out|acct }}</b><span>Cash at the end</span><b>{{ c.value|acct }}</b></div>
-          </div>
-          {% endfor %}
-        </div>
-      </div>
-      {% endif %}
-      {% if not lq.expected_items %}<p class="muted small">Only open bills and capital calls so far. <a href="{{ links.liquidity }}">Add what you expect</a> (distributions, taxes, rent) for a full forecast.</p>{% endif %}
-    </div>
-  </div>
-  {% if lq.short %}<div class="box-body short-list">{% for s in lq.short %}<span class="pill {% if s.covered %}sev-warning{% else %}sev-error{% endif %}">{{ s.entity }}: short by {{ s.low|acct }} in {{ s.month }}</span>{% endfor %}</div>{% endif %}
-</section>
-{% endif %}
-
-<div class="grid2 even">
-  {% if nw and nw.entities %}
-  <section class="box">
-    <div class="box-head"><h2>Net worth by entity</h2><div class="aside"><a href="{{ links.entities }}">Entities</a></div></div>
-    <div class="box-body">
-      <div class="hbars" role="table" aria-label="Net worth by entity">
-        {% for e in nw.entities %}<div class="hbar" role="row"><span class="name" role="cell">{{ e.name }}</span><span class="track" role="presentation"><i style="width: {{ e.width }}%"></i></span>
-          <span class="num" role="cell">{{ e.value|money }}</span><span class="num muted" role="cell">{{ e.share }}%</span></div>{% endfor %}
-      </div>
-      <p class="muted small">Each entity's assets less its liabilities, with its investments at current value{% if nw.has_tax %}, before the family's estimated income taxes of {{ nw.estimated_tax|money }}{% endif %}.</p>
-    </div>
-  </section>
-  {% endif %}
-  {% if allocation %}
-  <section class="box">
-    <div class="box-head"><h2>Investments by asset class</h2><div class="aside"><a href="{{ links.investments }}">{{ head.total|money }} {% icon "arrow" 14 %}</a></div></div>
-    <div class="box-body">{% alloc allocation "Investments by asset class" %}</div>
-  </section>
-  {% endif %}
-</div>
-
-<div class="grid2 even">
-  {% if lq and lq.entities %}
-  <section class="box">
-    <div class="box-head"><h2>Cash by entity</h2><div class="aside"><span class="key"><i class="c1"></i>Operating</span><span class="key"><i class="c2"></i>At custodians</span></div></div>
-    <div class="box-body">
-      <div class="hbars" role="table" aria-label="Cash by entity">
-        {% for e in lq.entities %}<div class="hbar" role="row"><span class="name" role="cell">{{ e.name }}{% if e.short %} <span class="pill sev-warning">Runs short</span>{% endif %}</span>
-          <span class="track split" role="presentation">{% if e.operating %}<i class="c1" style="width: {{ e.operating }}%"></i>{% endif %}{% if e.custody %}<i class="c2" style="width: {{ e.custody }}%"></i>{% endif %}</span>
-          <span class="num" role="cell">{{ e.cash|money }}</span></div>{% endfor %}
-      </div>
-    </div>
-  </section>
-  {% endif %}
-  {% if commitments %}
-  <section class="box">
-    <div class="box-head"><h2>Private fund commitments</h2><div class="aside"><a href="{{ links.calls }}">Capital calls</a></div></div>
-    <div class="box-body meters">
-      {% for c in commitments %}
-      <div class="meter-row">
-        <div class="meter-head"><strong>{{ c.fund }}</strong><span class="muted small">{{ c.commitment|money }} committed</span></div>
-        <div class="meter" role="img" aria-label="{{ c.pct|floatformat:0 }}% of the commitment called"><i style="width: {{ c.pct }}%"></i></div>
-        <div class="meter-foot"><span>{{ c.pct|floatformat:0 }}% called</span><span>{{ c.unfunded|money }} unfunded</span>
-          <span>{% if c.tvpi %}{{ c.tvpi|multiple }} value to paid-in{% endif %}</span><span>{% if c.irr is not None %}IRR {{ c.irr|pct }}{% endif %}{% if c.stale %} <span class="pill stale">Stale mark</span>{% endif %}</span></div>
-      </div>
-      {% endfor %}
-    </div>
-  </section>
-  {% endif %}
-</div>
-
-<div class="grid3">
-  <section class="box">
-    <div class="box-head"><h2>{{ close_month|date:"F" }} close</h2><div class="aside"><a href="{{ links.close }}">{% if close_done %}Closed{% else %}Open{% endif %}</a></div></div>
-    <div class="box-body">
-      {% if close_rows %}
-      <div class="ring-row"><div class="ring" style="--p: {% widthratio closed_count close_rows|length 100 %}"><span>{{ closed_count }}/{{ close_rows|length }}</span></div>
-        <div><strong>{{ closed_count }} of {{ close_rows|length }} entities closed</strong><div class="muted small">{% if close_done %}Every step is done{% else %}Investment records reviewed, posted, tied out and signed off{% endif %}</div></div></div>
-      <ul class="rows tight">{% for r in close_rows %}<li><div><strong>{{ r.label }}</strong><div class="progress{% if r.closed %} done{% endif %}"><span style="width: {{ r.pct }}%"></span></div></div><span class="muted small">{{ r.done }}/{{ r.total }}</span></li>{% endfor %}</ul>
-      {% else %}<p class="muted">No entities are linked to the books yet.</p>{% endif %}
-    </div>
-  </section>
-  <section class="box">
-    <div class="box-head"><h2>Bank reconciliation</h2><div class="aside"><a href="{{ links.reconcile }}">Open</a></div></div>
-    <div class="box-body">
-      {% if rc and not rc.error %}
-      <div class="ring-row"><div class="ring" style="--p: {{ rc.pct }}"><span>{{ rc.current }}/{{ rc.total }}</span></div>
-        <div><strong>{{ rc.current }} of {{ rc.total }} accounts reconciled</strong><div class="muted small">Through the last month end</div></div></div>
-      <ul class="rows tight plain"><li><span>Waiting for approval</span><strong>{{ rc.pending }}</strong></li><li><span>In progress</span><strong>{{ rc.progress }}</strong></li><li><span>Behind</span><strong{% if rc.behind %} class="err"{% endif %}>{{ rc.behind }}</strong></li></ul>
-      {% elif rc %}<p class="muted small">{{ rc.error }}</p>{% else %}<p class="muted">Appears once the workspace is connected.</p>{% endif %}
-    </div>
-  </section>
-  <section class="box">
-    <div class="box-head"><h2>Bills to pay</h2><div class="aside"><a href="{{ links.bills }}">{% if bl %}{{ bl.total|money }}{% else %}Open{% endif %}</a></div></div>
-    <div class="box-body">
-      {% if bl and bl.count %}
-      <div class="hbars narrow" role="table" aria-label="Open bills by when they are due">
-        {% for b in bl.buckets %}<div class="hbar" role="row"><span class="name" role="cell">{{ b.label }}</span><span class="track" role="presentation">{% if b.width %}<i class="{% if b.bad %}bad{% endif %}" style="width: {{ b.width }}%"></i>{% endif %}</span>
-          <span class="num" role="cell">{{ b.amount|money }}</span><span class="num muted" role="cell">{{ b.count }}</span></div>{% endfor %}
-      </div>
-      <p class="muted small">{{ bl.count }} open bill{{ bl.count|pluralize }} by when {{ bl.count|pluralize:"it is,they are" }} due.</p>
-      {% elif bl %}<p class="muted">No open bills.</p>{% else %}<p class="muted">Appears once the workspace is connected.</p>{% endif %}
-    </div>
-  </section>
-</div>
 {% endblock %}

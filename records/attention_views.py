@@ -75,7 +75,7 @@ def home_page(request: HttpRequest, workspace: Workspace, framed: bool) -> HttpR
     last_month = close.previous_month(today)
     close_rows = _close_rows(workspace, last_month)
     data = snap.data if snap else {}
-    return render(request, "records/home.html", {
+    return render(request, "records/dashboard.html", {
         "workspace": workspace, "framed": framed, "frame_token": getattr(request, "fo_frame_token", ""), "today": today, "error": error,
         "snap": snap, "fresh": fresh, "nw": data.get("net_worth"), "lq": data.get("liquidity"), "bl": data.get("bills"), "rc": data.get("reconciliation"),
         "rows": [(i, url(i.target, *i.args)) for i in items[:TOP_ITEMS]], "more": max(len(items) - TOP_ITEMS, 0), "counts": counts, "head": head,
