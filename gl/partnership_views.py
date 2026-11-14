@@ -11,6 +11,7 @@ from django.utils import timezone
 from campfire_integration import pages
 from campfire_integration.client import CampfireClient, CampfireError, NotConnected
 from campfire_integration.models import Workspace
+from gl.services import charts
 from gl.services import partnership as svc
 from investments.models import K1
 from records.models import AuditEntry
@@ -60,7 +61,14 @@ def partnerships_page(request: HttpRequest, workspace: Workspace, framed: bool) 
     base = pages.page_url(request, framed, "gl:partnerships")
     current: dict[str, Any] = {"view": view, "entity": chosen.pk if chosen else "", "year": year, "tax_year": tax_year}
     link = lambda **changes: f"{base}{'&' if '?' in base else '?'}{urlencode({**current, **changes})}"  # noqa: E731
-    return render(request, "gl/partnerships.html", {
+    moved = {}
+    if statement is not None:
+        steps = [("Contributions", statement.total("contributions")), ("Income (loss)", statement.total("income")),
+                 ("Distributions", -statement.total("distributions"))]
+        steps += [("Other changes", statement.other_changes)] if statement.other_changes else []
+        moved = charts.changes(("Opening capital", statement.total("opening")), steps,
+                               ("Closing capital", statement.total("closing") + statement.other_changes))
+    return render(request, "gl/partnerships.html", {"moved": moved,
         "workspace": workspace, "framed": framed, "frame_token": getattr(request, "fo_frame_token", ""), "today": today, "message": message, "error": error,
         "view": view, "views": [(k, label, link(view=k), k == view) for k, label in VIEWS.items()], "entities": entities, "chosen": chosen,
         "years": years, "year": year, "k1_years": k1_years, "tax_year": tax_year, "statement": statement, "expected": expected,

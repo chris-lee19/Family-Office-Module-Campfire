@@ -1,0 +1,14 @@
+{% load money %}{% if chart %}
+<div class="moved">
+  <div class="moved-ends"><div><span class="label">{{ chart.opening.label }}</span><strong>{{ chart.opening.value|money }}</strong></div>
+    <div class="arrow" aria-hidden="true">→</div>
+    <div><span class="label">{{ chart.closing.label }}</span><strong>{{ chart.closing.value|money }}</strong>
+      <span class="delta {% if chart.up %}up{% else %}down{% endif %}">{% if chart.up %}▲{% else %}▼{% endif %} {{ chart.change|money }}</span></div></div>
+  <div class="dbars" role="table" aria-label="{{ label }}">
+    {% for r in chart.rows %}<div class="dbar" role="row"><span class="name" role="cell">{{ r.label }}</span>
+      <span class="neg" role="presentation">{% if r.negative and r.width %}<i style="width: {{ r.width }}%"></i>{% endif %}</span>
+      <span class="pos" role="presentation">{% if not r.negative and r.width %}<i style="width: {{ r.width }}%"></i>{% endif %}</span>
+      <span class="num" role="cell">{{ r.value|acct }}</span></div>{% endfor %}
+  </div>
+</div>
+{% endif %}

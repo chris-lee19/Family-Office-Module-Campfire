@@ -14,10 +14,10 @@ from django.utils import timezone
 from campfire_integration import pages
 from campfire_integration.client import CampfireClient, CampfireError, NotConnected
 from campfire_integration.models import Workspace
-from gl.services import bankmatch
+from gl.services import bankmatch, charts
 from gl.services import calls as svc
 from investments.models import CapitalCall, Commitment, Transaction
-from investments.services.privates import summarize
+from investments.services.privates import paid_in_history, summarize
 from records.models import AuditEntry
 from records.registry import check_ledger
 
@@ -181,7 +181,15 @@ def calls_page(request: HttpRequest, workspace: Workspace, framed: bool) -> Http
              "due_30": sum((c.amount for c in in_30), Decimal(0)), "overdue": sum(1 for c in open_calls if c.due_date < today),
              "unfunded": sum((s.unfunded for _, s in funds), Decimal(0)), "funds": len(funds),
              "no_vendor": sum(1 for c, _ in funds if not c.campfire_vendor_id)}
-    return render(request, "gl/calls.html", {"stats": stats,
+    history = paid_in_history([c for c, _ in funds], today)
+    label = lambda d, n: ({"label": f"Q{(d.month - 1) // 3 + 1} {d.year}", "short": f"Q{(d.month - 1) // 3 + 1}", "year": str(d.year) if n == 0 or d.month <= 3 else ""}  # noqa: E731
+                          if len(history) < 2 or (history[1][0] - history[0][0]).days < 200 else {"label": str(d.year), "short": str(d.year), "year": ""})
+    committed = sum((c.amount for c, _ in funds), Decimal(0))
+    paid_chart = charts.trend([(label(d, n), [a, b]) for n, (d, a, b) in enumerate(history)], ["Paid in", "Returned"], from_zero=True,
+                              reference=("Committed", committed) if committed else None) if len(history) > 1 else {}
+    return render(request, "gl/calls.html", {"stats": stats, "paid_chart": paid_chart,
+        "meters": [{"fund": c.instrument.name, "commitment": c.amount, "pct": float(min(s.pct_called or 0, 100)), "unfunded": s.unfunded, "called": s.contributed,
+                    "distributed": s.distributed} for c, s in funds],
         "workspace": workspace, "framed": framed, "frame_token": getattr(request, "fo_frame_token", ""), "rows": rows, "paid": paid,
         "funds": funds, "vendors": vendors, "bank": bank, "campfire_error": campfire_error, "message": message, "error": error, "today": today,
         "action": pages.page_url(request, framed, "gl:calls"), "new_call_url": pages.page_url(request, framed, "records:new", "capital-calls"),

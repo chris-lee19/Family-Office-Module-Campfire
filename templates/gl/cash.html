@@ -20,6 +20,23 @@
   <div class="kpi"><div class="label">Bank lines to categorize</div><div class="value">{{ cash.waiting|length }}</div><div class="sub">{% if cash.waiting %}Not in the statements until categorized{% else %}Everything is categorized{% endif %}</div></div>
 </div>
 
+<div class="grid2 even">
+  <section class="box">
+    <div class="box-head"><h2>Money in and out by month</h2><div class="aside"><span class="key"><i class="c1"></i>In</span><span class="key"><i class="c2"></i>Out</span></div></div>
+    <div class="chart-box">{% if flow %}{% include "includes/pairs.html" with chart=flow label="Money into and out of the bank accounts on the books, by month, for the last six months." %}
+      <p class="muted small">In {{ flow.total_a|money }} · out {{ flow.total_b|money }} over six months, from the books. <a href="{{ liquidity_url }}">What comes next</a></p>
+      {% else %}<p class="muted">Nothing has moved through the bank accounts in the last six months.</p>{% endif %}</div>
+  </section>
+  <section class="box">
+    <div class="box-head"><h2>Where the cash is</h2><div class="aside"><span class="key"><i class="c1"></i>Operating</span><span class="key"><i class="c2"></i>At custodians</span></div></div>
+    <div class="box-body"><div class="hbars" role="table" aria-label="Cash by entity">
+      {% for e in entity_bars %}<div class="hbar" role="row"><span class="name" role="cell">{{ e.name }}</span>
+        <span class="track split" role="presentation">{% if e.operating %}<i class="c1" style="width: {{ e.operating }}%"></i>{% endif %}{% if e.custody %}<i class="c2" style="width: {{ e.custody }}%"></i>{% endif %}</span>
+        <span class="num" role="cell">{{ e.total|money }}</span></div>{% endfor %}
+    </div></div>
+  </section>
+</div>
+
 {% if cash.waiting %}
 <h2>To categorize <span class="count-chip">{{ cash.waiting|length }}</span></h2>
 {% for ln in cash.waiting %}

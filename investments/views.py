@@ -44,6 +44,7 @@ class FamilyInvestments:
     by_asset_class: list[Breakdown]
     by_liquidity: list[Breakdown]
     by_tax_treatment: list[Breakdown]
+    trend: Any = None  # the value at each of the last twelve month ends, drawn as a line
     net_worth: Any = None  # gl.services.networth.NetWorth
     net_by_person: list[Breakdown] = field(default_factory=list)
 
@@ -78,6 +79,23 @@ def family_investments(family: Family, as_of: date) -> FamilyInvestments:
     )
 
 
+def value_trend(family: Family, as_of: date, months: int = 12) -> dict[str, Any]:
+    """The investments' value at each month end, from the investment records as they stood then."""
+    from gl.services import charts
+    from gl.services.liquidity import add_months, month_end
+    from investments.services.portfolio import build_portfolio
+
+    first = add_months(as_of.replace(day=1), -(months - 1))
+    points = []
+    for n in range(months):
+        when = min(month_end(add_months(first, n)), as_of)
+        total = build_portfolio(family, when).total
+        if total or points:  # start where the records start
+            label = charts.month_label(when, not points)
+            points.append(({**label, "label": f"{when:%b %-d, %Y}" if when == as_of else label["label"]}, [total]))
+    return charts.trend(points, ["Investments"]) if len(points) > 1 else {}
+
+
 def demo_url(request: HttpRequest, workspace: Workspace, framed: bool) -> str:
     """Where the "Load the demo family" button posts, when demo data is allowed and not loaded yet."""
     if not settings.ALLOW_DEMO_DATA or Family.objects.filter(workspace=workspace, code="alder").exists():
@@ -102,6 +120,8 @@ def investments_page(request: HttpRequest, workspace: Workspace, framed: bool) -
     elif request.method not in ("GET", "POST"):
         return HttpResponseNotAllowed(["GET", "POST"])
     families = [family_investments(f, as_of) for f in Family.objects.filter(workspace=workspace, is_active=True)]
+    for fi in families:
+        fi.trend = value_trend(fi.family, as_of)
     return render(request, "investments/overview.html", {
         "workspace": workspace, "families": families, "as_of": as_of, "framed": framed,
         "demo_url": demo_url(request, workspace, framed), "review_url": pages.page_url(request, framed, "records:review"),

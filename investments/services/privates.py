@@ -129,3 +129,29 @@ def mark_call_paid(call: CapitalCall, paid_on: date, source_ref: str = "") -> Tr
     call.contribution = txn
     call.save(update_fields=["status", "paid_on", "contribution"])
     return txn
+
+
+def paid_in_history(commitments: list[Commitment], today: date, max_points: int = 16) -> list[tuple[date, Decimal, Decimal]]:
+    """Cumulative paid in and returned across commitments at each quarter end, from the first contribution to today:
+    (quarter end, paid in, distributed). Years instead of quarters when the history is long."""
+    rows = []
+    for c in commitments:
+        for t in Transaction.objects.filter(account=c.account, instrument=c.instrument, trade_date__lte=today):
+            if t.txn_type == T.CONTRIBUTION:
+                rows.append((t.trade_date, t.amount, ZERO))
+            elif t.txn_type in Transaction.DISTRIBUTION_TYPES:
+                rows.append((t.trade_date, ZERO, t.amount))
+    if not rows:
+        return []
+    first = min(d for d, _, _ in rows)
+    quarter_end = lambda y, q: date(y + (q == 4), 1 if q == 4 else 3 * q + 1, 1).replace(day=1)  # noqa: E731  (first day after the quarter)
+    ends, y, q = [], first.year, (first.month - 1) // 3 + 1
+    while True:
+        end = min(date.fromordinal(quarter_end(y, q).toordinal() - 1), today)
+        ends.append(end)
+        if end >= today:
+            break
+        y, q = (y + 1, 1) if q == 4 else (y, q + 1)
+    if len(ends) > max_points:  # a long history: one point a year, and today
+        ends = sorted({e for e in ends if e.month == 12} | {today})
+    return [(end, sum((a for d, a, _ in rows if d <= end), ZERO), sum((b for d, _, b in rows if d <= end), ZERO)) for end in ends]

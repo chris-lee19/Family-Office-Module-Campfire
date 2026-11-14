@@ -10,6 +10,7 @@ from campfire_integration import pages
 from campfire_integration.frames import session_workspace
 from campfire_integration.models import Workspace
 from entities.models import Entity, Family, Person
+from entities.services import structure
 from entities.services.ownership import OwnershipCycleError, effective_ownership, ownership_issues
 
 
@@ -25,6 +26,7 @@ class FamilyView:
     family: Family
     rows: list[EntityRow] = field(default_factory=list)
     issues: list[str] = field(default_factory=list)
+    chart: structure.Structure | None = None
 
 
 def _percent(fraction: Decimal) -> Decimal:
@@ -57,6 +59,7 @@ def family_views(workspace: Workspace, as_of: date) -> list[FamilyView]:
                 key=lambda pair: -pair[1],
             )
             view.rows.append(EntityRow(entity, direct, look_through))
+        view.chart = structure.build(family, as_of)
         views.append(view)
     return views
 
@@ -78,7 +81,9 @@ def entities_page(request: HttpRequest, workspace: Workspace, framed: bool) -> H
          "links": {"new_entity": pages.page_url(request, framed, "records:new", "entities"),
                    "new_ownership": pages.page_url(request, framed, "records:new", "ownership"),
                    "gl": pages.page_url(request, framed, "gl:gl")},
-         "edit_urls": {r.entity.pk: pages.page_url(request, framed, "records:edit", "entities", r.entity.pk) for r in rows}},
+         "edit_urls": {r.entity.pk: pages.page_url(request, framed, "records:edit", "entities", r.entity.pk) for r in rows},
+         "node_urls": {n.key: pages.page_url(request, framed, "records:edit", "people" if n.person else "entities", n.pk)
+                       for v in views if v.chart for n in v.chart.nodes}},
     )
 
 

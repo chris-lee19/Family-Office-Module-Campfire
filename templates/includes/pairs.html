@@ -1,0 +1,9 @@
+{% load money %}{% if chart %}
+<div class="pairs" role="img" aria-label="{{ label }}">
+  {% for c in chart.cols %}<div class="pair{% if c.edge %} {{ c.edge }}{% endif %}" tabindex="0">
+    <div class="pair-bars"><i class="c1" style="height: {{ c.ha }}%"></i><i class="c2" style="height: {{ c.hb }}%"></i></div>
+    <div class="fc-x">{{ c.short }}{% if c.year %}<small>{{ c.year }}</small>{% endif %}</div>
+    <div class="fc-tip" role="tooltip"><strong>{{ c.label }}</strong><span>{{ chart.names.0 }}</span><b>{{ c.a|acct }}</b><span>{{ chart.names.1 }}</span><b>{{ c.b|acct }}</b><span>Net</span><b>{{ c.net|acct }}</b></div>
+  </div>{% endfor %}
+</div>
+{% endif %}

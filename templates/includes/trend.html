@@ -1,0 +1,18 @@
+{% load money %}{% if chart %}
+<div class="trend{% if not chart.single %} multi{% endif %}" role="img" aria-label="{{ label }}">
+  <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+    {% if chart.area %}<polygon class="trend-area" points="{{ chart.area }}"/>{% endif %}
+    {% if chart.reference %}<line class="trend-ref" x1="0" x2="100" y1="{{ chart.reference.y }}" y2="{{ chart.reference.y }}" vector-effect="non-scaling-stroke"/>{% endif %}
+    {% for ln in chart.lines %}<polyline class="trend-line l{{ ln.k }}" points="{{ ln.points }}" vector-effect="non-scaling-stroke"/>{% endfor %}
+  </svg>
+  {% if chart.reference %}<span class="trend-ref-label" style="top: {{ chart.reference.y }}%">{{ chart.reference.name }} {{ chart.reference.value|compact }}</span>{% endif %}
+  <div class="trend-hit" style="--n: {{ chart.n }}">
+    {% for c in chart.cols %}<div class="trend-col{% if c.edge %} {{ c.edge }}{% endif %}{% if c.last %} now{% endif %}" tabindex="0">
+      {% for v in c.values %}<i class="l{{ v.k }}" style="top: {{ v.y }}%"></i>{% if c.last %}<span class="trend-val" style="--y: {{ v.y }}%">{{ v.value|compact }}</span>{% endif %}{% endfor %}
+      {% if forloop.first and chart.single %}<span class="trend-val{% if chart.first_below %} under{% endif %}" style="--y: {{ chart.first_y }}%">{{ chart.first|compact }}</span>{% endif %}
+      <div class="fc-tip" role="tooltip"><strong>{{ c.label }}</strong>{% for v in c.values %}<span>{{ v.name }}</span><b>{{ v.value|acct }}</b>{% endfor %}</div>
+    </div>{% endfor %}
+  </div>
+</div>
+<div class="trend-x" style="--n: {{ chart.n }}">{% for c in chart.cols %}<span>{{ c.short }}{% if c.year %}<small>{{ c.year }}</small>{% endif %}</span>{% endfor %}</div>
+{% endif %}

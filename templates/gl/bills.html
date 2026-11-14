@@ -19,6 +19,26 @@
   <div class="kpi"><div class="label">Waiting for approval</div><div class="value">{{ pending|length }}</div><div class="sub">{% if pending %}Entered here, not in the books yet{% else %}Nothing to approve{% endif %}</div></div>
 </div>
 
+{% if open_bills %}
+<div class="grid3">
+  <section class="box"><div class="box-head"><h2>When they are due</h2></div>
+    <div class="box-body"><div class="hbars narrow" role="table" aria-label="Open bills by when they are due">
+      {% for b in ageing %}<div class="hbar" role="row"><span class="name" role="cell">{{ b.label }}</span><span class="track" role="presentation">{% if b.width %}<i class="{% if b.bad %}bad{% endif %}" style="width: {{ b.width }}%"></i>{% endif %}</span>
+        <span class="num" role="cell">{{ b.value|money }}</span><span class="num muted" role="cell">{{ b.count }}</span></div>{% endfor %}
+    </div></div></section>
+  <section class="box"><div class="box-head"><h2>By entity</h2></div>
+    <div class="box-body"><div class="hbars narrow" role="table" aria-label="Open bills by entity">
+      {% for b in by_entity %}<div class="hbar" role="row"><span class="name" role="cell">{{ b.label }}</span><span class="track" role="presentation"><i style="width: {{ b.width }}%"></i></span>
+        <span class="num" role="cell">{{ b.value|money }}</span><span class="num muted" role="cell">{{ b.share|floatformat:0 }}%</span></div>{% endfor %}
+    </div></div></section>
+  <section class="box"><div class="box-head"><h2>By payee</h2></div>
+    <div class="box-body"><div class="hbars narrow" role="table" aria-label="Open bills by payee">
+      {% for b in by_payee %}<div class="hbar" role="row"><span class="name" role="cell">{{ b.label }}</span><span class="track" role="presentation"><i style="width: {{ b.width }}%"></i></span>
+        <span class="num" role="cell">{{ b.value|money }}</span><span class="num muted" role="cell">{{ b.share|floatformat:0 }}%</span></div>{% endfor %}
+    </div></div></section>
+</div>
+{% endif %}
+
 {% if pending %}
 <h2>To approve <span class="count-chip">{{ pending|length }}</span></h2>
 {% for b in pending %}

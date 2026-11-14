@@ -162,12 +162,7 @@ def cash_and_liquidity(workspace: Workspace, client: CampfireClient, today: date
 def bills(client: CampfireClient, today: date) -> dict[str, Any]:
     """Open bills by how soon they are due: the ageing a controller looks at first."""
     open_bills = [b for b in bill_svc.bills(client, today) if b.is_open]
-    buckets = [("Overdue", lambda d: d < 0, True), ("Due in 7 days", lambda d: 0 <= d <= 7, False), ("8 to 30 days", lambda d: 8 <= d <= 30, False),
-               ("Later", lambda d: d > 30, False)]
-    rows = []
-    for label, test, bad in buckets:
-        chosen = [b for b in open_bills if test(b.days if b.days is not None else 0)]
-        rows.append({"label": label, "amount": sum((b.due for b in chosen), ZERO), "count": len(chosen), "bad": bad})
+    rows = [{"label": label, "amount": amount, "count": count, "bad": label == "Overdue"} for label, amount, count in bill_svc.ageing(open_bills)]
     most = max((r["amount"] for r in rows), default=ZERO)
     return {"total": _s(sum((b.due for b in open_bills), ZERO)), "count": len(open_bills),
             "buckets": [{**r, "amount": _s(r["amount"]), "width": _pct(r["amount"], most)} for r in rows]}

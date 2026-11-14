@@ -8,7 +8,7 @@ from django.utils import timezone
 from campfire_integration import pages
 from campfire_integration.client import CampfireClient, CampfireError, NotConnected
 from campfire_integration.models import Workspace
-from gl.services import bankmatch
+from gl.services import bankmatch, charts
 from gl.services import cash as svc
 from gl.services.calls import list_vendors
 from gl.services.setup import account_label, list_accounts
@@ -50,6 +50,7 @@ def cash_page(request: HttpRequest, workspace: Workspace, framed: bool) -> HttpR
     today = timezone.localdate()
     message = error = ""
     cash, accounts, vendors, hints = None, [], [], {}
+    flow: dict[str, object] = {}
     try:
         client = _client(workspace)
         if request.method == "POST" and request.POST.get("action") == "categorize":
@@ -58,6 +59,7 @@ def cash_page(request: HttpRequest, workspace: Workspace, framed: bool) -> HttpR
             except svc.CashError as e:
                 error = str(e)
         cash = svc.overview(client, today)
+        flow = charts.pairs(svc.flow_by_month(client, today), ("Money in", "Money out"))
         if cash.waiting:
             accounts = [a for a in list_accounts(client) if a.get("account_type") != "UNCATEGORIZED" and a.get("account_subtype") != "BANK"]
             vendors = list_vendors(client)
@@ -73,8 +75,15 @@ def cash_page(request: HttpRequest, workspace: Workspace, framed: bool) -> HttpR
         "message": message, "error": error, "account_groups": [(t, items) for t, items in grouped if items],
         "vendors": [(int(v["id"]), v.get("name", "")) for v in vendors], "months": svc.by_month(cash.lines) if cash else [],
         "action": pages.page_url(request, framed, "gl:cash"), "calls_url": pages.page_url(request, framed, "gl:calls"),
-        "statements_url": pages.page_url(request, framed, "gl:statements"), "lookback": svc.LOOKBACK_DAYS,
+        "statements_url": pages.page_url(request, framed, "gl:statements"), "lookback": svc.LOOKBACK_DAYS, "flow": flow,
+        "entity_bars": _entity_bars(cash) if cash else [], "liquidity_url": pages.page_url(request, framed, "gl:liquidity"),
     })
+
+
+def _entity_bars(cash: svc.Cash) -> list[dict[str, object]]:
+    most = max((e.total for e in cash.entities), default=svc.ZERO)
+    return [{"name": e.entity, "total": e.total, "operating": charts.pct(max(e.operating, svc.ZERO), most), "custody": charts.pct(max(e.custody, svc.ZERO), most)}
+            for e in cash.entities if e.total]
 
 
 frame_cash = pages.framed(cash_page)

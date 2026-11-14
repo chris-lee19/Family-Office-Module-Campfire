@@ -240,6 +240,31 @@
     update();
   });
 
+  /* ---- the ownership structure traces a name: what it owns, and who owns it, all the way up and down ---- */
+  d.querySelectorAll("[data-structure]").forEach(function (chart) {
+    var lines = [].slice.call(chart.querySelectorAll("path, .st-pct"));
+    var walk = function (start, from, to, found) {
+      lines.forEach(function (el) {
+        if (el.getAttribute(from) !== start) return;
+        el.classList.add("on");
+        var next = el.getAttribute(to);
+        if (!found[next]) { found[next] = true; walk(next, from, to, found); }
+      });
+    };
+    var trace = function (key) {
+      var found = {}; found[key] = true;
+      walk(key, "data-from", "data-to", found); walk(key, "data-to", "data-from", found);
+      chart.querySelectorAll(".st-node").forEach(function (n) { n.classList.toggle("on", !!found[n.getAttribute("data-node")]); });
+      chart.classList.add("tracing");
+    };
+    var clear = function () { chart.classList.remove("tracing"); chart.querySelectorAll(".on").forEach(function (el) { el.classList.remove("on"); }); };
+    chart.querySelectorAll(".st-node").forEach(function (node) {
+      var key = node.getAttribute("data-node");
+      node.addEventListener("mouseenter", function () { clear(); trace(key); }); node.addEventListener("focus", function () { clear(); trace(key); });
+      node.addEventListener("mouseleave", clear); node.addEventListener("blur", clear);
+    });
+  });
+
   /* ---- the dashboard shows its last figures at once and reads the books again behind the page ---- */
   d.querySelectorAll("form[data-auto-refresh]").forEach(function (form) {
     var key = "fo-dash-refresh", last = 0, note = d.querySelector("[data-updated]");

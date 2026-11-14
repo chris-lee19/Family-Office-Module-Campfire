@@ -90,6 +90,18 @@ def bills(client: CampfireClient, today: date) -> list[Bill]:
     return sorted(out, key=lambda b: (not b.is_open, b.due_date or date.max, b.id))
 
 
+AGEING = (("Overdue", lambda d: d < 0), ("Due in 7 days", lambda d: 0 <= d <= 7), ("8 to 30 days", lambda d: 8 <= d <= 30), ("Later", lambda d: d > 30))
+
+
+def ageing(open_bills: list[Bill]) -> list[tuple[str, Decimal, int]]:
+    """Open bills by how soon they are due: (label, amount, how many), overdue first."""
+    out = []
+    for label, test in AGEING:
+        chosen = [b for b in open_bills if test(b.days if b.days is not None else 0)]
+        out.append((label, sum((b.due for b in chosen), ZERO), len(chosen)))
+    return out
+
+
 def _money(raw: Any) -> Decimal:
     try:
         value = Decimal(str(raw or "").replace(",", "").replace("$", "").strip())

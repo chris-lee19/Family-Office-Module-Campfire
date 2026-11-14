@@ -20,6 +20,26 @@
   <div class="kpi"><div class="label">Funds without a Campfire vendor</div><div class="value">{{ stats.no_vendor }}</div><div class="sub">{% if stats.no_vendor %}Choose the GP below to send bills{% else %}Every fund can be billed{% endif %}</div></div>
 </div>
 
+{% if meters %}
+<div class="grid2 even">
+  <section class="box">
+    <div class="box-head"><h2>Paid in and returned</h2><div class="aside"><span class="key"><i class="c1"></i>Paid in</span><span class="key"><i class="c2"></i>Returned</span></div></div>
+    <div class="chart-box">{% if paid_chart %}{% include "includes/trend.html" with chart=paid_chart label="Capital paid into the funds and capital returned, cumulative, against the total committed." %}
+      {% else %}<p class="muted">Appears once a fund has called capital.</p>{% endif %}</div>
+  </section>
+  <section class="box">
+    <div class="box-head"><h2>Called against committed</h2></div>
+    <div class="box-body meters">
+      {% for m in meters %}<div class="meter-row">
+        <div class="meter-head"><strong>{{ m.fund }}</strong><span class="muted small">{{ m.commitment|money }} committed</span></div>
+        <div class="meter" role="img" aria-label="{{ m.pct|floatformat:0 }}% of the commitment called"><i style="width: {{ m.pct }}%"></i></div>
+        <div class="meter-foot"><span>{{ m.pct|floatformat:0 }}% called</span><span>{{ m.called|money }} paid in</span><span>{{ m.unfunded|money }} unfunded</span><span>{{ m.distributed|money }} returned</span></div>
+      </div>{% endfor %}
+    </div>
+  </section>
+</div>
+{% endif %}
+
 <h2>Open calls</h2>
 {% if rows %}
 <table>

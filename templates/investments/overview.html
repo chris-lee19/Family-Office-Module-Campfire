@@ -17,6 +17,13 @@
     <div class="kpi"><div class="label">Income (to date)</div><div class="value">{{ p.income|money }}</div><div class="sub">Dividends, interest, fund income</div></div>
   </div>
 
+  {% if fi.trend %}
+  <section class="box">
+    <div class="box-head"><h3>Investments at each month end</h3><div class="aside"><span>At market value, from the investment records</span></div></div>
+    <div class="chart-box">{% include "includes/trend.html" with chart=fi.trend label="The value of the investments at each of the last twelve month ends." %}</div>
+  </section>
+  {% endif %}
+
   {% if fi.attention_count %}
   <div class="callout warn">
     <strong>Needs attention ({{ fi.attention_count }})</strong>

@@ -180,6 +180,28 @@ def categorize(client: CampfireClient, gl_line_id: int, account_id: int, vendor_
     return "categorized"
 
 
+def flow_by_month(client: CampfireClient, today: date, months: int = 6) -> list[tuple[date, Decimal, Decimal]]:
+    """Money into and out of the bank accounts on the books, by month: (month, in, out), oldest first. From the
+    ledger's lines on bank accounts, so it covers everything that moved cash, not only what the bank feed brought."""
+    first = today.replace(day=1)
+    for _ in range(months - 1):
+        first = (first - timedelta(days=1)).replace(day=1)
+    out: dict[date, list[Decimal]] = {}
+    month = first
+    while month <= today:
+        out[month] = [ZERO, ZERO]
+        month = (month.replace(day=28) + timedelta(days=4)).replace(day=1)
+    for t in _all(client, LEDGER_PATH, {"account_subtype": "BANK", "start_date": first.isoformat(), "end_date": today.isoformat()}, cap=6000):
+        when = str(t.get("posted_at") or "")[:10]
+        if t.get("is_deleted") or len(when) < 10:
+            continue
+        key = date.fromisoformat(when).replace(day=1)
+        if key in out:
+            out[key][0] += _dec(t.get("debit_amount"))
+            out[key][1] += _dec(t.get("credit_amount"))
+    return [(m, v[0], v[1]) for m, v in sorted(out.items())]
+
+
 def by_month(lines: list[BankLine]) -> list[tuple[str, Decimal, Decimal]]:
     """Money in and out by month, oldest first."""
     months: dict[str, list[Decimal]] = defaultdict(lambda: [ZERO, ZERO])

@@ -33,6 +33,12 @@
   <div class="kpi"><div class="label">Contributions</div><div class="value">{{ statement|stmt_total:"contributions"|money }}</div></div>
   <div class="kpi"><div class="label">Distributions</div><div class="value">{{ statement|stmt_total:"distributions"|money }}</div></div>
 </div>
+{% if moved %}
+<section class="box">
+  <div class="box-head"><h2>How partners' capital moved</h2><div class="aside"><span>{{ statement.start|date:"M j" }} to {{ statement.end|date:"M j, Y" }}</span></div></div>
+  <div class="chart-box">{% include "includes/changes.html" with chart=moved label="What moved partners' capital in the period: contributions, income, distributions." %}</div>
+</section>
+{% endif %}
 <section class="box box-flush">
   <table class="statement wide" data-sort>
     <thead><tr><th>Statement of changes in partners' capital</th><th class="num">Share</th><th class="num">Opening capital</th><th class="num">Contributions</th><th class="num">Income (loss)</th><th class="num">Distributions</th><th class="num">Closing capital</th></tr></thead>

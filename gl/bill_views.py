@@ -14,6 +14,7 @@ from campfire_integration.client import CampfireClient, CampfireError, NotConnec
 from campfire_integration.models import Workspace
 from gl.models import BillRequest
 from gl.services import bills as svc
+from gl.services import charts
 from gl.services import statements
 from gl.services.calls import list_vendors
 from gl.services.setup import account_label, list_accounts
@@ -103,7 +104,17 @@ def bills_page(request: HttpRequest, workspace: Workspace, framed: bool) -> Http
                   "overdue": sum((b.due for b in open_bills if b.overdue), svc.ZERO), "overdue_count": sum(1 for b in open_bills if b.overdue),
                   "soon": sum((b.due for b in soon), svc.ZERO), "soon_count": len(soon)},
         "me": getattr(request, "fo_actor_id", ""), "entered": entered, "reopen": retry,
+        "ageing": [{**bar, "count": count} for bar, (_, _, count) in zip(charts.ranked([(label, amount) for label, amount, _ in svc.ageing(open_bills)],
+                                                                                    sort=False, bad=("Overdue",)), svc.ageing(open_bills))],
+        "by_entity": charts.ranked(list(_by(open_bills, "entity").items())), "by_payee": charts.ranked(list(_by(open_bills, "vendor").items()))[:6],
     })
+
+
+def _by(open_bills: list[svc.Bill], attr: str) -> dict[str, Decimal]:
+    out: dict[str, Decimal] = {}
+    for b in open_bills:
+        out[getattr(b, attr) or "—"] = out.get(getattr(b, attr) or "—", svc.ZERO) + b.due
+    return out
 
 
 frame_bills = pages.framed(bills_page)
