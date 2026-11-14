@@ -22,7 +22,7 @@ The app's permissions are the most it can ever request. A connecting person is s
 | Cash Management | Cash Management Transactions | `bank_transactions:read` | ✓ | | | Cash actuals for liquidity view |
 | Organization | Entities | `entities:read` | ✓ | | | Link FO entities to Campfire entities |
 | Organization | Chart of Accounts | `accounts:write` | ✓ | | ✓ | GL setup creates the FO accounts (custody cash, clearing, investments at cost, income, gains, fees) |
-| Organization | Tags | `tags:write` | ✓ | | ✓ | FO dimensions: FO Family, FO Asset Class, FO Holding (later Branch, Tax Treatment) |
+| Organization | Tags | `tags:write` | ✓ | | ✓ | FO dimensions: FO Family, FO Asset Class, FO Holding, Branch, Tax Treatment, Custodian; spending: FO Family Member, FO Property (also tags on bill lines, entry lines and categorized bank lines) |
 | Organization | Vendors and Payees | `vendors:write` | ✓ | | ✓ | Funds/GPs as payees for capital-call bills |
 | Organization | Lock Periods | `lock_periods:read` | ✓ | | | Don't post into closed periods |
 

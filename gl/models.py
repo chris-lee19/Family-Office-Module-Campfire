@@ -6,6 +6,8 @@ records which transactions each entry carries (lineage both ways: Campfire's `so
 the posting lists the transactions, each transaction names its import batch and file line).
 """
 
+from decimal import Decimal
+
 from django.core.exceptions import ValidationError
 from django.db import models
 
@@ -108,6 +110,8 @@ class DimensionTag(models.Model):
         CUSTODIAN = "custodian", "Custodian"
         ASSET_CLASS = "asset_class", "Asset class"
         HOLDING = "holding", "Holding / fund"
+        PERSON = "person", "Family member"  # spending: who it was for (Lifestyle Expense Report)
+        PROPERTY = "property", "Property"  # spending: which home, building or other property it was for
 
     workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE, related_name="gl_dimension_tags")
     dimension = models.CharField(max_length=16, choices=Dimension.choices)
@@ -294,6 +298,7 @@ class BillRequest(models.Model):
     decided_by_id = models.CharField(max_length=64, blank=True)
     decided_at = models.DateTimeField(null=True, blank=True)
     note = models.CharField(max_length=255, blank=True)
+    tag_ids = models.JSONField(default=list, blank=True, help_text="Campfire tags for the bill line: family member, property")
     campfire_bill_id = models.BigIntegerField(null=True, blank=True)
     error = models.TextField(blank=True)
 
@@ -337,6 +342,7 @@ class JournalRequest(models.Model):
     decided_by_id = models.CharField(max_length=64, blank=True)
     decided_at = models.DateTimeField(null=True, blank=True)
     note = models.CharField(max_length=255, blank=True)
+    tag_ids = models.JSONField(default=list, blank=True, help_text="Campfire tags for the lines that aren't cash: family member, property")
     error = models.TextField(blank=True)
 
     class Meta:
@@ -436,3 +442,93 @@ class DashboardSnapshot(models.Model):
 
     def __str__(self) -> str:
         return f"Dashboard of {self.workspace} at {self.built_at:%Y-%m-%d %H:%M}"
+
+
+class FamilyProperty(models.Model):
+    """A home, building or other property the family spends on, so spending can be reported by property. Real estate
+    held in the investment records counts too without being listed here."""
+
+    class Kind(models.TextChoices):
+        RESIDENCE = "residence", "Residence"
+        VACATION = "vacation", "Vacation home"
+        RENTAL = "rental", "Rental or commercial property"
+        AIRCRAFT = "aircraft", "Aircraft"
+        VESSEL = "vessel", "Yacht or vessel"
+        OTHER = "other", "Other"
+
+    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE, related_name="family_properties")
+    name = models.CharField(max_length=100)
+    kind = models.CharField(max_length=10, choices=Kind.choices, default=Kind.RESIDENCE)
+    created_by = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["name"]
+        verbose_name_plural = "family properties"
+        constraints = [models.UniqueConstraint(fields=["workspace", "name"], name="family_property_unique")]
+
+    def __str__(self) -> str:
+        return self.name
+
+
+class Budget(models.Model):
+    """A year's budget: an amount per Campfire entity, GL account and month (BudgetLine). Versions: an approved
+    budget stays as it was; changing it means a new version (a draft copy) that is approved in its turn. The budget
+    for a year is its latest approved version, or the latest draft while none is approved."""
+
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        APPROVED = "approved", "Approved"
+
+    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE, related_name="budgets")
+    year = models.PositiveSmallIntegerField()
+    version = models.PositiveSmallIntegerField(default=1)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.DRAFT)
+    note = models.CharField(max_length=255, blank=True, help_text="How it was made, or why it was revised")
+    created_by = models.CharField(max_length=255, blank=True)
+    created_by_id = models.CharField(max_length=64, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    approved_by = models.CharField(max_length=255, blank=True)
+    approved_by_id = models.CharField(max_length=64, blank=True)
+    approved_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-year", "-version"]
+        constraints = [models.UniqueConstraint(fields=["workspace", "year", "version"], name="budget_version_unique")]
+
+    def __str__(self) -> str:
+        return f"{self.year} budget, version {self.version} ({self.get_status_display().lower()})"
+
+    @property
+    def is_draft(self) -> bool:
+        return self.status == self.Status.DRAFT
+
+
+class BudgetLine(models.Model):
+    """One entity's budget for one GL account: twelve monthly amounts, January first. Income and expenses are both
+    positive (as Campfire's income statement shows them)."""
+
+    budget = models.ForeignKey(Budget, on_delete=models.CASCADE, related_name="lines")
+    campfire_entity_id = models.BigIntegerField()
+    entity_label = models.CharField(max_length=255)
+    campfire_account_id = models.BigIntegerField()
+    account_number = models.CharField(max_length=40, blank=True)
+    account_label = models.CharField(max_length=255)
+    income = models.BooleanField(default=False, help_text="An income account (otherwise an expense)")
+    months = models.JSONField(default=list, help_text="Twelve amounts as strings, January to December")
+
+    class Meta:
+        ordering = ["entity_label", "-income", "account_number", "account_label"]
+        constraints = [models.UniqueConstraint(fields=["budget", "campfire_entity_id", "campfire_account_id"], name="budget_line_unique")]
+
+    def __str__(self) -> str:
+        return f"{self.entity_label} · {self.account_label}"
+
+    @property
+    def amounts(self) -> list[Decimal]:
+        values = [Decimal(str(v or 0)) for v in (self.months or [])][:12]
+        return values + [Decimal(0)] * (12 - len(values))
+
+    @property
+    def total(self) -> Decimal:
+        return sum(self.amounts, Decimal(0))

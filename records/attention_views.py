@@ -78,6 +78,7 @@ def home_page(request: HttpRequest, workspace: Workspace, framed: bool) -> HttpR
     return render(request, "records/dashboard.html", {
         "workspace": workspace, "framed": framed, "frame_token": getattr(request, "fo_frame_token", ""), "today": today, "error": error,
         "snap": snap, "fresh": fresh, "nw": data.get("net_worth"), "lq": data.get("liquidity"), "bl": data.get("bills"), "rc": data.get("reconciliation"),
+        "bg": data.get("budget"),
         "rows": [(i, url(i.target, *i.args)) for i in items[:TOP_ITEMS]], "more": max(len(items) - TOP_ITEMS, 0), "counts": counts, "head": head,
         "approvals": approvals, "approvals_total": sum(a["count"] for a in approvals), "demo_url": demo_url(request, workspace, framed),
         "allocation": breakdown(head.by_asset_class, head.total), "commitments": _commitments(workspace, today) if head.families else [],
@@ -85,7 +86,7 @@ def home_page(request: HttpRequest, workspace: Workspace, framed: bool) -> HttpR
         "closed_count": sum(1 for r in close_rows if r["closed"]), "action": url("records:attention"),
         "links": {k: url(v) for k, v in {"work": "records:work", "statements": "gl:statements", "investments": "investments:investments", "cash": "gl:cash",
                                            "liquidity": "gl:liquidity", "bills": "gl:bills", "calls": "gl:calls", "close": "gl:close", "reconcile": "gl:reconcile",
-                                           "entities": "entities:entities", "imports": "investments:imports"}.items()},
+                                           "entities": "entities:entities", "imports": "investments:imports", "budget": "gl:budget"}.items()},
     })
 
 

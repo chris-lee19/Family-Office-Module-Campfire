@@ -3,6 +3,8 @@
     python manage.py campfire_demo_books                # opening balances, this year's operating activity,
                                                         # operating bank accounts with recent lines, open bills
     python manage.py campfire_demo_books --dry-run      # show what would be created
+    python manage.py campfire_demo_books --lifestyle    # only the household and family spending (tagged), and the
+                                                        # Harbor Street property tag on the rental's entries
     python manage.py campfire_demo_books --teardown     # remove what this command created
 
 Run `campfire_demo_setup` first (entities, chart, payees) and the app's GL setup (investment accounts). Everything is
@@ -49,6 +51,14 @@ RENT, FEE_INCOME, INTEREST_INCOME = "Rental income", "Management fee income - re
 TRUSTEE, ADVISORY, LEGAL, TAX_PREP, INSURANCE, PROPERTY, BANK_FEES, RELATED_FEES, GRANTS, INTEREST = (
     "Trustee fees", "Professional and advisory fees", "Legal fees", "Tax preparation and accounting fees", "Insurance expense",
     "Property taxes and maintenance", "Bank and custody fees", "Management fees - related party", "Charitable grants", "Interest expense")
+
+STAFF, RESIDENCE, TRAVEL, AVIATION, CLUBS, EDUCATION = (
+    "Household staff", "Residence operating costs", "Travel", "Aviation", "Clubs and memberships", "Education")
+# Spending tags (tag groups the app sets up on Budget vs. Actual -> Lifestyle, or GL setup): who and which property.
+MEMBER_GROUP, PROPERTY_GROUP = "FO Family Member", "FO Property"
+ROBERT, ELEANOR, CLAIRE, JAMES, SOFIA = "Robert Alder", "Eleanor Alder", "Claire Moreno", "James Alder", "Sofia Moreno"
+SEACLIFF, LAKEVIEW, HARBOR = "Seacliff Avenue residence", "Lakeview cottage", "Harbor Street Mixed-Use Property"
+HARBOR_ACCOUNTS = (RENT, PROPERTY, INTEREST, INSURANCE)  # the rental's lines, tagged to its property
 
 RRT, ERT, DYNASTY, GST = "Robert Alder Revocable Trust", "Eleanor Alder Revocable Trust", "Alder 2012 Dynasty Trust", "Claire Moreno 2019 GST Trust"
 MGMT, LP, ARE, FOUNDATION = "Alder Management LLC", "Alder Family Investments LP", "Alder Real Estate Holdings LLC", "Alder Family Foundation"
@@ -143,6 +153,45 @@ def month_lines(entity: str, month: int, mortgage_balance: Decimal = ZERO) -> li
     return lines
 
 
+LifeLine = tuple[str, Decimal, str, str, str]  # (account, amount: debit positive, description, family member, property)
+
+
+def lifestyle_lines(entity: str, month: int) -> list[LifeLine]:
+    """One month's household and family spending paid by an entity, each line tagged with who it was for and, for a
+    home, which one. Everything settles through operating cash, the last line (untagged)."""
+    lines: list[LifeLine] = []
+    add = lambda name, amount, text, member, prop="": lines.append((name, Decimal(amount), text, member, prop))  # noqa: E731
+    if entity == RRT:
+        add(STAFF, 16_500, "Household staff, Seacliff Avenue", ROBERT, SEACLIFF)
+        add(RESIDENCE, 7_800 + {3: 14_200, 8: 9_600}.get(month, 0), "Utilities, upkeep and grounds, Seacliff Avenue", ROBERT, SEACLIFF)
+        if month in (1, 5, 9):
+            add(AVIATION, 60_000, "Jet card top-up", ROBERT)
+        if month == 7:
+            add(AVIATION, 28_500, "Charter flight", ROBERT)
+        if month == 1:
+            add(CLUBS, 24_000, "Annual club dues", ROBERT)
+        if month in (3, 9):
+            add(TRAVEL, {3: 12_000, 9: 21_500}[month], "Travel", ROBERT)
+    if entity == ERT:
+        add(RESIDENCE, 3_200 + (4_800 if month in (6, 7, 8) else 0), "Utilities and upkeep, Lakeview cottage", ELEANOR, LAKEVIEW)
+        if month in (6, 7, 8):
+            add(STAFF, 6_500, "Seasonal caretaker, Lakeview cottage", ELEANOR, LAKEVIEW)
+        if month in (2, 7):
+            add(TRAVEL, {2: 22_000, 7: 35_500}[month], "Travel", ELEANOR)
+        if month == 1:
+            add(CLUBS, 8_500, "Annual club dues", ELEANOR)
+    if entity == GST:
+        if month in (1, 8):
+            add(EDUCATION, 28_500, "Tuition, Sofia Moreno", SOFIA)
+        if month == 5:
+            add(TRAVEL, 9_000, "Travel", CLAIRE)
+    if entity == DYNASTY and month == 1:
+        add(CLUBS, 4_000, "Annual club dues", JAMES)
+    if lines:
+        lines.append((CASH, -sum((a for _, a, _, _, _ in lines), ZERO), "Operating account", "", ""))
+    return lines
+
+
 # Recent bank lines for the operating accounts, still to be categorized: (entity, days ago, amount: in > 0, merchant).
 BANK_LINES = [
     (ARE, 11, 62_000, "HARBOR STREET TENANTS ACH RENT"), (ARE, 9, -3_100, "SEABRIGHT PROPERTY MGMT"), (ARE, 4, -1_850, "COASTLINE PLUMBING"),
@@ -204,6 +253,7 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):  # type: ignore[no-untyped-def]
         parser.add_argument("--dry-run", action="store_true")
+        parser.add_argument("--lifestyle", action="store_true", help="Only add the household and family spending and the property tags")
         parser.add_argument("--teardown", action="store_true", help="Delete the entries, bills and bank accounts this command created")
 
     def handle(self, *args, **opts):  # type: ignore[no-untyped-def]
@@ -211,7 +261,7 @@ class Command(BaseCommand):
             self.client = ApiKeyClient()
         except NotConnected as e:
             raise CommandError(str(e)) from e
-        self.dry = opts["dry_run"]
+        self.dry, self.lifestyle_only = opts["dry_run"], opts["lifestyle"]
         try:
             self.teardown() if opts["teardown"] else self.setup()
         except CampfireError as e:
@@ -254,18 +304,22 @@ class Command(BaseCommand):
         booked = {(str(j.get("entity")), str(j.get("date"))[:10], j.get("memo")) for j in journals}
         book = investment_book(opening)
 
-        def entry(entity: str, when: date, memo: str, key: str, lines: list[Line]) -> None:
+        def entry(entity: str, when: date, memo: str, key: str, lines: list[Line], tags: list[list[int]] | None = None) -> None:
             source_id = f"alder-books-{key}"
             if source_id in existing or (str(entities[entity]), when.isoformat(), memo) in booked or not lines:
                 return
             assert sum((a for _, a, _ in lines), ZERO) == ZERO, (entity, memo)
+            tags = tags or [[] for _ in lines]
             body = {"date": when.isoformat(), "type": "journal_entry", "memo": memo, "entity": str(entities[entity]), "currency": "USD",
                     "source": SOURCE, "source_id": source_id, "ref_number": key.upper()[:30],
                     "transactions": [{"account": str(accounts[name]), **({"debit_amount_native": float(a)} if a > 0 else {"credit_amount_native": float(-a)}),
-                                      "tags": [], "bank_description": text, "external_id": f"{source_id}-{n}"}
+                                      "tags": tags[n - 1], "bank_description": text, "external_id": f"{source_id}-{n}"}
                                      for n, (name, a, text) in enumerate(lines, start=1) if a]}
             self.post(JE_PATH, body, f"{when} {entity}: {memo} ({sum((a for _, a, _ in lines if a > 0), ZERO):,.0f})")
 
+        if self.lifestyle_only:
+            self.spending(today, entities, accounts, journals, entry)
+            return
         self.stdout.write(f"Opening balances ({opening}):")
         for n, entity in enumerate(EQUITY, start=1):
             cash, cost = book.get(entity, (ZERO, ZERO))
@@ -280,6 +334,8 @@ class Command(BaseCommand):
                 entry(entity, when, f"Operating activity, {when:%B %Y}", f"{today.year}-{month:02d}-{n}", lines)
                 if entity == ARE:
                     mortgage -= next(a for name, a, _ in lines if name == MORTGAGE)
+
+        self.spending(today, entities, accounts, journals, entry)
 
         self.stdout.write("Operating bank accounts and recent lines:")
         banks = {b.get("name"): b for b in _all(self.client, BANK_ACCOUNT_PATH) if not b.get("is_deleted")}
@@ -313,6 +369,49 @@ class Command(BaseCommand):
                                   "message_on_bill": text, "source": SOURCE, "source_id": source_id,
                                   "lines": [{"account": str(accounts[account]), "amount": float(amount), "description": text, "tags": []}]},
                       f"bill {number} {payee} -> {entity}: {text} ({amount:,})")
+
+    def spending(self, today: date, entities: dict[str, Any], accounts: dict[str, Any], journals: list[dict[str, Any]], entry: Any) -> None:
+        """Household and family spending for the completed months, tagged by family member and property, and the
+        Harbor Street property tag on the rental's own lines."""
+        groups = {g.get("name"): g["id"] for g in _all(self.client, "/coa/api/tag-group")}
+        if MEMBER_GROUP not in groups or PROPERTY_GROUP not in groups:
+            raise CommandError("The spending tag groups aren't in Campfire yet: set up spending tags in the app (Budget vs. actual -> Lifestyle) first.")
+        tags = {(t.get("group"), t.get("name")): t["id"] for t in _all(self.client, "/coa/api/tag") if not t.get("is_deleted")}
+        missing = [n for n in (STAFF, RESIDENCE, TRAVEL, AVIATION, CLUBS, EDUCATION) if n not in accounts]
+        if missing:
+            raise CommandError("Not in Campfire yet (run campfire_demo_setup): " + ", ".join(missing))
+
+        def tag(group: str, name: str) -> list[int]:
+            if not name:
+                return []
+            if (groups[group], name) not in tags:
+                raise CommandError(f"No tag '{name}' in {group}: set up spending tags in the app first.")
+            return [tags[(groups[group], name)]]
+
+        self.stdout.write(f"Household and family spending, {today.year}:")
+        for month in range(1, today.month):
+            when = month_end(date(today.year, month, 1))
+            for n, entity in enumerate(EQUITY, start=1):
+                life = lifestyle_lines(entity, month)
+                entry(entity, when, f"Household and family spending, {when:%B %Y}", f"{today.year}-{month:02d}-{n}-life",
+                      [(name, a, text) for name, a, text, _, _ in life], [tag(MEMBER_GROUP, m) + tag(PROPERTY_GROUP, p) for _, _, _, m, p in life])
+
+        self.stdout.write("Harbor Street property tag on the rental's lines:")
+        harbor = tag(PROPERTY_GROUP, HARBOR)[0]
+        wanted = {accounts[name] for name in HARBOR_ACCOUNTS if name in accounts}
+        for j in journals:
+            if str(j.get("entity")) != str(entities[ARE]) or not str(j.get("memo") or "").startswith("Operating activity"):
+                continue
+            full = self.client.get_json(f"{JE_PATH}/{j['id']}")
+            for t in full.get("transactions", []):
+                if t.get("account") in wanted and harbor not in (t.get("tag_ids") or []):
+                    label = f"{str(j.get('date'))[:10]} {t.get('account_name')}"
+                    if self.dry:
+                        self.say("tag", label)
+                        continue
+                    r = self.client.request("PATCH", f"/coa/api/transaction/{t['id']}",
+                                            json={"tags": [{"id": i} for i in [*(t.get("tag_ids") or []), harbor]]})
+                    self.say("tagged" if r.status_code < 400 else "failed", label + ("" if r.status_code < 400 else f" ({r.status_code})"))
 
     # ---------------------------------------------------------------------------------------- teardown
 

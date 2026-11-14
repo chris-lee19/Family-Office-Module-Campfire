@@ -165,11 +165,15 @@ def overview(client: CampfireClient, today: date, since: date | None = None) -> 
     return Cash(today, ordered, lines, scope_label)
 
 
-def categorize(client: CampfireClient, gl_line_id: int, account_id: int, vendor_id: int | None = None) -> str:
-    """Say what a bank line was: put its entry's uncategorized side on a GL account (and payee). Returns what happened."""
+def categorize(client: CampfireClient, gl_line_id: int, account_id: int, vendor_id: int | None = None, tags: list[int] | None = None) -> str:
+    """Say what a bank line was: put its entry's uncategorized side on a GL account (and payee, and the spending tags:
+    family member, property). Returns what happened. Campfire takes a line's tags as objects ({"id": ...}); a plain
+    list of ids is refused."""
     body: dict[str, Any] = {"account": account_id}
     if vendor_id:
         body["vendor"] = vendor_id
+    if tags:
+        body["tags"] = [{"id": t} for t in tags]
     r = client.request("PATCH", f"{LEDGER_PATH}/{gl_line_id}", json=body)
     if r.status_code == 202:
         return "sent for approval"

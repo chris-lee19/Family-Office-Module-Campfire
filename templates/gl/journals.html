@@ -28,6 +28,7 @@
   <div class="decision-main">
     <div class="decision-title"><strong>{{ j.memo }}</strong><span class="pill plain">{{ j.get_kind_display }}</span>{% if j.error %}<span class="pill sev-error">Campfire refused it</span>{% endif %}</div>
     <div class="muted small">{{ j.ref_number }} · dated {{ j.date|date:"M j, Y" }} · written by {{ j.created_by|default:"—" }}{% if j.error %} · {{ j.error|truncatechars:160 }}{% endif %}</div>
+    {% if j.tag_ids %}<p class="small">Spending for {% for t in j.tag_ids %}<span class="pill plain">{{ tag_labels|get:t }}</span> {% endfor %}<span class="muted">(on its income and expense lines)</span></p>{% endif %}
     {% for e in j.entries %}
     <table class="inner je-lines"><thead><tr><th>{{ e.entity }}</th><th></th><th class="num">Debit</th><th class="num">Credit</th></tr></thead><tbody>
       {% for ln in e.lines %}<tr><td>{{ ln.account }}</td><td class="muted">{{ ln.description }}</td><td class="num">{% if ln.debit != "0" and ln.debit != "0.00" %}{{ ln.debit }}{% endif %}</td><td class="num">{% if ln.credit != "0" and ln.credit != "0.00" %}{{ ln.credit }}{% endif %}</td></tr>{% endfor %}
@@ -57,6 +58,7 @@
       <div class="field"><label>Entity <span class="req">*</span></label><select name="entity" required><option value="">Choose</option>{% for id, name in ref.entities.items %}<option value="{{ id }}" {% if typed.entity == id|stringformat:"s" %}selected{% endif %}>{{ name }}</option>{% endfor %}</select></div>
       <div class="field"><label>Date <span class="req">*</span></label><input type="date" name="date" value="{{ typed.date|default:today|date:'Y-m-d'|default:typed.date }}" required></div>
       <div class="field"><label>What it is for <span class="req">*</span></label><input name="memo" value="{{ typed.memo }}" required></div>
+      {% include "includes/spending_tags.html" %}
     </div>
     <table class="inner je-entry" data-balance>
       <thead><tr><th>Account</th><th>Description</th><th class="num">Debit</th><th class="num">Credit</th></tr></thead>

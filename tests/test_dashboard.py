@@ -151,7 +151,7 @@ def test_home_shows_the_snapshot_and_refreshes_it(client, workspace: Workspace, 
         # The Records page keeps its own template: the dashboard lives beside it, not in its place.
         records = client.get("/fo/frame/records", {"fo_t": unquote(page.split('name="fo_t" value="')[1].split('"')[0])}).content.decode()
         assert "<h1>Records</h1>" in records and "Onboard a family from a spreadsheet" in records and "Where the family stands" not in records
-        assert snap.as_of == TODAY and set(snap.data) == {"net_worth", "liquidity", "bills", "reconciliation"} and "data-auto-refresh" not in page
+        assert snap.as_of == TODAY and set(snap.data) == {"net_worth", "liquidity", "bills", "reconciliation", "budget"} and "data-auto-refresh" not in page
         token = unquote(page.split('name="fo_t" value="')[1].split('"')[0])
         # A normal visit shows the snapshot without calling Campfire.
         before = cf.calls

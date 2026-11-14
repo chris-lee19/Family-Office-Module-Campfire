@@ -8,7 +8,7 @@ from django.utils import timezone
 from campfire_integration import pages
 from campfire_integration.client import CampfireClient, CampfireError, NotConnected
 from campfire_integration.models import Workspace
-from gl.services import bankmatch, charts
+from gl.services import bankmatch, charts, lifestyle
 from gl.services import cash as svc
 from gl.services.calls import list_vendors
 from gl.services.setup import account_label, list_accounts
@@ -36,7 +36,8 @@ def _categorize(request: HttpRequest, workspace: Workspace, client: CampfireClie
     accounts = {int(a["id"]): a for a in list_accounts(client)}
     if account_id not in accounts or accounts[account_id].get("account_type") == "UNCATEGORIZED":
         raise svc.CashError("Choose the account this line belongs to.")
-    outcome = svc.categorize(client, line.gl_line_id, account_id, vendor_id or None)
+    tags = lifestyle.picked(workspace, request.POST)
+    outcome = svc.categorize(client, line.gl_line_id, account_id, vendor_id or None, tags)
     label = account_label(accounts[account_id])
     AuditEntry.objects.create(workspace=workspace, actor=getattr(request, "fo_actor", ""), action=AuditEntry.Action.UPDATED, kind="bank-lines",
                               object_id=str(line.id), object_repr=f"{line.merchant} {line.amount:,.2f} ({line.entity})"[:255],
@@ -72,7 +73,7 @@ def cash_page(request: HttpRequest, workspace: Workspace, framed: bool) -> HttpR
     grouped = [(title, [(int(a["id"]), account_label(a)) for a in accounts if a.get("account_type") in types]) for title, types in GROUPS]
     return render(request, "gl/cash.html", {
         "workspace": workspace, "framed": framed, "frame_token": getattr(request, "fo_frame_token", ""), "cash": cash, "today": today,
-        "message": message, "error": error, "account_groups": [(t, items) for t, items in grouped if items],
+        "message": message, "error": error, "spend_tags": lifestyle.choices(workspace), "account_groups": [(t, items) for t, items in grouped if items],
         "vendors": [(int(v["id"]), v.get("name", "")) for v in vendors], "months": svc.by_month(cash.lines) if cash else [],
         "action": pages.page_url(request, framed, "gl:cash"), "calls_url": pages.page_url(request, framed, "gl:calls"),
         "statements_url": pages.page_url(request, framed, "gl:statements"), "lookback": svc.LOOKBACK_DAYS, "flow": flow,

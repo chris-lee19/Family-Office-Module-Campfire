@@ -1,0 +1,21 @@
+{% load money %}<section class="box box-flush">
+  <div class="table-scroll"><table class="statement wide bva">
+    <thead>
+      <tr class="grouped"><th></th><th colspan="3" class="num">{{ c.month_label }}</th><th colspan="4" class="num">Year to date</th><th colspan="2" class="num">Full year</th></tr>
+      <tr><th>Budget vs. Actual</th><th class="num">Actual</th><th class="num">Budget</th><th class="num">Better (worse)</th>
+        <th class="num">Actual</th><th class="num">Budget</th><th class="num">Better (worse)</th><th class="num">Of budget</th><th class="num">Budget</th><th class="num">Outlook</th></tr>
+    </thead>
+    <tbody>
+    {% for kind, r, url in rows %}
+      {% if kind == "section" %}<tr class="st-section"><td colspan="11">{{ r }}</td></tr>
+      {% else %}<tr class="st-{{ kind }}{% if kind == 'account' %} lvl-1{% endif %}">
+        <td>{% if r.number %}<span class="acct-no">{{ r.number }}</span>{% endif %}{% if url %}<a href="{{ url }}" title="Open the entries behind it">{{ r.label }}</a>{% else %}{{ r.label }}{% endif %}{% if kind == "account" and r.flag %} <span class="pill sev-warning">{{ r.flag }}</span>{% endif %}</td>
+        <td class="num">{{ r.m_actual|acct }}</td><td class="num">{{ r.m_budget|acct }}</td><td class="num{% if r.m_better < 0 %} worse{% endif %}">{{ r.m_better|acct }}</td>
+        <td class="num">{{ r.ytd_actual|acct }}</td><td class="num">{{ r.ytd_budget|acct }}</td><td class="num{% if r.ytd_better < 0 %} worse{% endif %}">{{ r.ytd_better|acct }}</td>
+        <td class="num">{% if r.ytd_pct is not None and kind != "grand" %}{{ r.ytd_pct }}%{% endif %}</td>
+        <td class="num">{{ r.year_budget|acct }}</td><td class="num">{{ r.outlook|acct }}</td>
+      </tr>{% endif %}
+    {% endfor %}
+    </tbody>
+  </table></div>
+</section>

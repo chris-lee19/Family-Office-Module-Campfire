@@ -40,7 +40,7 @@
     <header class="pack-head">
       <div class="ph-org">{{ workspace }}</div>
       <h2>{{ s.title }}</h2>
-      <p>{{ s.about }} · {% if s.key == "changes" or s.key == "capital" or s.key == "receipts" %}{{ pack.period }}{% elif s.key == "liquidity" %}from {{ pack.today|date:"F j, Y" }}{% else %}as of {{ pack.end|date:"F j, Y" }}{% endif %}</p>
+      <p>{{ s.about }} · {% if s.key == "budget" and s.data %}year to {{ s.data.c.month_label }}{% elif s.key == "lifestyle" and s.data %}{{ s.data.life.start|date:"F j, Y" }} to {{ s.data.end|date:"F j, Y" }}{% elif s.key == "changes" or s.key == "capital" or s.key == "receipts" or s.key == "lifestyle" %}{{ pack.period }}{% elif s.key == "liquidity" %}from {{ pack.today|date:"F j, Y" }}{% else %}as of {{ pack.end|date:"F j, Y" }}{% endif %}</p>
     </header>
     {% if s.error %}<div class="callout warn">{{ s.error }}</div>
     {% elif s.key == "glance" %}
@@ -53,6 +53,22 @@
       </div>
     {% elif s.key == "net_worth" or s.key == "by_entity" or s.key == "by_person" or s.key == "changes" or s.key == "receipts" %}
       {% include "includes/statement_plain.html" with statement=s.data %}
+    {% elif s.key == "budget" %}
+      {% with c=s.data.c rows=s.data.rows %}
+      {% with e=c.total_expenses %}
+      <p class="pack-lead">Spending of {{ e.ytd_actual|money }} against a budget of {{ e.ytd_budget|money }}{% if e.ytd_better < 0 %}, {{ e.ytd_better|money|cut:"-" }} over{% elif e.ytd_better %}, {{ e.ytd_better|money }} under{% endif %}. For the full year: {{ e.outlook|money }} expected against {{ e.year_budget|money }}.{% if c.flagged %} Over budget: {% for r in c.flagged %}{{ r.label }}{% if not forloop.last %}, {% endif %}{% endfor %}.{% endif %}
+        <span class="muted">Budget version {{ c.budget.version }}{% if c.budget.is_draft %} (a draft, not yet approved){% endif %}; brackets are worse than budget.</span></p>
+      {% endwith %}
+      {% include "gl/_bva_table.html" %}
+      {% endwith %}
+    {% elif s.key == "lifestyle" %}
+      {% with life=s.data.life life_rows=s.data.life_rows life_gap=s.data.life_gap %}
+      <section class="box"><div class="box-head"><h3>By family member</h3></div><div class="box-body"><div class="hbars" role="table" aria-label="Spending by family member">
+        {% for r in s.data.people %}<div class="hbar" role="row"><span class="name" role="cell">{{ r.label }}</span><span class="track" role="presentation"><i style="width: {{ r.width }}%"></i></span><span class="num" role="cell">{{ r.value|money }}</span><span class="share muted" role="cell">{{ r.share }}%</span></div>{% endfor %}
+      </div></div></section>
+      {% include "gl/_lifestyle_table.html" %}
+      <p class="muted small">Household and family spending tagged to a family member in the books; "Not assigned" is the rest of those categories.</p>
+      {% endwith %}
     {% elif s.key == "schedule" %}
       <section class="box box-flush">
         <div class="table-scroll"><table class="statement wide">

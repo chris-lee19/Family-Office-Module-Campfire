@@ -21,6 +21,7 @@ NAV = [
     ("Family", "Performance", "investments:performance", "percent", ""),
     ("Family", "Entities & Ownership", "entities:entities", "tree", ""),
     ("Family", "Partnerships & K-1s", "gl:partnerships", "partners", ""),
+    ("Family", "Budget vs. actual", "gl:budget", "target", "budget"),
     ("Family", "Reporting pack", "gl:pack", "pack", ""),
     ("Operations", "Capital calls", "gl:calls", "calls", "calls"),
     ("Operations", "Imports", "investments:imports", "upload", ""),
@@ -68,6 +69,7 @@ ICONS = {
     "percent": '<path d="M19 5 5 19"/><circle cx="7" cy="7" r="2.500"/><circle cx="17" cy="17" r="2.500"/>',
     "list": '<path d="M9 6h11M9 12h11M9 18h11"/><path d="m3.500 6 1 1 2-2M3.500 12l1 1 2-2M3.500 18l1 1 2-2"/>',
     "scale": '<path d="M12 4v16M7 20h10"/><path d="M5 8h14"/><path d="M5 8l-2.500 6a3 3 0 0 0 5 0z"/><path d="M19 8l-2.500 6a3 3 0 0 0 5 0z"/>',
+    "target": '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>',
     "trend": '<path d="M3 17l5-5 4 3 8-8"/><path d="M15 7h5v5"/><path d="M3 21h18"/>',
     "bill": '<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>',
     "journal": '<path d="M5 4h14v16H5z"/><path d="M9 4v16"/><path d="M12 9h4M12 13h4"/>',
@@ -95,11 +97,12 @@ def _badges(workspace: Any) -> dict[str, int]:
     review = (Valuation.objects.filter(account__family__workspace=workspace, status=Valuation.Status.HELD).count()
               + ImportBatch.objects.filter(workspace=workspace, status=ImportBatch.Status.VALIDATED).count())
     calls = CapitalCall.objects.filter(commitment__account__family__workspace=workspace, status__in=CapitalCall.OPEN_STATUSES).count()
-    from gl.models import BankReconciliation, BillRequest, JournalRequest
+    from gl.models import BankReconciliation, BillRequest, Budget, JournalRequest
 
     return {"review": review, "calls": calls, "bills": BillRequest.objects.filter(workspace=workspace, status=BillRequest.Status.PENDING).count(),
             "journals": JournalRequest.objects.filter(workspace=workspace, status=JournalRequest.Status.PENDING).count(),
-            "reconcile": BankReconciliation.objects.filter(workspace=workspace, status=BankReconciliation.Status.PENDING).count()}
+            "reconcile": BankReconciliation.objects.filter(workspace=workspace, status=BankReconciliation.Status.PENDING).count(),
+            "budget": Budget.objects.filter(workspace=workspace, status=Budget.Status.DRAFT).count()}
 
 
 def _search_index(request: Any, framed: bool, workspace: Any, nav: list[dict[str, Any]], actions: list[dict[str, Any]]) -> list[dict[str, str]]:

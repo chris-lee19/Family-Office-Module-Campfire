@@ -17,7 +17,8 @@ from campfire_integration.models import Workspace
 from entities.models import Family
 from entities.services import structure
 from gl.models import AccountMapping, GLSettings, Role
-from gl.services import dashboard, fairvalue, liquidity, partnership, receipts
+from gl.services import budget as budget_svc
+from gl.services import dashboard, fairvalue, lifestyle, liquidity, partnership, receipts
 from gl.services import statements as st
 from investments.models import AssetClass
 from investments.services import performance
@@ -33,6 +34,8 @@ SECTIONS = (
     ("by_person", "Statement of Net Worth by family member", "Each person's share, traced through the ownership chain", True),
     ("changes", "Statement of Changes in Net Worth", "From net worth at the start of the period to net worth at the end", False),
     ("receipts", "Statement of Cash Receipts and Disbursements", "Where cash came from and where it went", False),
+    ("budget", "Budget vs. Actual", "The year so far against the budget", True),
+    ("lifestyle", "Lifestyle Expense Report", "Household and family spending by family member", True),
     ("schedule", "Schedule of Investments", "Every holding with its cost and its value", True),
     ("performance", "Investment Performance Report", "Time-weighted returns, and IRR and multiples for private funds", True),
     ("liquidity", "Liquidity and Cash Flow Forecast", "Cash by month for the next twelve months", True),
@@ -151,6 +154,29 @@ def build(workspace: Workspace, client: CampfireClient, start: date, end: date, 
 
         return [{"r": r, "growth": growth_chart(r)} for r in (performance.build(f, end) for f in families)]
 
+    # Budget vs. Actual runs through the last whole month of the period (and the Lifestyle Expense Report with it).
+    whole_end = end if end == st.month_end(end) else st.month_start(end) - timedelta(days=1)
+
+    def budget_section() -> Any:
+        from gl.budget_views import _rows
+
+        if whole_end < date(end.year, 1, 1) or budget_svc.in_use(workspace, end.year) is None:
+            return None
+        c = budget_svc.compare(workspace, client, scope, end.year, whole_end.month)  # type: ignore[arg-type]
+        return {"c": c, "rows": _rows(c, lambda account_id: ""), "bullets": budget_svc.chart(c)}
+
+    def lifestyle_section() -> Any:
+        if whole_end < start or not lifestyle.is_set_up(workspace):
+            return None
+        life = lifestyle.report(workspace, client, scope, start, whole_end, "person")  # type: ignore[arg-type]
+        if life is None or not life.categories:
+            return None
+        from gl.services.charts import ranked
+
+        return {"life": life, "life_rows": [(cat, [cat.values.get(col, ZERO) for col in life.columns], "") for cat in life.categories],
+                "life_gap": (life.budget - life.total) if life.budgeted else None, "end": whole_end,
+                "people": ranked([(col, t) for col, t in zip(life.columns, life.column_totals) if col != lifestyle.NOT_ASSIGNED])}
+
     builders: dict[str, tuple[bool, Any]] = {  # key -> (needs the books, how to build it)
         "glance": (True, glance),
         "net_worth": (True, lambda: st.balance_sheet(client, scope, start, end, "total", fair())),  # type: ignore[arg-type]
@@ -159,6 +185,8 @@ def build(workspace: Workspace, client: CampfireClient, start: date, end: date, 
                                                        st.look_through(workspace, end, ids))),
         "changes": (True, lambda: st.income_statement(client, scope, start, end, "total", fair())),  # type: ignore[arg-type]
         "receipts": (True, lambda: receipts.build(client, scope, start, end, "total", clearing)),  # type: ignore[arg-type]
+        "budget": (True, budget_section),
+        "lifestyle": (True, lifestyle_section),
         "schedule": (False, lambda: schedule(workspace, end)),
         "performance": (False, performance_section),
         "liquidity": (True, liquidity_section),
@@ -181,6 +209,11 @@ def build(workspace: Workspace, client: CampfireClient, start: date, end: date, 
             section.note = f"The forecast always starts from today ({today:%B %-d, %Y})."
         if key == "capital" and section.data == []:
             section.error = "No partnership keeps books in Campfire yet."
+        if key == "budget" and section.data is None and not section.error:
+            section.error = f"There is no budget for {end.year} yet (Budget vs. actual -> Budget)."
+        if key == "lifestyle" and section.data is None and not section.error:
+            section.error = ("No spending in the period is tagged to a family member yet." if lifestyle.is_set_up(workspace)
+                             else "Spending tags aren't set up yet (Budget vs. actual -> Lifestyle Expense Report).")
         if key in ("glance", "net_worth", "by_entity", "by_person", "changes", "receipts") and section.data is None and not section.error:
             section.error = "Nothing in the books for this period."
         pack.sections.append(section)

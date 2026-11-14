@@ -19,6 +19,7 @@ NAV_PAGES: list[tuple[str, str, str, str]] = [
     ("performance", "Investment performance", "line-chart", "/fo/frame/performance"),
     ("entities", "Entities & Ownership", "users", "/fo/frame/entities"),
     ("partnerships", "Partnerships & K-1s", "handshake", "/fo/frame/partnerships"),
+    ("budget", "Budget vs. actual", "target", "/fo/frame/budget"),
     ("pack", "Reporting pack", "book-open", "/fo/frame/pack"),
     ("calls", "Capital calls", "banknote", "/fo/frame/calls"),
     ("imports", "Imports", "upload", "/fo/frame/imports"),

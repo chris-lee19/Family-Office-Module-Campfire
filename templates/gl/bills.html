@@ -46,7 +46,7 @@
   <div class="decision-main">
     <div class="decision-title"><strong>{{ b.vendor_name }}</strong><span class="amount-chip out">{{ b.amount|acct:2 }}</span>{% if b.error %}<span class="pill sev-error">Campfire refused it</span>{% endif %}</div>
     <div class="muted small">Bill {{ b.bill_number }} · {{ b.entity_label }} · dated {{ b.bill_date|date:"M j, Y" }} · due {{ b.due_date|date:"M j, Y" }}</div>
-    <p>{{ b.description }} <span class="muted">→ {{ b.account_label }}</span></p>
+    <p>{{ b.description }} <span class="muted">→ {{ b.account_label }}</span>{% for t in b.tag_ids %} <span class="pill plain">{{ tag_labels|get:t }}</span>{% endfor %}</p>
     <div class="muted small">Entered by {{ b.created_by|default:"—" }}, {{ b.created_at|date:"M j, H:i" }}{% if b.error %} · {{ b.error|truncatechars:160 }}{% endif %}</div>
   </div>
   <div class="decision-actions">
@@ -76,7 +76,7 @@
       <div class="field"><label>Due date <span class="req">*</span></label><input type="date" name="due_date" value="{{ entered.due_date }}" required></div>
       <div class="field"><label>Amount <span class="req">*</span></label><input name="amount" inputmode="decimal" value="{{ entered.amount }}" required></div>
       <div class="field"><label>What it is for <span class="req">*</span></label><input name="description" value="{{ entered.description }}" required></div>
-      <div class="field"><label>Account <span class="req">*</span></label><select name="account" required><option value="">Choose</option>{% for id, name in ref.accounts.items %}<option value="{{ id }}" {% if entered.account == id|stringformat:"s" %}selected{% endif %}>{{ name }}</option>{% endfor %}</select></div>
+      <div class="field"><label>Account <span class="req">*</span></label><select name="account" required><option value="">Choose</option>{% for id, name in ref.accounts.items %}<option value="{{ id }}" {% if entered.account == id|stringformat:"s" %}selected{% endif %}>{{ name }}</option>{% endfor %}</select></div>      {% include "includes/spending_tags.html" %}
     </div>
     <div class="actions"><button class="btn" type="submit">Enter for approval</button><span class="muted small">Nothing reaches the books until someone approves it.</span></div>
   </form>

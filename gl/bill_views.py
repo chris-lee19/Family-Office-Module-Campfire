@@ -14,7 +14,7 @@ from campfire_integration.client import CampfireClient, CampfireError, NotConnec
 from campfire_integration.models import Workspace
 from gl.models import BillRequest
 from gl.services import bills as svc
-from gl.services import charts
+from gl.services import charts, lifestyle
 from gl.services import statements
 from gl.services.calls import list_vendors
 from gl.services.setup import account_label, list_accounts
@@ -99,7 +99,7 @@ def bills_page(request: HttpRequest, workspace: Workspace, framed: bool) -> Http
     return render(request, "gl/bills.html", {
         "workspace": workspace, "framed": framed, "frame_token": getattr(request, "fo_frame_token", ""), "today": today,
         "message": message, "error": error, "open_bills": open_bills, "paid": [b for b in rows if b.status == "paid"][:10],
-        "pending": pending, "recent": recent, "ref": ref, "action": pages.page_url(request, framed, "gl:bills"),
+        "pending": pending, "recent": recent, "ref": ref, "action": pages.page_url(request, framed, "gl:bills"), "spend_tags": lifestyle.choices(workspace), "tag_labels": lifestyle.labels(workspace),
         "stats": {"open": sum((b.due for b in open_bills), svc.ZERO), "count": len(open_bills),
                   "overdue": sum((b.due for b in open_bills if b.overdue), svc.ZERO), "overdue_count": sum(1 for b in open_bills if b.overdue),
                   "soon": sum((b.due for b in soon), svc.ZERO), "soon_count": len(soon)},

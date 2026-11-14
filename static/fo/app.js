@@ -288,6 +288,8 @@
 
   /* ---- a submitted button shows it is working (not disabled: its name and value must still be sent) ---- */
   d.addEventListener("submit", function (e) {
+    var ask = e.target.getAttribute && e.target.getAttribute("data-confirm");
+    if (ask && !window.confirm(ask)) { e.preventDefault(); return; }
     var b = e.submitter;
     if (b && b.classList && b.classList.contains("btn")) setTimeout(function () { b.classList.add("is-loading"); }, 0);
   });

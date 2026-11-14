@@ -164,9 +164,28 @@ def reconciliation(workspace: Workspace, client: CampfireClient, today: date) ->
             "behind": count("behind") + count("never"), "target": target.isoformat(), "pct": _pct(Decimal(count("current")), Decimal(len(books)), "1")}
 
 
+def budget(workspace: Workspace, client: CampfireClient, today: date) -> dict[str, Any] | None:
+    """The family's spending against the budget for the year so far, and what is over (None without a budget)."""
+    from gl.services import budget as budget_svc
+
+    scope = next((s for s in st.scopes(client) if s.rollup), None)
+    if scope is None:
+        return None
+    summary = budget_svc.summary(workspace, client, scope, today)
+    if summary is not None:
+        summary["width"] = _pct(min(Decimal(summary["actual"]), Decimal(summary["budget"])), max(Decimal(summary["actual"]), Decimal(summary["budget"])))
+        summary["over_budget"] = Decimal(summary["actual"]) > Decimal(summary["budget"])
+    return summary
+
+
 def build(workspace: Workspace, client: CampfireClient, today: date) -> dict[str, Any]:
     return {"net_worth": net_worth(workspace, client, today), "liquidity": cash_and_liquidity(workspace, client, today),
-            "bills": bills(client, today), "reconciliation": reconciliation(workspace, client, today)}
+            "bills": bills(client, today), "reconciliation": reconciliation(workspace, client, today), "budget": budget(workspace, client, today)}
+
+
+def mark_stale(workspace: Workspace) -> None:
+    """Something on Home changed in the app (a budget approved, for one): the next visit refreshes it behind itself."""
+    DashboardSnapshot.objects.filter(workspace=workspace).update(as_of=date(2000, 1, 1))
 
 
 def refresh(workspace: Workspace, client: CampfireClient, today: date) -> DashboardSnapshot:

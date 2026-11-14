@@ -288,7 +288,10 @@ def test_setup_accounts_and_dimensions(workspace: Workspace) -> None:
     created.clear()
     setup_dimensions(workspace, client, create=True)  # type: ignore[arg-type]
     groups = [b for b in created if "group" not in b]
-    assert [g["name"] for g in groups] == ["FO Family", "FO Family Branch", "FO Tax Treatment", "FO Custodian", "FO Asset Class", "FO Holding"]
+    assert [g["name"] for g in groups] == ["FO Family", "FO Family Branch", "FO Tax Treatment", "FO Custodian", "FO Asset Class", "FO Holding",
+                                           "FO Family Member", "FO Property"]
+    assert DimensionTag.objects.filter(dimension="person").count() == 5  # the demo family's people
+    assert list(DimensionTag.objects.filter(dimension="property").values_list("label", flat=True)) == ["Harbor Street Mixed-Use Property"]  # real estate held
     assert set(DimensionTag.objects.filter(dimension="tax_treatment").values_list("label", flat=True)) == {"Taxable", "Tax-deferred", "Tax-exempt"}
     assert DimensionTag.objects.filter(dimension="custodian").count() == 1  # the demo's one custodian
     assert DimensionTag.objects.filter(dimension="holding").count() == workspace.instruments.count()

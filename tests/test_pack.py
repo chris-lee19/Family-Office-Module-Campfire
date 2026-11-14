@@ -165,7 +165,8 @@ def test_schedule_of_investments(workspace: Workspace, alder: Family) -> None:
 @pytest.mark.django_db
 def test_pack_is_built_from_the_same_reports(workspace: Workspace, alder: Family) -> None:
     built = pack.build(workspace, FakeCampfire(), date(2026, 9, 1), TODAY, TODAY)  # type: ignore[arg-type]
-    assert [s.key for s in built.sections] == list(pack.KEYS) and not [s.key for s in built.sections if s.error]
+    assert [s.key for s in built.sections] == list(pack.KEYS)
+    assert [s.key for s in built.sections if s.error] == ["budget", "lifestyle"]  # no budget and no spending tags in this workspace: said, not hidden
     by = {s.key: s for s in built.sections}
     assert built.period == "September 1, 2026 to November 13, 2026" and built.scope.label == "Alder Family (Consolidated): all entities"  # type: ignore[union-attr]
     net = next(r.values[0] for r in by["net_worth"].data.rows if r.label == "Net worth" and r.kind == "total")
@@ -197,7 +198,7 @@ def test_pack_page_and_books_that_cannot_be_read(client, workspace: Workspace, a
                      "Schedule of Investments", "Investment Performance Report", "Projected cash at month end", "Capital Account Statements", "data-structure",
                      "Print or save as PDF"):
             assert part in built, part
-        assert built.count('class="pack-section') == len(pack.KEYS) and built.count("pack-section wide") == 7
+        assert built.count('class="pack-section') == len(pack.KEYS) and built.count("pack-section wide") == 9
         few = client.get("/fo/frame/pack", {"fo_t": token, "build": 1, "s": ["schedule", "structure"]}).content.decode()
         assert few.count('class="pack-section') == 2 and "Statement of Changes in Net Worth</h2>" not in few
 

@@ -15,6 +15,7 @@ from django.utils import timezone
 from campfire_integration.client import CampfireClient
 from campfire_integration.models import Workspace
 from gl.models import SOURCE, BillRequest
+from gl.services import lifestyle
 from gl.services.calls import BILL_PATH, _terms
 from records.models import AuditEntry, ControlSettings
 
@@ -130,7 +131,8 @@ def submit(workspace: Workspace, data: dict[str, Any], entities: dict[int, str],
     req = BillRequest.objects.create(
         workspace=workspace, campfire_entity_id=entity, entity_label=entities[entity][:255], campfire_vendor_id=vendor, vendor_name=vendors[vendor][:255],
         bill_number=number[:120], bill_date=bill_date, due_date=due_date, description=text[:255], campfire_account_id=account,
-        account_label=accounts[account][:255], amount=_money(data.get("amount")), created_by=actor, created_by_id=actor_id)
+        account_label=accounts[account][:255], amount=_money(data.get("amount")), created_by=actor, created_by_id=actor_id,
+        tag_ids=lifestyle.picked(workspace, data))
     AuditEntry.objects.create(workspace=workspace, actor=actor, action=AuditEntry.Action.CREATED, kind="bills", object_id=str(req.pk),
                               object_repr=str(req)[:255], changes={"entered": ["", f"{req.vendor_name} {req.bill_number} {req.amount}"]})
     return req
@@ -141,7 +143,7 @@ def payload(req: BillRequest) -> dict[str, Any]:
         "bill_number": req.bill_number, "bill_date": req.bill_date.isoformat(), "item_date": req.bill_date.isoformat(), "due_date": req.due_date.isoformat(),
         "terms": _terms(req.bill_date, req.due_date), "entity": str(req.campfire_entity_id), "vendor": str(req.campfire_vendor_id), "currency": "USD",
         "message_on_bill": req.description, "source": SOURCE, "source_id": req.source_id,
-        "lines": [{"account": str(req.campfire_account_id), "amount": float(req.amount), "description": req.description, "tags": []}],
+        "lines": [{"account": str(req.campfire_account_id), "amount": float(req.amount), "description": req.description, "tags": list(req.tag_ids or [])}],
     }
 
 

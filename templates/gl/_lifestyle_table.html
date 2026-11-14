@@ -1,0 +1,12 @@
+{% load money %}<section class="box box-flush">
+  <div class="table-scroll"><table class="statement wide">
+    <thead><tr><th>Lifestyle Expense Report</th>{% for col in life.columns %}<th class="num">{{ col }}</th>{% endfor %}<th class="num">Total</th>{% if life.budgeted %}<th class="num">Budget</th><th class="num">Better (worse)</th>{% endif %}</tr></thead>
+    <tbody>
+      {% for cat, values, url in life_rows %}<tr class="st-account"><td>{% if cat.number %}<span class="acct-no">{{ cat.number }}</span>{% endif %}{% if url %}<a href="{{ url }}" title="Open the entries behind it">{{ cat.label }}</a>{% else %}{{ cat.label }}{% endif %}</td>
+        {% for v in values %}<td class="num">{{ v|acct }}</td>{% endfor %}<td class="num"><strong>{{ cat.total|acct }}</strong></td>
+        {% if life.budgeted %}<td class="num">{{ cat.budget|acct }}</td><td class="num{% if cat.better < 0 %} worse{% endif %}">{{ cat.better|acct }}</td>{% endif %}</tr>{% endfor %}
+      <tr class="st-grand"><td>Total</td>{% for t in life.column_totals %}<td class="num">{{ t|acct }}</td>{% endfor %}<td class="num">{{ life.total|acct }}</td>
+        {% if life.budgeted %}<td class="num">{{ life.budget|acct }}</td><td class="num{% if life_gap < 0 %} worse{% endif %}">{{ life_gap|acct }}</td>{% endif %}</tr>
+    </tbody>
+  </table></div>
+</section>

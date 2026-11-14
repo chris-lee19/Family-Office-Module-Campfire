@@ -1,0 +1,247 @@
+{% extends "base.html" %}
+{% load money %}
+{% block title %}{% if choices.view == "lifestyle" %}Lifestyle Expense Report{% elif choices.view == "budget" %}Budget {{ choices.year }}{% else %}Budget vs. Actual{% endif %}{% endblock %}
+{% block content %}
+{% if choices.view == "compare" and c %}{% include "includes/print_head.html" with title="Budget vs. Actual" sub=print_sub %}{% endif %}
+{% if choices.view == "lifestyle" and life %}{% include "includes/print_head.html" with title="Lifestyle Expense Report" sub=print_sub %}{% endif %}
+<div class="page-head no-print">
+  <div>
+    <h1>Budget vs. actual</h1>
+    <p class="muted">{{ workspace }}{% if scope and choices.view != "budget" %} · {{ scope.label }}{% endif %} · {% if choices.view == "lifestyle" %}{{ period.0|date:"M j, Y" }} to {{ period.1|date:"M j, Y" }}{% if trimmed %} (the last month end){% endif %}{% elif choices.view == "budget" %}{{ choices.year }} budget{% else %}{{ choices.year }} through {{ c.month_label|default:"" }}{% endif %}</p>
+  </div>
+  <div class="page-actions">
+    {% if choices.view == "compare" and c and c.budget %}<button class="btn secondary" type="button" data-print>Print or save as PDF</button><a class="btn secondary" href="{{ csv_url }}">Download CSV</a>{% endif %}
+    {% if choices.view == "lifestyle" and life %}<button class="btn secondary" type="button" data-print>Print or save as PDF</button>{% endif %}
+    {% if choices.view == "budget" and shown %}<a class="btn secondary" href="{{ xlsx_url }}">Download spreadsheet</a>{% endif %}
+  </div>
+</div>
+
+<form method="get" action="{{ action }}" class="filters no-print" data-autosubmit>
+  {% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
+  <input type="hidden" name="view" value="{{ choices.view }}">
+  {% if choices.view != "budget" %}<label>Entity
+    <select name="entity">{% for o in options %}<option value="{{ o.value }}" {% if scope and o.value == scope.value %}selected{% endif %}>{{ o.label }}</option>{% endfor %}</select></label>{% endif %}
+  {% if choices.view == "lifestyle" %}
+  <label>Period
+    <select name="period">{% for k, label in periods.items %}<option value="{{ k }}" {% if k == choices.period %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+  {% if choices.period == "custom" %}<label>From <input type="date" name="start" value="{{ choices.start }}"></label><label>To <input type="date" name="end" value="{{ choices.end }}"></label>{% endif %}
+  <label>Show
+    <select name="by">{% for k, label in bys.items %}<option value="{{ k }}" {% if k == choices.by %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+  {% else %}
+  <label>Year
+    <select name="year">{% for y in years %}<option value="{{ y }}" {% if y == choices.year %}selected{% endif %}>{{ y }}</option>{% endfor %}</select></label>
+  {% if choices.view == "compare" %}<label>Through
+    <select name="month">{% for n, m in months %}<option value="{{ n }}" {% if n == choices.month %}selected{% endif %}>{{ m }}</option>{% endfor %}</select></label>{% endif %}
+  {% endif %}
+  <button class="btn secondary" type="submit">Update</button>
+</form>
+
+<div class="tabs no-print" role="tablist">
+  {% for key, label, url, on in tabs %}<a role="tab" href="{{ url }}"{% if on %} class="active" aria-selected="true"{% endif %}>{% if key == "budget" %}Budget {{ choices.year }}{% if working %} <span class="count hot">Draft</span>{% endif %}{% else %}{{ label }}{% endif %}</a>{% endfor %}
+</div>
+
+{% if message %}<div class="notice" data-toast="success">{{ message }}</div>{% endif %}
+{% if error %}<div class="issues">{{ error }}</div>{% endif %}
+
+{% if choices.view == "compare" %}
+{% if c and not c.budget %}
+<section class="box"><div class="empty">
+  <strong>No budget for {{ choices.year }} yet</strong>
+  Start one from last year's books, copy {{ choices.year|add:"-1" }}'s, or build it line by line.
+  <div class="actions centered"><a class="btn" href="{{ budget_url }}">Start the {{ choices.year }} budget</a></div>
+</div></section>
+{% elif c %}
+{% if c.budget.is_draft %}<div class="callout no-print"><strong>Draft budget.</strong> Version {{ c.budget.version }} isn't approved yet; the figures below use it until it is. <a href="{{ budget_url }}">Review and approve it</a>.</div>{% endif %}
+{% with i=c.total_income e=c.total_expenses n=c.net %}
+<div class="kpis">
+  <div class="kpi"><div class="label">Spending, year to date</div><div class="value">{{ e.ytd_actual|money }}</div>
+    <div class="sub">Budget {{ e.ytd_budget|money }} · {% if e.ytd_better < 0 %}<span class="err">{{ e.ytd_better|money|cut:"-" }} over</span>{% elif e.ytd_better %}{{ e.ytd_better|money }} under{% else %}on budget{% endif %}</div></div>
+  <div class="kpi"><div class="label">Income, year to date</div><div class="value">{{ i.ytd_actual|money }}</div>
+    <div class="sub">Budget {{ i.ytd_budget|money }} · {% if i.ytd_better < 0 %}<span class="err">{{ i.ytd_better|money|cut:"-" }} below</span>{% elif i.ytd_better %}{{ i.ytd_better|money }} above{% else %}on budget{% endif %}</div></div>
+  <div class="kpi"><div class="label">Spending, full year outlook</div><div class="value">{{ e.outlook|money }}</div>
+    <div class="sub">Budget {{ e.year_budget|money }} · actual so far, then the budget</div></div>
+  <div class="kpi"><div class="label">Lines to look at</div><div class="value">{{ c.flagged|length }}</div>
+    <div class="sub">{% if c.flagged %}Over budget by more than 10% and $1,000{% else %}Everything is within 10% of its budget{% endif %}</div></div>
+</div>
+{% endwith %}
+
+<div class="grid2 wide-left">
+  <section class="box">
+    <div class="box-head"><h2>Spending against the budget, year to date</h2><div class="aside"><span class="key"><i class="c1"></i>Actual</span><span class="key"><i class="mark"></i>Budget</span></div></div>
+    <div class="box-body">{% if bullets %}<div class="bullets" role="table" aria-label="Spending by category against the budget, year to date">
+      {% for b in bullets %}<div class="bullet" role="row" tabindex="0">
+        <span class="name" role="cell" title="{{ b.label }}">{{ b.label }}</span>
+        <span class="bar" role="presentation"><i class="act{% if b.over %} over{% endif %}" style="width: {{ b.w_actual }}%"></i>{% if b.over %}<i class="within" style="width: {{ b.w_within }}%"></i>{% endif %}{% if b.budget %}<i class="target" style="left: {{ b.w_budget }}%"></i>{% endif %}</span>
+        <span class="num" role="cell">{{ b.actual|acct }}</span>
+        <span class="num muted" role="cell">{% if b.pct is not None %}{{ b.pct }}%{% else %}–{% endif %}</span>
+        <span class="tip" role="tooltip"><strong>{{ b.label }}</strong> Actual {{ b.actual|acct }} · budget {{ b.budget|acct }} · better (worse) {{ b.better|acct }}</span>
+      </div>{% endfor %}
+    </div><p class="muted small">The bar is what was spent; the mark is the budget for the same months. The share is of the budget.</p>
+    {% else %}<p class="muted">No spending or budget for this scope yet.</p>{% endif %}</div>
+  </section>
+  <section class="box">
+    <div class="box-head"><h2>Needs a look</h2></div>
+    <div class="box-body">{% if c.flagged %}<ul class="plain flag-list">
+      {% for r in c.flagged %}<li><span class="pill sev-warning">{{ r.flag }}</span> <strong>{{ r.label }}</strong>
+        <span class="muted small">{% if r.ytd_budget %}{{ r.ytd_actual|money }} against {{ r.ytd_budget|money }}, {{ r.ytd_better|money|cut:"-" }} {% if r.income %}short{% else %}over{% endif %}{% else %}{{ r.ytd_actual|money }} with no budget{% endif %}</span></li>{% endfor %}
+    </ul>{% else %}<p class="muted">Nothing is more than 10% (and $1,000) off its budget so far this year.</p>{% endif %}</div>
+  </section>
+</div>
+
+{% include "gl/_bva_table.html" %}
+<p class="muted small">Actuals come from the general ledger. Budget: version {{ c.budget.version }} of {{ c.budget.year }}{% if c.budget.approved_by %}, approved by {{ c.budget.approved_by }} on {{ c.budget.approved_at|date:"M j, Y" }}{% else %}, a draft not yet approved{% endif %}. "Better (worse)" is more income or less spending than budgeted; brackets are worse. The outlook is the actual so far and the budget for the months to come.</p>
+{% endif %}
+
+{% elif choices.view == "lifestyle" %}
+{% if not set_up %}
+<section class="box">
+  <div class="box-head"><h2>Tag spending by family member and property</h2></div>
+  <div class="box-body">
+    <p>The report reads two tag groups in the books: <strong>FO Family Member</strong> (who the spending was for) and <strong>FO Property</strong> (which home or property). Setting them up creates a tag for each family member and each property listed below, in Campfire. Then choose them when you enter a bill, write an entry or categorize a bank line.</p>
+    <form method="post" action="{{ post_action }}" class="actions">{% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
+      <input type="hidden" name="action" value="setup_tags"><button class="btn" type="submit">Set up spending tags</button></form>
+  </div>
+</section>
+{% endif %}
+{% if life %}
+<div class="kpis">
+  <div class="kpi"><div class="label">Household and family spending</div><div class="value">{{ life.total|money }}</div><div class="sub">{{ life.categories|length }} categor{{ life.categories|length|pluralize:"y,ies" }}</div></div>
+  <div class="kpi"><div class="label">{% if life.by == "person" %}Assigned to a family member{% else %}Assigned to a property{% endif %}</div><div class="value">{{ life.assigned|money }}</div>
+    <div class="sub">{% if life.total and life.assigned == life.total %}All of it{% elif life.total %}{% widthratio life.assigned life.total 100 %}% of it; the rest is not assigned{% endif %}</div></div>
+  <div class="kpi"><div class="label">Budget for the same months</div><div class="value">{% if life.budgeted %}{{ life.budget|money }}{% else %}–{% endif %}</div>
+    <div class="sub">{% if life.budgeted %}{% if life_gap < 0 %}<span class="err">{{ life_gap|money|cut:"-" }} over</span>{% else %}{{ life_gap|money }} under{% endif %}{% else %}No budget for this period{% endif %}</div></div>
+  <div class="kpi"><div class="label">Other spending of the entities</div><div class="value">{{ life.other_spending|money }}</div><div class="sub">Fees, grants, interest: not tagged, not in this report</div></div>
+</div>
+{% if life.categories %}
+<div class="grid2 even">
+  <section class="box"><div class="box-head"><h2>{% if life.by == "person" %}By family member{% else %}By property{% endif %}</h2></div>
+    <div class="box-body"><div class="hbars" role="table" aria-label="Spending by {% if life.by == "person" %}family member{% else %}property{% endif %}">
+      {% for r in life_chart.columns %}<div class="hbar" role="row"><span class="name" role="cell">{{ r.label }}</span><span class="track" role="presentation"><i style="width: {{ r.width }}%"></i></span><span class="num" role="cell">{{ r.value|money }}</span><span class="share muted" role="cell">{{ r.share }}%</span></div>{% endfor %}
+    </div></div></section>
+  <section class="box"><div class="box-head"><h2>By category</h2></div>
+    <div class="box-body"><div class="hbars" role="table" aria-label="Spending by category">
+      {% for r in life_chart.categories %}<div class="hbar" role="row"><span class="name" role="cell">{{ r.label }}</span><span class="track" role="presentation"><i class="c2" style="width: {{ r.width }}%"></i></span><span class="num" role="cell">{{ r.value|money }}</span><span class="share muted" role="cell">{{ r.share }}%</span></div>{% endfor %}
+    </div></div></section>
+</div>
+{% include "gl/_lifestyle_table.html" %}
+<p class="muted small">From the spending tags in the books. A category is in the report when some of its spending is tagged {% if life.by == "person" %}to a family member{% else %}to a property{% endif %}; "Not assigned" is the rest of that category. Spending in other categories ({{ life.other_spending|money }}) is the entities' own and isn't shown.</p>
+{% else %}
+<section class="box"><div class="empty"><strong>No tagged spending in this period</strong>Choose a family member or property when you enter a <a href="{{ bills_url }}">bill</a>, write a <a href="{{ journals_url }}">journal entry</a> or categorize a <a href="{{ cash_url }}">bank line</a>, and it shows here.</div></section>
+{% endif %}
+{% elif set_up %}
+<div class="issues">The spending tag groups aren't in Campfire. Set them up again from General ledger → Setup.</div>
+{% endif %}
+
+<details class="settings no-print"{% if not properties %} open{% endif %}>
+  <summary>Properties the family spends on: {{ properties|length }} listed</summary>
+  <p class="muted small">Homes, aircraft and other property spending can be tagged to. Real estate in the investment records is included without being listed.</p>
+  {% if properties %}<ul class="plain prop-list">{% for p in properties %}<li><strong>{{ p.name }}</strong> <span class="muted small">{{ p.get_kind_display }}</span>
+    <form method="post" action="{{ post_action }}" class="inline">{% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
+      <input type="hidden" name="action" value="remove_property"><input type="hidden" name="property" value="{{ p.pk }}"><button class="link-btn" type="submit">Remove</button></form></li>{% endfor %}</ul>{% endif %}
+  <form method="post" action="{{ post_action }}" class="actions">{% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
+    <input type="hidden" name="action" value="add_property">
+    <label>Name <input name="name" placeholder="Main residence, ski house, aircraft" maxlength="100" required></label>
+    <label>Kind <select name="kind">{% for k, label in property_kinds %}<option value="{{ k }}">{{ label }}</option>{% endfor %}</select></label>
+    <button class="btn secondary" type="submit">Add</button>
+  </form>
+</details>
+
+{% else %}
+{# ---- the budget ---- #}
+{% if versions %}<div class="versions">
+  {% for b in versions %}<span class="version{% if b == shown %} current{% endif %}"><strong>Version {{ b.version }}</strong> {% if b.is_draft %}<span class="pill sev-warning">Draft</span>{% else %}<span class="pill booked">Approved</span>{% endif %}
+    <span class="muted small">{% if b.is_draft %}by {{ b.created_by|default:"someone" }}, {{ b.created_at|date:"M j" }}{% else %}{{ b.approved_by }}, {{ b.approved_at|date:"M j, Y" }}{% endif %}{% if b.note %} · {{ b.note }}{% endif %}</span></span>{% endfor %}
+</div>{% endif %}
+
+{% if not shown %}
+<section class="box" id="start">
+  <div class="box-head"><h2>Start the {{ choices.year }} budget</h2></div>
+  <div class="box-body">
+    <form method="post" action="{{ post_action }}" class="record-form flat">{% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
+      <input type="hidden" name="action" value="start">
+      <div class="choice-list">
+        <label class="check"><input type="radio" name="how" value="books" checked><span><strong>From the books</strong><small>Each entity's income and expenses of {{ choices.year|add:"-1" }}, month by month (or the last twelve months if the books are newer), rounded.</small>
+          <span class="inline-field">Increase by <input name="uplift" inputmode="decimal" value="3" size="4">%</span></span></label>
+        {% if previous %}<label class="check"><input type="radio" name="how" value="copy"><span><strong>Copy the {{ choices.year|add:"-1" }} budget</strong><small>The same lines and months, to change from there.</small></span></label>{% endif %}
+        <label class="check"><input type="radio" name="how" value="empty"><span><strong>Empty</strong><small>Add lines one by one, or upload a spreadsheet.</small></span></label>
+        {% if demo %}<label class="check"><input type="radio" name="how" value="demo"><span><strong>The demo budget</strong><small>For the Alder family: set against the demo books, with a few lines over and under.</small></span></label>{% endif %}
+      </div>
+      <div class="actions"><button class="btn" type="submit">Start the budget</button><span class="muted small">It starts as a draft. Someone else approves it.</span></div>
+    </form>
+  </div>
+</section>
+{% else %}
+{% with b=shown %}
+<div class="callout{% if b.is_draft %} warn{% endif %} budget-state">
+  {% if b.is_draft %}<div><strong>Version {{ b.version }} is a draft.</strong> {% if working and versions|length > 1 %}Reports use the approved version until this one is approved.{% else %}Reports use it until it is approved, marked as a draft.{% endif %}</div>
+  <div class="actions">
+    <form method="post" action="{{ post_action }}">{% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}<input type="hidden" name="budget" value="{{ b.pk }}"><button class="btn" name="action" value="approve" type="submit">Approve version {{ b.version }}</button></form>
+    <form method="post" action="{{ post_action }}" data-confirm="Discard this draft? Its lines are deleted.">{% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}<input type="hidden" name="budget" value="{{ b.pk }}"><button class="btn secondary" name="action" value="discard" type="submit">Discard</button></form>
+  </div>
+  {% else %}<div><strong>Version {{ b.version }} is approved</strong> by {{ b.approved_by }} on {{ b.approved_at|date:"M j, Y" }}. It doesn't change; to change the budget, start a revision.</div>
+  <form method="post" action="{{ post_action }}" class="actions">{% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}<input type="hidden" name="budget" value="{{ b.pk }}">
+    <input name="note" placeholder="Why (for the record)" maxlength="200"><button class="btn secondary" name="action" value="revise" type="submit">Revise</button></form>
+  {% endif %}
+</div>
+
+{% if lines %}
+<div class="kpis">
+  <div class="kpi"><div class="label">Income, {{ b.year }}</div><div class="value">{{ budget_income|money }}</div></div>
+  <div class="kpi"><div class="label">Spending, {{ b.year }}</div><div class="value">{{ budget_expenses|money }}</div></div>
+  <div class="kpi"><div class="label">Lines</div><div class="value">{{ b.lines.count }}</div><div class="sub">{{ lines|length }} entit{{ lines|length|pluralize:"y,ies" }}</div></div>
+</div>
+<section class="box box-flush">
+  <div class="table-scroll"><table class="statement wide budget-grid">
+    <thead><tr><th>Budget {{ b.year }}</th>{% for n, m in months %}<th class="num">{{ m }}</th>{% endfor %}<th class="num">Year</th></tr></thead>
+    <tbody>
+    {% for g in lines %}
+      <tr class="st-section"><td colspan="15">{{ g.entity }} <span class="muted">· income {{ g.income|money }} · spending {{ g.expenses|money }}</span></td></tr>
+      {% for ln in g.lines %}<tr class="st-account lvl-1"><td>{% if ln.account_number %}<span class="acct-no">{{ ln.account_number }}</span>{% endif %}{% if b.is_draft %}<details class="line-edit"><summary title="Change this line">{{ ln.account_label }}</summary>
+            <form method="post" action="{{ post_action }}" class="record-form flat">{% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
+              <input type="hidden" name="action" value="save_line"><input type="hidden" name="budget" value="{{ b.pk }}"><input type="hidden" name="entity" value="{{ ln.campfire_entity_id }}"><input type="hidden" name="account" value="{{ ln.campfire_account_id }}"><input type="hidden" name="line" value="{{ ln.pk }}">
+              <div class="line-edit-title"><strong>{{ ln.entity_label }}</strong> · {{ ln.account_label }}</div>
+              <div class="month-grid">{% for m, v in ln.month_values %}<label>{{ m }}<input name="m{{ forloop.counter }}" inputmode="decimal" value="{{ v|floatformat:'-2' }}"></label>{% endfor %}</div>
+              <div class="actions"><button class="btn" type="submit">Save</button><button class="link-btn" type="submit" name="action" value="delete_line" formnovalidate>Remove the line</button></div>
+            </form></details>{% else %}{{ ln.account_label }}{% endif %}{% if ln.income %} <span class="muted small">income</span>{% endif %}</td>
+        {% for v in ln.amounts %}<td class="num">{{ v|acct }}</td>{% endfor %}<td class="num"><strong>{{ ln.total|acct }}</strong></td></tr>{% endfor %}
+    {% endfor %}
+    </tbody>
+  </table></div>
+</section>
+{% else %}<section class="box"><div class="empty"><strong>No lines yet</strong>Add a line below, or upload a spreadsheet laid out like the download.</div></section>{% endif %}
+
+{% if b.is_draft %}
+<div class="grid2 even no-print">
+  <section class="box" id="line">
+    <div class="box-head"><h2>Add or change a line</h2></div>
+    <div class="box-body">
+      <form method="post" action="{{ post_action }}" class="record-form flat">{% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
+        <input type="hidden" name="action" value="save_line"><input type="hidden" name="budget" value="{{ b.pk }}">
+        <div class="fields">
+          <div class="field"><label>Entity <span class="req">*</span></label><select name="entity" required><option value="">Choose</option>{% for id, name in names %}<option value="{{ id }}">{{ name }}</option>{% endfor %}</select></div>
+          <div class="field"><label>Account <span class="req">*</span></label><select name="account" required><option value="">Choose</option>
+            <optgroup label="Income">{% for a in accounts %}{% if a.income %}<option value="{{ a.id }}">{{ a.label }}</option>{% endif %}{% endfor %}</optgroup>
+            <optgroup label="Expenses">{% for a in accounts %}{% if not a.income %}<option value="{{ a.id }}">{{ a.label }}</option>{% endif %}{% endfor %}</optgroup></select></div>
+          <div class="field"><label>Amount for the year <span class="req">*</span></label><input name="annual" inputmode="decimal" required></div>
+          <div class="field"><label>Spread</label><select name="spread">{% for k, label in spreads.items %}<option value="{{ k }}">{{ label }}</option>{% endfor %}</select></div>
+          <div class="field"><label>Month (for "all in one month")</label><select name="month">{% for n, m in months %}<option value="{{ n }}" {% if n == 12 %}selected{% endif %}>{{ m }}</option>{% endfor %}</select></div>
+        </div>
+        <div class="actions"><button class="btn" type="submit">Save the line</button><span class="muted small">An existing line for the same entity and account is replaced. Select an account in the table to set each month.</span></div>
+      </form>
+    </div>
+  </section>
+  <section class="box">
+    <div class="box-head"><h2>Upload a spreadsheet</h2></div>
+    <div class="box-body">
+      <p class="small">Columns: entity, account number, account, January to December. <a href="{{ xlsx_url }}">Download this budget</a> to start from it. Uploading replaces the draft's lines; a row that doesn't match changes nothing.</p>
+      <form method="post" action="{{ post_action }}" enctype="multipart/form-data" class="actions">{% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
+        <input type="hidden" name="action" value="upload"><input type="hidden" name="budget" value="{{ b.pk }}">
+        <input type="file" name="file" accept=".xlsx" required><button class="btn secondary" type="submit">Upload</button></form>
+    </div>
+  </section>
+</div>
+{% endif %}
+{% endwith %}
+{% endif %}
+{% endif %}
+{% endblock %}

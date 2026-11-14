@@ -73,6 +73,13 @@ OPERATING_ACCOUNTS = [
     ("6560", "Property taxes and maintenance", "OPERATING_EXPENSES", "EXPENSE"),
     ("6570", "Bank and custody fees", "OPERATING_EXPENSES", "EXPENSE"),
     ("6580", "Management fees - related party", "OPERATING_EXPENSES", "EXPENSE"),
+    # Household and family spending (the Lifestyle Expense Report)
+    ("6610", "Household staff", "OPERATING_EXPENSES", "EXPENSE"),
+    ("6620", "Residence operating costs", "OPERATING_EXPENSES", "EXPENSE"),
+    ("6630", "Travel", "OPERATING_EXPENSES", "EXPENSE"),
+    ("6640", "Aviation", "OPERATING_EXPENSES", "EXPENSE"),
+    ("6650", "Clubs and memberships", "OPERATING_EXPENSES", "EXPENSE"),
+    ("6660", "Education", "OPERATING_EXPENSES", "EXPENSE"),
     ("6900", "Charitable grants", "OPERATING_EXPENSES", "EXPENSE"),
     ("8200", "Interest expense", "OTHER_EXPENSE", "OTHER_EXPENSE"),
     ("8300", "Income tax expense", "OTHER_EXPENSE", "OTHER_EXPENSE"),

@@ -15,6 +15,7 @@ from django.utils import timezone
 from campfire_integration.client import CampfireClient
 from campfire_integration.models import Workspace
 from gl.models import SOURCE, JournalRequest
+from gl.services import lifestyle
 from gl.services.posting import JE_PATH
 from records.models import AuditEntry, ControlSettings
 
@@ -91,8 +92,11 @@ def _create(workspace: Workspace, kind: str, when: date, memo: str, entries: lis
     return req
 
 
-def submit_manual(workspace: Workspace, data: Any, entities: dict[int, str], accounts: dict[int, str], actor: str, actor_id: str) -> JournalRequest:
-    """`data`: entity, date, memo and numbered lines (account_N, debit_N, credit_N, description_N); blank lines are skipped."""
+def submit_manual(workspace: Workspace, data: Any, entities: dict[int, str], accounts: dict[int, str], actor: str, actor_id: str,
+                  spending_accounts: frozenset[int] = frozenset()) -> JournalRequest:
+    """`data`: entity, date, memo and numbered lines (account_N, debit_N, credit_N, description_N); blank lines are skipped.
+    The spending tags chosen (family member, property) go on the lines whose account is in `spending_accounts` (the
+    income and expense accounts), not on cash or balance-sheet lines."""
     entity = int(data.get("entity")) if str(data.get("entity") or "").isdigit() else 0
     memo = str(data.get("memo") or "").strip()
     if entity not in entities or not memo:
@@ -113,7 +117,16 @@ def submit_manual(workspace: Workspace, data: Any, entities: dict[int, str], acc
     debits, credits = sum((Decimal(ln["debit"]) for ln in lines), ZERO), sum((Decimal(ln["credit"]) for ln in lines), ZERO)
     if debits != credits:
         raise JournalError(f"The entry doesn't balance: debits {debits:,.2f}, credits {credits:,.2f}.")
-    return _create(workspace, JournalRequest.Kind.MANUAL, when, memo, [{"entity_id": entity, "entity": entities[entity], "lines": lines}], actor, actor_id)
+    tags = lifestyle.picked(workspace, data)
+    if tags:
+        for ln in lines:
+            if ln["account_id"] in spending_accounts:
+                ln["tags"] = tags
+    req = _create(workspace, JournalRequest.Kind.MANUAL, when, memo, [{"entity_id": entity, "entity": entities[entity], "lines": lines}], actor, actor_id)
+    if tags:
+        req.tag_ids = tags
+        req.save(update_fields=["tag_ids"])
+    return req
 
 
 def submit_transfer(workspace: Workspace, data: Any, entities: dict[int, str], accounts: dict[int, str], actor: str, actor_id: str) -> JournalRequest:
@@ -146,7 +159,7 @@ def payload(req: JournalRequest, n: int) -> dict[str, Any]:
         "source": SOURCE, "source_id": source_id, "ref_number": req.ref_number,
         "transactions": [{"account": str(ln["account_id"]),
                           **({"debit_amount_native": float(ln["debit"])} if Decimal(ln["debit"]) else {"credit_amount_native": float(ln["credit"])}),
-                          "tags": [], "bank_description": ln["description"], "external_id": f"{source_id}-{k}"}
+                          "tags": list(ln.get("tags") or []), "bank_description": ln["description"], "external_id": f"{source_id}-{k}"}
                          for k, ln in enumerate(entry["lines"], start=1)],
     }
 

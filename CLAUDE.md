@@ -165,13 +165,14 @@ end. Held marks aren't used; non-USD accounts are skipped. Securities without a 
 3. ~~Cash~~ (page done 2026-11-13, see below; bank reconciliation `/coa/api/v2/reconciliation` still to do).
 4. ~~Bills and payments~~ (done). 5. ~~Journal entries~~ (done, see below). Agreed next (user 2026-11-13, in this order):
    ~~partnership accounting and K-1s~~ (done) -> ~~Connectors page~~ (done) -> ~~roles~~ (done; entity-level limits and per-user connections not yet) -> ~~liquidity forecast~~ (done 2026-11-14, user moved it first) -> ~~bank
-   reconciliation~~ (done 2026-11-14) -> ~~family reporting pack~~ (done 2026-11-14, see below).
+   reconciliation~~ (done 2026-11-14) -> ~~family reporting pack~~ (done 2026-11-14, see below) -> ~~Statement of Cash
+   Receipts and Disbursements~~ -> ~~Budget vs. Actual and the Lifestyle Expense Report~~ (both 2026-11-14).
    Later: budgets, fixed assets (property, art), documents/K-1s, liquidity, reporting pack.
 - Added by the user 2026-11-13 (don't lose): **partnership accounting and K-1s** (capital accounts per partner,
   allocations of income/gain, K-1 tracking and figures by entity and person) and a **Connectors page** to bring in
   investment data from the tools family offices use: Addepar, Masttro, J.P. Morgan, and the other common custodians and
   aggregators (the app already has pluggable source adapters and the custodian file importer to build on).
-- Gaps for the CTO: approve endpoints; close checklist and period locks; keep sidebar scroll on navigation.
+- Gaps for the CTO: approve endpoints; close checklist and period locks; keep sidebar scroll on navigation; a budgets scope.
 
 ## Financial statements (2026-11-13) and the setup checklist
 - `gl/services/statements.py` + `gl/statement_views.py`, sidebar "Financial statements" (`gl:statements`, in NAV_PAGES):
@@ -300,9 +301,8 @@ end. Held marks aren't used; non-USD accounts are skipped. Securities without a 
   the two statements agree (verified on the sandbox: 22,796,838 on both; every scope foots).
 - Supporting report names in use: Schedule of investments, Asset allocation, Private investments: performance
   (Investments page), Capital account statements (Partnerships & K-1s).
-- From the reference, NOT built yet (the Liquidity and Cash Flow Forecast and the Statement of Cash Receipts and
-  Disbursements are built, see below): Budget vs. Actual / Lifestyle Expense Report (needs spending tags: family member, property,
-  category); realized vs unrealized gains as separate lines in
+- From the reference, NOT built yet (the Liquidity and Cash Flow Forecast, the Statement of Cash Receipts and
+  Disbursements, Budget vs. Actual and the Lifestyle Expense Report are built, see below): realized vs unrealized gains as separate lines in
   the changes statement; per-entity accounting basis (cash / tax / accrual). 168 tests.
 
 ## Liquidity and Cash Flow Forecast, and Campfire's mark (2026-11-14)
@@ -447,8 +447,8 @@ end. Held marks aren't used; non-USD accounts are skipped. Securities without a 
      itself is unchanged (many tests pin its figures). The live demo family was loaded before this: click the button.
 3. **The pack** (`gl/services/pack.py`, `gl/pack_views.py`, sidebar "Reporting pack", `gl:pack`, in NAV_PAGES): choose
    the period and the sections, "Build the pack" (GET `?build=1`; nothing is read from Campfire before that; ~13 s),
-   then "Print or save as PDF". Cover + up to eleven sections (the Statement of Cash Receipts and
-   Disbursements was added after Changes in Net Worth), each built by its page's own service so figures agree: At
+   then "Print or save as PDF". Cover + up to thirteen sections (the Statement of Cash Receipts and
+   Disbursements was added after Changes in Net Worth, then Budget vs. Actual and the Lifestyle Expense Report), each built by its page's own service so figures agree: At
    a glance (dashboard `net_worth` as of the period end + allocation), Statement of Net Worth, by entity, by family
    member, Statement of Changes in Net Worth, Schedule of Investments (`pack.schedule`: every holding by asset class
    with owner, quantity, cost, value, gain, how it was valued), Investment Performance Report, Liquidity and Cash Flow
@@ -494,6 +494,56 @@ end. Held marks aren't used; non-USD accounts are skipped. Securities without a 
   (`POST /coa/api/journal_entry/<id>/delete`); then check the cash balance on the trial balance. Done: books as before.
 - Not done: receipts and disbursements by family member or property (needs spending tags: the Budget vs. Actual work);
   a comparative column; custody cash that isn't in the books is not in this statement. 196 tests.
+
+## Budgets, Budget vs. Actual and the Lifestyle Expense Report (2026-11-14)
+- User (2026-11-14): build all three; use tag groups for family member and property for now, and adjust once a family
+  buys the product if it categorizes differently.
+- Budgets are kept IN THE APP (`gl.models.Budget` / `BudgetLine`): Campfire has budgets (`/coa/api/budgets`, budget
+  accounts with period + amount) and a comparative income statement, but the OAuth scope catalog has NO budgets scope,
+  so an app connection likely can't reach them. Partner ask: a budgets scope (then budgets could live in Campfire).
+- `gl/services/budget.py`: a Budget per (workspace, year, version), status draft / approved; a line = Campfire entity x
+  GL account (income or expense) x 12 months (JSON strings, Jan first; income and expenses both positive). The budget in
+  use = latest approved, else latest draft. Approve: second person (ControlSettings); approved never changes; Revise =
+  new draft copying it (the approved one stays in use until the new one is approved); Discard a draft. Every change is
+  audited and marks Home's snapshot stale (`dashboard.mark_stale`). Start: from the books (`suggest`: last year by
+  entity/account/month from the income statement `group_by=entity`, or the last 12 complete months when the books are
+  newer, months before an entity's books began = the average since; +% uplift; rounded to 100), copy last year's,
+  empty, or the demo budget. Lines: annual + spread (even / quarter ends / one month) or 12 months; .xlsx download and
+  upload (entity, account number, account, Jan-Dec; matched by name / number; all or nothing).
+- Budget vs. Actual (`compare`): Campfire's income statement by month for one entity or a consolidated group (leaf
+  account rows only, `leaf_rows`), budget lines of the scope's entities added by account. Columns: the month, year to
+  date (+ % of budget), full year budget and outlook (actual so far + budget for the rest). "Better (worse)" = more
+  income / less spending. Flags: worse by > 10% of the YTD budget and >= $1,000 -> "Over budget" / "Below budget";
+  actual >= $1,000 with no budget -> "Not budgeted". Chart: bullet bars (`.bullets`: actual bar, budget mark, the part
+  over in status red). Default month = the last complete month. CSV, print.
+- Lifestyle Expense Report (`gl/services/lifestyle.py`): tag groups "FO Family Member" and "FO Property"
+  (DimensionTag dimensions `person` / `property`, created by "Set up spending tags" (manage) or GL setup; values = the
+  family's people; properties = real estate in the investment records + `FamilyProperty` (residence, vacation home,
+  aircraft...; listed on the page)). Campfire's income statement `group_by=tag&group=<tag group id>` gives each account's
+  spending per tag and "Other" for untagged. Rows = expense accounts with some tagged spending; "Not assigned" = their
+  untagged part; other expense accounts are stated as "Other spending of the entities". Budget column = whole months
+  only; a period ending mid-month ends at the last month end (said in the heading).
+- Spending tags on entry: Bills ("For family member", "For property" -> `BillRequest.tag_ids` -> the bill line's
+  `tags`), Journal entries (`JournalRequest.tag_ids`, put on the income/expense lines only, not cash), Cash categorize
+  (`PATCH /coa/api/transaction/<id>` {account, vendor, tags: [{"id": ..}]}). Approvers see the tags. Verified on the
+  sandbox (test entries/bill deleted): JE line `tags: [ids]` and bill line `tags: [ids]` are kept; a ledger line PATCH
+  needs `tags` as a list of OBJECTS (`[{"id": 1}]`); a list of ids gives 500 and `tag_ids` answers 200 but doesn't save.
+  The income statement split by tag sees bill and entry tags.
+- Page `gl:budget` (sidebar Family, "Budget vs. actual", icon target, badge = drafts; Campfire menu `budget`), tabs
+  `view=compare | lifestyle | budget`. Access: ("budget", "approve") approve; ("budget", "setup_tags") manage; else prepare.
+  Reporting pack: sections `budget` (through the last whole month of the period) and `lifestyle` (by family member),
+  shared partials `gl/_bva_table.html`, `gl/_lifestyle_table.html`. Home: "Budget, year to date" card (snapshot key
+  `budget`, family scope; `.grid4` row).
+- Demo (sandbox, user-approved demo data): `campfire_demo_setup` added 6610 Household staff, 6620 Residence operating
+  costs, 6630 Travel, 6640 Aviation, 6650 Clubs and memberships, 6660 Education; tag groups FO Family Member (Robert,
+  Eleanor, Claire, James, Sofia) and FO Property (Harbor Street Mixed-Use Property, Seacliff Avenue residence,
+  Lakeview cottage) exist in the sandbox; `campfire_demo_books --lifestyle` posted 24 "Household and family spending,
+  <month>" entries Jan-Oct 2026 (tagged; idempotent) and tagged the rental's lines (rent, property, interest,
+  insurance) with Harbor Street. `gl/services/budget_demo.py`: the demo budget (offered to the Alder family for a year
+  with no budget; a draft; adds the two homes as FamilyProperty): aviation, Seacliff residence, travel and legal fees
+  over, grants under.
+- On the live site: Budget vs. actual -> Lifestyle -> "Set up spending tags" (links the existing sandbox tags), then
+  Budget 2026 -> "The demo budget" -> Start, and have a second person approve it. 205 tests.
 
 ## Sign-in and new permissions (lesson, 2026-11-13)
 - Adding `transactions:write` to the defaults broke sign-in for everyone: Campfire answers `invalid_scope` ("This app may

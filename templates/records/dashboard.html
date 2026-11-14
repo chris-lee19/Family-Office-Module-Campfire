@@ -153,7 +153,19 @@
   {% endif %}
 </div>
 
-<div class="grid3">
+<div class="grid4">
+  <section class="box">
+    <div class="box-head"><h2>Budget, year to date</h2><div class="aside"><a href="{{ links.budget }}">Open</a></div></div>
+    <div class="box-body">
+      {% if bg %}
+      <div class="meter-head"><strong>{{ bg.actual|money }} spent</strong><span class="muted small">of {{ bg.budget|money }}</span></div>
+      <div class="meter{% if bg.over_budget %} over{% endif %}" role="img" aria-label="Spending against the budget through {{ bg.month }}"><i style="width: {{ bg.width }}%"></i></div>
+      <div class="meter-foot"><span>Through {{ bg.month }}</span><span>{% if bg.better|slice:":1" == "-" %}<span class="err">{{ bg.better|money|cut:"-" }} over</span>{% else %}{{ bg.better|money }} under{% endif %}</span>{% if bg.draft %}<span>Draft budget</span>{% endif %}</div>
+      {% if bg.over %}<ul class="rows tight plain">{% for r in bg.over %}<li><span>{{ r.label }}</span><strong class="err">{{ r.better|money|cut:"-" }}</strong></li>{% endfor %}</ul>
+      {% else %}<p class="muted small">Every line is within 10% of its budget.</p>{% endif %}
+      {% else %}<p class="muted">No budget for this year yet. <a href="{{ links.budget }}">Start one</a>.</p>{% endif %}
+    </div>
+  </section>
   <section class="box">
     <div class="box-head"><h2>{{ close_month|date:"F" }} close</h2><div class="aside"><a href="{{ links.close }}">{% if close_done %}Closed{% else %}Open{% endif %}</a></div></div>
     <div class="box-body">

@@ -10,7 +10,7 @@ from typing import Any
 
 from campfire_integration.client import CampfireClient, CampfireError
 from campfire_integration.models import Workspace
-from entities.models import Branch, Family
+from entities.models import Branch, Family, Person
 from gl.models import AccountMapping, DimensionTag, Role
 from investments.models import Account, AssetClass, Instrument
 
@@ -51,7 +51,10 @@ TAG_GROUPS = {
     DimensionTag.Dimension.CUSTODIAN: "FO Custodian",
     DimensionTag.Dimension.ASSET_CLASS: "FO Asset Class",
     DimensionTag.Dimension.HOLDING: "FO Holding",
+    DimensionTag.Dimension.PERSON: "FO Family Member",
+    DimensionTag.Dimension.PROPERTY: "FO Property",
 }
+SPENDING_DIMENSIONS = (DimensionTag.Dimension.PERSON, DimensionTag.Dimension.PROPERTY)
 
 
 def _results(data: Any) -> list[dict[str, Any]]:
@@ -173,12 +176,25 @@ def _wanted_tags(workspace: Workspace) -> dict[str, list[tuple[str, str]]]:
         D.CUSTODIAN: [(c[:100], c[:100]) for c in sorted(set(custodians))],
         D.ASSET_CLASS: [(a.code, a.name) for a in AssetClass.objects.filter(workspace=workspace)],
         D.HOLDING: [(str(i.pk), (f"{i.ticker} – {i.name}" if i.ticker else i.name)[:100]) for i in Instrument.objects.filter(workspace=workspace)],
+        D.PERSON: [(str(p.pk), p.display_name[:100]) for p in Person.objects.filter(family__workspace=workspace, family__is_active=True)],
+        D.PROPERTY: property_values(workspace),
     }
 
 
-def setup_dimensions(workspace: Workspace, client: CampfireClient, *, create: bool) -> list[SetupStep]:
+def property_values(workspace: Workspace) -> list[tuple[str, str]]:
+    """What spending can be tagged to by property: real estate in the investment records, and the homes and other
+    properties listed for the family (FamilyProperty)."""
+    from gl.models import FamilyProperty
+
+    held = [(f"i{i.pk}", i.name[:100]) for i in Instrument.objects.filter(workspace=workspace, kind=Instrument.Kind.REAL_ESTATE)]
+    listed = [(f"p{p.pk}", p.name[:100]) for p in FamilyProperty.objects.filter(workspace=workspace)]
+    names = {name for _, name in held}
+    return held + [(key, name) for key, name in listed if name not in names]
+
+
+def setup_dimensions(workspace: Workspace, client: CampfireClient, *, create: bool, only: tuple[str, ...] = ()) -> list[SetupStep]:
     have = {(t.dimension, t.key) for t in DimensionTag.objects.filter(workspace=workspace)}
-    wanted = _wanted_tags(workspace)
+    wanted = {d: v for d, v in _wanted_tags(workspace).items() if not only or d in only}
     steps = []
     if not create:
         for dimension, values in wanted.items():
