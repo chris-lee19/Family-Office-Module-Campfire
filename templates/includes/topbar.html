@@ -9,6 +9,7 @@
   </nav>
   {% endif %}
   <div class="topbar-tools">
+    {% if view_only %}<span class="pill att-info" title="Your role can see everything and change nothing">View only</span>{% endif %}
     <button class="search-btn" type="button" data-palette-open>{% icon "search" 16 %}<span>Search or jump to…</span><kbd>Ctrl K</kbd></button>
     <div class="menu" data-menu>
       <button class="btn small" type="button" data-menu-toggle aria-haspopup="true">{% icon "plus" 16 %}New</button>

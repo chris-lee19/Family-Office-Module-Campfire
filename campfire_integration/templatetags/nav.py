@@ -30,6 +30,7 @@ NAV = [
     ("Books", "General ledger", "gl:gl", "book", ""),
     ("Data", "Connectors", "investments:connectors", "plug", ""),
     ("Data", "Records", "records:home", "database", ""),
+    ("Data", "People & roles", "records:access", "people", ""),
 ]
 
 # Quick actions: (label, hint, page name, args, fragment)
@@ -60,6 +61,7 @@ ICONS = {
     "journal": '<path d="M5 4h14v16H5z"/><path d="M9 4v16"/><path d="M12 9h4M12 13h4"/>',
     "partners": '<circle cx="8" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M2.5 20c.5-3.5 2.7-5.5 5.5-5.5s5 2 5.5 5.5"/><path d="M14.5 14.6c.8-.4 1.6-.6 2.5-.6 2.3 0 4 1.600 4.500 4.500"/>',
     "plug": '<path d="M9 3v5M15 3v5"/><path d="M6 8h12v3a6 6 0 0 1-12 0z"/><path d="M12 17v4"/>',
+    "people": '<circle cx="12" cy="8" r="3.5"/><path d="M5 20c.6-4 3.300-6 7-6s6.400 2 7 6"/>',
     "report": '<path d="M6 3h9l4 4v14H6z"/><path d="M15 3v4h4"/><path d="M9 12h7M9 16h7M9 8h3"/>',
     "search": '<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/>',
     "plus": '<path d="M12 5v14M5 12h14"/>',
@@ -150,6 +152,8 @@ def shell_context(context: Any) -> dict[str, Any]:
     who = user.get("name") or user.get("email") or getattr(request, "fo_actor", "") or ""
     shell = {
         "nav": nav, "actions": actions, "current": current, "framed": framed, "workspace": workspace, "who": who,
+        "role": getattr(request, "fo_role_label", "") if getattr(request, "fo_roles_on", False) else "",
+        "view_only": getattr(request, "fo_roles_on", False) and getattr(request, "fo_can", None) == frozenset({"view"}),
         "initials": "".join(w[0] for w in who.replace("@", " ").split()[:2]).upper() or "FO",
         "index": _search_index(request, framed, workspace, nav, actions) if workspace is not None else [],
         "request": request, "csrf_token": context.get("csrf_token"),

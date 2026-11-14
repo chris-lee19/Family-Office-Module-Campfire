@@ -461,3 +461,7 @@ form.decide.k1 input, form.decide.k1 select { width: 100%; max-width: none; heig
 .tile.connector { display: grid; gap: 6px; align-content: start; padding: 16px; }
 .connector-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; } .connector-head strong { font-size: 14.5px; }
 .tile.connector p { margin: 0; } .tile.connector .btn, .tile.connector .actions { justify-self: start; margin: 4px 0 0; }
+
+/* ---- people & roles, refusal message ---- */
+form.actions.inline { margin: 0; flex-wrap: nowrap; } form.actions.inline select { height: 30px; font-size: 13px; }
+.box.message { max-width: 640px; margin: 6vh auto; } .box.message h1 { font-size: 20px; margin-bottom: 8px; }

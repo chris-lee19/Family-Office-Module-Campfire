@@ -18,6 +18,7 @@ from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
 
+from campfire_integration import access
 from campfire_integration.frames import SESSION_USER, FrameAuthError, actor_for, session_workspace, verify_frame_request
 from campfire_integration.models import Workspace
 from core.framing import campfire_frame
@@ -66,6 +67,9 @@ def framed(page: Page, surfaces: tuple[str, ...] = ("nav",)) -> Callable[..., Ht
         request.fo_frame_token = token  # type: ignore[attr-defined]
         request.fo_workspace = workspace  # type: ignore[attr-defined]
         request.fo_actor, request.fo_actor_id = actor_for(workspace, user_id)  # type: ignore[attr-defined]
+        refused = access.check(request, workspace, True)
+        if refused is not None:
+            return refused
         return page(request, workspace, True, **kwargs)
 
     return view
@@ -94,6 +98,9 @@ def record_framed(page: Page, *, object_type: str, surfaces: tuple[str, ...]) ->
         request.fo_frame_token = token  # type: ignore[attr-defined]
         request.fo_workspace = workspace  # type: ignore[attr-defined]
         request.fo_actor, request.fo_actor_id = actor_for(workspace, user_id)  # type: ignore[attr-defined]
+        refused = access.check(request, workspace, True)
+        if refused is not None:
+            return refused
         return page(request, workspace, True, record_id=record_id, **kwargs)
 
     return view
@@ -108,6 +115,9 @@ def standalone(page: Page) -> Callable[..., HttpResponse]:
         user = request.session.get(SESSION_USER) or {}
         request.fo_actor, request.fo_actor_id = actor_for(  # type: ignore[attr-defined]
             workspace, user.get("campfire_user_id"), name=user.get("email") or user.get("name") or "", sub=user.get("sub") or "")
+        refused = access.check(request, workspace, False)
+        if refused is not None:
+            return refused
         return page(request, workspace, False, **kwargs)
 
     return view

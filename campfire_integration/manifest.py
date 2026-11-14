@@ -28,6 +28,7 @@ NAV_PAGES: list[tuple[str, str, str, str]] = [
     ("gl", "General ledger", "book-open", "/fo/frame/gl"),
     ("connectors", "Connectors", "plug", "/fo/frame/connectors"),
     ("records", "Records", "database", "/fo/frame/records"),
+    ("people", "People & roles", "users", "/fo/frame/people"),
 ]
 
 # Buttons and tabs on Campfire's own records. Campfire shows them where it supports them today (bill page header,

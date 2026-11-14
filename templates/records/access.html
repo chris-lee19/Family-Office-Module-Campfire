@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}People & roles{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>People &amp; roles</h1>
+    <p class="muted">{{ workspace }} · who can view, enter, approve and manage · your role: {{ my_role }}{% if not on %} (roles are off){% endif %}</p>
+  </div>
+</div>
+{% if message %}<div class="notice" data-toast="success">{{ message }}</div>{% endif %}
+{% if error %}<div class="issues">{{ error }}</div>{% endif %}
+
+{% if not on %}
+<div class="callout">
+  <strong>Roles are off.</strong> Everyone who can open the app in this Campfire workspace can do everything. Turn roles on to decide who enters, who approves and who only views. You become the admin and can then set everyone else's role.
+  <form method="post" action="{{ action }}" class="actions">{% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
+    <button class="btn" type="submit" name="action" value="turn_on">Turn roles on and make me the admin</button></form>
+</div>
+{% endif %}
+
+<section class="box">
+  <div class="box-head"><h2>People</h2><div class="aside">{{ people|length }} seen in this workspace</div></div>
+  {% if people %}
+  <table data-sort>
+    <thead><tr><th>Person</th><th>Last here</th><th>Role</th>{% if on and is_admin %}<th>Change</th>{% endif %}</tr></thead>
+    <tbody>
+    {% for p in people %}
+      <tr><td><strong>{{ p.name }}</strong>{% if p.me %} <span class="pill plain">You</span>{% endif %}{% if p.email and p.email != p.name %}<br><span class="muted small">{{ p.email }}</span>{% endif %}</td>
+        <td class="nowrap">{% if p.last_seen %}{{ p.last_seen|date:"M j, Y" }}{% else %}–{% endif %}</td>
+        <td>{{ p.effective }}{% if on and not p.role %} <span class="muted small">(default)</span>{% endif %}</td>
+        {% if on and is_admin %}<td>
+          <form method="post" action="{{ action }}" class="actions inline">{% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
+            <input type="hidden" name="action" value="set"><input type="hidden" name="user" value="{{ p.key }}">
+            <select name="role" aria-label="Role for {{ p.name }}"><option value="">Default</option>{% for key, label, what in roles %}<option value="{{ key }}" {% if key == p.role %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+            <button class="btn secondary small" type="submit">Save</button></form>
+        </td>{% endif %}</tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<div class="empty"><strong>Nobody yet</strong>People appear here the first time they open the app.</div>{% endif %}
+</section>
+
+{% if on and is_admin %}
+<section class="box">
+  <div class="box-head"><h2>People who aren't listed with a role</h2></div>
+  <div class="box-body">
+    <form method="post" action="{{ action }}" class="actions">{% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
+      <input type="hidden" name="action" value="default">
+      <select name="role" aria-label="Default role">{% for key, label in defaults %}<option value="{{ key }}" {% if key == default_role %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+      <button class="btn secondary" type="submit">Save</button>
+      <span class="muted small">Applies to anyone in the Campfire workspace who opens the app and has no role above.</span></form>
+  </div>
+</section>
+{% endif %}
+
+<section class="box">
+  <div class="box-head"><h2>What each role can do</h2></div>
+  <table><tbody>
+    {% for key, label, what in roles %}<tr><td class="nowrap"><strong>{{ label }}</strong></td><td>{{ what }}</td></tr>{% endfor %}
+  </tbody></table>
+</section>
+<p class="muted small">Where a second person is required (Review → Control), nobody approves their own work, whatever their role. Roles apply to the whole workspace; limiting a person to certain entities is not available yet.</p>
+
+{% if on and is_admin %}
+<details class="settings"><summary>Turn roles off</summary>
+  <form method="post" action="{{ action }}" class="actions">{% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
+    <button class="btn secondary" type="submit" name="action" value="turn_off">Turn roles off for everyone</button>
+    <span class="muted small">Everyone who can open the app will be able to do everything again.</span></form>
+</details>
+{% endif %}
+{% endblock %}

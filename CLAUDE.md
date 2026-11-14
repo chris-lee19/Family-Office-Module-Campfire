@@ -164,7 +164,7 @@ end. Held marks aren't used; non-USD accounts are skipped. Securities without a 
    `get_trial_balance`, `/coa/api/general-ledger`, `/coa/api/transaction`.
 3. ~~Cash~~ (page done 2026-11-13, see below; bank reconciliation `/coa/api/v2/reconciliation` still to do).
 4. ~~Bills and payments~~ (done). 5. ~~Journal entries~~ (done, see below). Agreed next (user 2026-11-13, in this order):
-   ~~partnership accounting and K-1s~~ (done) -> ~~Connectors page~~ (done) -> roles and per-user access -> bank
+   ~~partnership accounting and K-1s~~ (done) -> ~~Connectors page~~ (done) -> ~~roles~~ (done; entity-level limits and per-user connections not yet) -> bank
    reconciliation -> liquidity forecast -> family reporting pack.
    Later: budgets, fixed assets (property, art), documents/K-1s, liquidity, reporting pack.
 - Added by the user 2026-11-13 (don't lose): **partnership accounting and K-1s** (capital accounts per partner,
@@ -257,6 +257,22 @@ end. Held marks aren't used; non-USD accounts are skipped. Securities without a 
   connected). Next real adapter to build is whichever the user's prospects ask for first.
 - Page tests pin `timezone.localdate` (a test broke when the date rolled over). 163 tests.
 
+## Roles (2026-11-14)
+- `campfire_integration/access.py`: capabilities view / prepare / approve / manage; roles Admin (all), Controller
+  (prepare + approve), Accountant (prepare), Approver (approve), Viewer, No access. `Membership` (workspace, user_key
+  "cfu:<id>", role); `Workspace.default_role` (viewer | none) for people not listed. No memberships = roles OFF
+  (everyone is admin, as before); the first person to click "Turn roles on" becomes admin (audited).
+- Enforced centrally: `pages.framed` / `record_framed` / `standalone` call `access.check` after the actor is known.
+  GET needs view. POST: `READ_ACTIONS` (refresh, tieout, refresh_balances, setup_preview, sync) need view;
+  `APPROVE_ACTIONS` and `MANAGE_ACTIONS` are (page, action) pairs; pages in `MANAGE_PAGES` (load_demo, access) need
+  manage; any other POST needs prepare (so a NEW write action is closed to viewers by default; add approve/manage ones
+  to the sets). A refusal renders `campfire/message.html` with 403 and nothing runs.
+- People & roles page (`records/access_views.py`, `records:access`, sidebar Data): people seen in the workspace
+  (`CampfireUser`, now also remembered from frames), role per person, default role, turn off; the only admin can't be
+  demoted. Sidebar shows the role; viewers see a "View only" pill. Second-person rules still apply on top of roles.
+- NOT done: limiting a person to certain entities or families; per-user Campfire connections (API calls still use the
+  workspace's one stored connection). Buttons a role can't use are still shown (the refusal explains). 165 tests.
+
 ## Sign-in and new permissions (lesson, 2026-11-13)
 - Adding `transactions:write` to the defaults broke sign-in for everyone: Campfire answers `invalid_scope` ("This app may
   not request: ...") for a scope that is only in the app's development version. Fixed: the callback retries the
@@ -295,8 +311,8 @@ end. Held marks aren't used; non-USD accounts are skipped. Securities without a 
   allowed domain, 4 sidebar pages and JournalEntry events are live; redirect/connect/manage URLs + P1 scopes sit in
   v2 (development) until the user clicks Promote. Then: Connect, load demo data, GL setup; confirm the first draft JE
   returns 202. The host is in this environment's allowed domains (verified: healthz 200, connect -> authorize 302).
-- Known limit for testers: one stored connection per workspace (the last connector's permissions); no per-user
-  access control yet, so demo data only.
+- Known limit for testers: one stored connection per workspace (the last connector's permissions). Roles exist now
+  (off until an admin turns them on); entity-level limits don't, so still demo data only.
 - From the Campfire partner contact: whether the `oauth_app_extensions` flag is still needed on the sandbox.
 
 ## Conventions

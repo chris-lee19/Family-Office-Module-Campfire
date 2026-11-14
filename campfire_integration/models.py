@@ -22,6 +22,8 @@ class Workspace(models.Model):
     connected_at = models.DateTimeField(null=True, blank=True)
     disconnected_at = models.DateTimeField(null=True, blank=True)
     onboarded_at = models.DateTimeField(null=True, blank=True)
+    # Roles (campfire_integration.access): what someone who isn't listed under People & roles may do, once roles are on.
+    default_role = models.CharField(max_length=12, default="viewer")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -103,3 +105,20 @@ class CampfireUser(models.Model):
 
     def __str__(self) -> str:
         return self.name or self.email or f"Campfire user {self.campfire_user_id}"
+
+
+class Membership(models.Model):
+    """A person's role in the family office app for one workspace. While a workspace has none, roles are off and
+    everyone who can open the app can do everything; the first admin turns them on."""
+
+    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE, related_name="memberships")
+    user_key = models.CharField(max_length=64, help_text="Stable id of the person: cfu:<campfire user id>")
+    role = models.CharField(max_length=12)
+    updated_by = models.CharField(max_length=255, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["workspace", "user_key"], name="membership_unique")]
+
+    def __str__(self) -> str:
+        return f"{self.user_key}: {self.role}"

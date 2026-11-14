@@ -8,7 +8,7 @@
   </nav>
   <div class="who">
     <span class="avatar" aria-hidden="true">{{ initials }}</span>
-    <span class="who-text"><strong>{{ who|default:"Campfire user" }}</strong>{% if workspace %}<span>{{ workspace }}</span>{% endif %}</span>
+    <span class="who-text"><strong>{{ who|default:"Campfire user" }}</strong>{% if workspace %}<span>{{ workspace }}{% if role %} · {{ role }}{% endif %}</span>{% endif %}</span>
     <form method="post" action="{% url 'campfire:logout' %}"><input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
       <button class="link-btn" type="submit">Sign out</button></form>
   </div>

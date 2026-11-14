@@ -1,6 +1,7 @@
 from django.urls import path
 
 from records import attention_views
+from records import access_views
 from records import onboarding_views as ob
 from records import review_views
 from records import views
@@ -12,6 +13,8 @@ urlpatterns = [
     path("records", views.standalone_home, name="home"),
     path("frame/home", attention_views.frame_attention, name="frame_attention"),
     path("home", attention_views.standalone_attention, name="attention"),
+    path("frame/people", access_views.frame_access, name="frame_access"),
+    path("people", access_views.standalone_access, name="access"),
     path("frame/review", review_views.frame_review, name="frame_review"),
     path("review", review_views.standalone_review, name="review"),
     # Onboarding (before the <kind> patterns, which would otherwise match "onboarding").

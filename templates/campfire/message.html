@@ -1,6 +1,9 @@
 {% extends "base.html" %}
 {% block title %}{{ title }}{% endblock %}
 {% block content %}
-<h1>{{ title }}</h1>
-<p>{{ message }}</p>
+<section class="box message"><div class="box-body">
+  <h1>{{ title }}</h1>
+  <p>{{ message }}</p>
+  {% if back %}<p><a class="btn secondary" href="{{ back }}">← Back</a></p>{% endif %}
+</div></section>
 {% endblock %}
