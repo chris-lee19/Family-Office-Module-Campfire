@@ -164,8 +164,8 @@ end. Held marks aren't used; non-USD accounts are skipped. Securities without a 
    `get_trial_balance`, `/coa/api/general-ledger`, `/coa/api/transaction`.
 3. ~~Cash~~ (page done 2026-11-13, see below; bank reconciliation `/coa/api/v2/reconciliation` still to do).
 4. ~~Bills and payments~~ (done). 5. ~~Journal entries~~ (done, see below). Agreed next (user 2026-11-13, in this order):
-   ~~partnership accounting and K-1s~~ (done) -> ~~Connectors page~~ (done) -> ~~roles~~ (done; entity-level limits and per-user connections not yet) -> bank
-   reconciliation -> liquidity forecast -> family reporting pack.
+   ~~partnership accounting and K-1s~~ (done) -> ~~Connectors page~~ (done) -> ~~roles~~ (done; entity-level limits and per-user connections not yet) -> ~~liquidity forecast~~ (done 2026-11-14, user moved it first) -> bank
+   reconciliation -> family reporting pack.
    Later: budgets, fixed assets (property, art), documents/K-1s, liquidity, reporting pack.
 - Added by the user 2026-11-13 (don't lose): **partnership accounting and K-1s** (capital accounts per partner,
   allocations of income/gain, K-1 tracking and figures by entity and person) and a **Connectors page** to bring in
@@ -300,12 +300,42 @@ end. Held marks aren't used; non-USD accounts are skipped. Securities without a 
   the two statements agree (verified on the sandbox: 22,796,838 on both; every scope foots).
 - Supporting report names in use: Schedule of investments, Asset allocation, Private investments: performance
   (Investments page), Capital account statements (Partnerships & K-1s).
-- From the reference, NOT built yet: Liquidity and Cash Flow Forecast (cash by entity, inflows, unfunded commitments,
-  upcoming calls); Budget vs. Actual / Lifestyle Expense Report (needs spending tags: family member, property,
+- From the reference, NOT built yet (the Liquidity and Cash Flow Forecast is built, see below): Budget vs. Actual / Lifestyle Expense Report (needs spending tags: family member, property,
   category); Investment Performance Report (time-weighted returns for liquid holdings; only private IRR / multiples
   exist); Statement of Cash Receipts and Disbursements; Statement of Net Worth with columns by entity or family member;
   Entity / Ownership Structure Chart as a drawing (a table today); realized vs unrealized gains as separate lines in
   the changes statement; per-entity accounting basis (cash / tax / accrual). 168 tests.
+
+## Liquidity and Cash Flow Forecast, and Campfire's mark (2026-11-14)
+- `gl/services/liquidity.py` + `gl/liquidity_views.py`, sidebar "Liquidity forecast" (`gl:liquidity`, Books, after Cash; in
+  NAV_PAGES; page title is the reference's name). A view, nothing is posted. Per entity and for the family, by month
+  (3 / 6 / 12 months): opening cash from the books (`cash._balances`: operating + at custodians; an entity whose custody
+  cash isn't in the books gets it from the investment records, and the page says so), then
+  - known: open bills on their due dates (overdue ones count today), `BillRequest`s waiting for approval, open
+    `CapitalCall` notices (a call's own Campfire bill is left out so it counts once);
+  - expected: `PlannedCashFlow` (workspace, Campfire entity id + name, label, in/out, amount, once / monthly /
+    quarterly / twice a year / yearly, first date, optional last date; add / remove on the page, audited, needs prepare);
+  - what-if `?pace=12|24|36|48`: unfunded commitments without a notice, called evenly over that many months (not stored).
+  Entities are joined by Campfire entity NAME (balance sheet columns and bills carry names). Each entity pays from its
+  own cash: one that goes below zero is flagged (covered by its own liquid investments or not) with a link to
+  Transfer between entities. Also: liquidity tiers (cash from the books; liquid / semi-liquid / illiquid from the
+  investment records by asset class), unfunded commitments with coverage (cash + liquid investments / unfunded), CSV.
+- "Suggest from the books" (`suggest`, GET `?suggest=1`, then POST `add_suggested`): reads the ledger for the last 12
+  complete months, takes every entry that touched a BANK account and reads it by the accounts on its other side, per
+  entity and account. Monthly / about quarterly (gaps of 2-4 months) / twice a year by the months it occurred in,
+  amount = the average time; irregular = averaged per month; one-offs are not suggested. Left out: entries whose memo
+  says "opening", accounts mapped to investment roles, due to / due from / intercompany, Accounts Payable and bill
+  lines (open bills are counted on their own), uncategorized lines. "Prepaid", "depreciation" etc. are offered
+  unticked ("usually not cash"). A suggestion keeps `campfire_account_id`, so it isn't offered twice. Ledger cap 6000
+  lines (the page says when older entries were left out).
+- Chart: month-end cash as thin columns on one zero baseline (`.fc-*` in app.css; a shortfall hangs below in the
+  status red with a "Shortfall" pill; labels on the first, lowest and last month; hover / focus tooltip; the table is
+  the full view). Verified on the sandbox and at phone width. Not done: a Home item for an entity that runs short;
+  minimum cash per entity; editing a planned item in place (remove and add again). 173 tests.
+- Brand tile (user, 2026-11-14: "instead of the F put the Campfire logo there too"): `static/fo/campfire-mark.png` is
+  Campfire's own mark as its docs site serves it (not redrawn), in the sidebar and on the sign-in card. This
+  supersedes "Campfire's logo is not used". The mark is Campfire's trademark: the user should confirm with the partner
+  contact that partner apps may show it.
 
 ## Sign-in and new permissions (lesson, 2026-11-13)
 - Adding `transactions:write` to the defaults broke sign-in for everyone: Campfire answers `invalid_scope` ("This app may

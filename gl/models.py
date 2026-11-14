@@ -348,3 +348,41 @@ class JournalRequest(models.Model):
     @property
     def ref_number(self) -> str:
         return f"FO-JE-{self.pk}"
+
+
+class PlannedCashFlow(models.Model):
+    """Money the family office expects to receive or pay that isn't a bill or a capital call notice yet: a family
+    distribution, a quarterly tax payment, rent, debt service, an expected fund distribution. The liquidity and cash
+    flow forecast adds these to what is already known (open bills, capital calls)."""
+
+    class Direction(models.TextChoices):
+        IN = "in", "Money in"
+        OUT = "out", "Money out"
+
+    class Frequency(models.TextChoices):
+        ONCE = "once", "Once"
+        MONTHLY = "monthly", "Every month"
+        QUARTERLY = "quarterly", "Every quarter"
+        SEMIANNUAL = "semiannual", "Twice a year"
+        ANNUAL = "annual", "Every year"
+
+    STEP = {Frequency.MONTHLY: 1, Frequency.QUARTERLY: 3, Frequency.SEMIANNUAL: 6, Frequency.ANNUAL: 12}
+
+    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE, related_name="planned_cash_flows")
+    campfire_entity_id = models.BigIntegerField()
+    entity_label = models.CharField(max_length=255)
+    label = models.CharField(max_length=120, help_text="What it is: Distributions to beneficiaries, Estimated taxes, Rent")
+    direction = models.CharField(max_length=3, choices=Direction.choices)
+    amount = models.DecimalField(**MONEY, help_text="Each time; positive")
+    frequency = models.CharField(max_length=10, choices=Frequency.choices, default=Frequency.MONTHLY)
+    start = models.DateField(help_text="The first (or only) date")
+    end = models.DateField(null=True, blank=True, help_text="Last date it can fall on; empty = keeps going")
+    campfire_account_id = models.BigIntegerField(null=True, blank=True, help_text="Set when suggested from the books: the account it came from")
+    created_by = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["entity_label", "direction", "label", "id"]
+
+    def __str__(self) -> str:
+        return f"{self.label}: {self.get_direction_display().lower()} {self.amount} {self.get_frequency_display().lower()} ({self.entity_label})"

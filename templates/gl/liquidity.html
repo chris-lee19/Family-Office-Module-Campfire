@@ -1,0 +1,214 @@
+{% extends "base.html" %}
+{% load money viz %}
+{% block title %}Liquidity and Cash Flow Forecast{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Liquidity and Cash Flow Forecast</h1>
+    <p class="muted">{{ workspace }} · {% if fc.entity %}{{ fc.entity }}{% else %}all entities{% endif %} · next {{ choices.months }} months · as of {{ today|date:"M j, Y" }}</p>
+  </div>
+  <div class="page-actions">
+    {% if fc %}<a class="btn secondary" href="{{ csv_url }}">Download CSV</a>{% endif %}
+    <a class="btn" href="#plan" data-open="#plan">Add an expected receipt or payment</a>
+  </div>
+</div>
+
+<form method="get" action="{{ action }}" class="filters" data-autosubmit>
+  {% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
+  <label>Entity
+    <select name="entity"><option value="">All entities</option>{% for id, name in names %}<option value="{{ id }}" {% if id == choices.entity %}selected{% endif %}>{{ name }}</option>{% endfor %}</select></label>
+  <label>Look ahead
+    <select name="months">{% for m in horizons %}<option value="{{ m }}" {% if m == choices.months %}selected{% endif %}>{{ m }} months</option>{% endfor %}</select></label>
+  <label>Unfunded commitments without a notice
+    <select name="pace">{% for p in paces %}<option value="{{ p }}" {% if p == choices.pace %}selected{% endif %}>{% if p %}Assume called evenly over {{ p }} months{% else %}Not in the forecast{% endif %}</option>{% endfor %}</select></label>
+  <button class="btn secondary" type="submit">Update</button>
+</form>
+
+{% if message %}<div class="notice" data-toast="success">{{ message }}</div>{% endif %}
+{% if error %}<div class="issues">{{ error }}</div>{% endif %}
+
+{% if fc %}
+{% if fc.short_entities %}
+<div class="callout warn">
+  <strong>{{ fc.short_entities|length }} entit{{ fc.short_entities|length|pluralize:"y,ies" }} run{{ fc.short_entities|length|pluralize:"s," }} short of cash in this forecast.</strong>
+  <ul class="plain">
+    {% for e in fc.short_entities %}<li><strong>{{ e.entity }}</strong>: short by {{ e.low|acct }} in {{ e.low_month }}{% if e.covered %} (its liquid investments of {{ e.liquid|money }} would cover it){% endif %}.</li>{% endfor %}
+  </ul>
+  <p class="small">Move cash ahead of time with <a href="{{ journals_url }}#transfer">Transfer between entities</a>, or raise it from liquid investments.</p>
+</div>
+{% endif %}
+
+<div class="kpis">
+  <div class="kpi"><div class="label">Cash today</div><div class="value">{{ fc.opening|money }}</div><div class="sub">Operating {{ fc.operating|money }} · at custodians {{ fc.custody|money }}</div></div>
+  <div class="kpi"><div class="label">Lowest point</div><div class="value">{{ fc.low|money }}</div>
+    <div class="sub">{% if fc.low < 0 %}<span class="err">Short of cash in {{ fc.low_month.label }}</span>{% else %}At the end of {{ fc.low_month.label }}{% endif %}</div></div>
+  <div class="kpi"><div class="label">Due in the next 30 days</div><div class="value">{{ due_soon_total|money }}</div><div class="sub">{{ fc.due_soon|length }} bill{{ fc.due_soon|length|pluralize }} and capital call{{ fc.due_soon|length|pluralize }}{% if late %} · <span class="err">{{ late }} past due</span>{% endif %}</div></div>
+  <div class="kpi"><div class="label">Unfunded commitments</div><div class="value">{{ fc.total_unfunded|money }}</div>
+    <div class="sub">{% if fc.coverage %}Cash and liquid investments cover it {{ fc.coverage }}x{% else %}No open commitments{% endif %}</div></div>
+</div>
+
+<section class="box">
+  <div class="box-head"><h2>Projected cash at month end</h2><div class="aside"><span>Cash today {{ fc.opening|money }} · end of {{ last_month }} {{ fc.end|money }}</span></div></div>
+  <div class="box-body">
+  {% if chart %}
+    <div class="fc-chart" role="img" aria-label="Projected cash at the end of each month, from {{ fc.months.0.label }} to {{ last_month }}. Lowest {{ fc.low|money }} in {{ fc.low_month.label }}. The table below has every figure.">
+      <div class="fc-plot" style="--up: {{ chart.up }}; --down: {{ chart.down }}">
+        {% for c in chart.cols %}
+        <div class="fc-col{% if c.negative %} neg{% endif %}{% if c.edge %} {{ c.edge }}{% endif %}" tabindex="0">
+          <div class="fc-up">{% if not c.negative %}{% if c.label %}<span class="fc-val">{{ c.value|compact }}</span>{% endif %}<i style="height: {{ c.height }}%"></i>{% endif %}</div>
+          <div class="fc-down">{% if c.negative %}<i style="height: {{ c.height }}%"></i>{% if c.label %}<span class="fc-val">{{ c.value|compact }}</span>{% endif %}{% endif %}</div>
+          <div class="fc-x">{{ c.month.short }}{% if forloop.first or c.month.start.month == 1 %}<small>{{ c.month.start|date:"Y" }}</small>{% endif %}</div>
+          <div class="fc-tip" role="tooltip"><strong>{{ c.month.label }}</strong>
+            <span>Cash at the start</span><b>{{ c.opening|acct }}</b>
+            <span>Money in</span><b>{{ c.money_in|acct }}</b>
+            <span>Money out</span><b>{% if c.money_out %}({{ c.money_out|acct }}){% else %}–{% endif %}</b>
+            <span>Cash at the end</span><b>{{ c.value|acct }}</b></div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% if fc.low < 0 %}<p class="small"><span class="pill sev-error">Shortfall</span> Months drawn below the line end with less than no cash: the forecast needs a transfer, a sale or a later payment.</p>{% endif %}
+  {% else %}<div class="empty"><strong>No cash on the books yet</strong>Balances come from Campfire's books; link the entities on General ledger → Setup.</div>{% endif %}
+  </div>
+</section>
+
+<section class="box box-flush">
+  <div class="box-head"><h2>Forecast by month</h2><div class="aside"><span>Bills and capital calls on their due dates, plus what you expect</span></div></div>
+  <div class="table-scroll">
+  <table class="statement wide forecast">
+    <thead><tr><th></th>{% for m in fc.months %}<th class="num">{{ m.short }}{% if forloop.first or m.start.month == 1 %} {{ m.start|date:"y" }}{% endif %}</th>{% endfor %}<th class="num">Total</th></tr></thead>
+    <tbody>
+      <tr class="total"><td>Cash at the start</td>{% for v in fc.starts %}<td class="num">{{ v|acct }}</td>{% endfor %}<td></td></tr>
+      <tr class="section"><td colspan="{{ fc.months|length|add:2 }}">Money in</td></tr>
+      {% for ln in fc.inflows %}<tr class="account"><td class="indent">{{ ln.label }}</td>{% for v in ln.values %}<td class="num">{{ v|acct }}</td>{% endfor %}<td class="num">{{ ln.total|acct }}</td></tr>
+      {% empty %}<tr class="account"><td class="indent muted" colspan="{{ fc.months|length|add:2 }}">Nothing expected yet. Add rent, income or fund distributions you expect, or let the books suggest them.</td></tr>{% endfor %}
+      {% if fc.inflows %}<tr class="total"><td>Total money in</td>{% for v in fc.money_in %}<td class="num">{{ v|acct }}</td>{% endfor %}<td class="num">{{ total_in|acct }}</td></tr>{% endif %}
+      <tr class="section"><td colspan="{{ fc.months|length|add:2 }}">Money out</td></tr>
+      {% for ln in fc.outflows %}<tr class="account"><td class="indent">{{ ln.label }}</td>{% for v in ln.values %}<td class="num">{{ v|acct }}</td>{% endfor %}<td class="num">{{ ln.total|acct }}</td></tr>
+      {% empty %}<tr class="account"><td class="indent muted" colspan="{{ fc.months|length|add:2 }}">Nothing to pay in this period.</td></tr>{% endfor %}
+      {% if fc.outflows %}<tr class="total"><td>Total money out</td>{% for v in fc.money_out %}<td class="num">{{ v|acct }}</td>{% endfor %}<td class="num">{{ total_out|acct }}</td></tr>{% endif %}
+      <tr class="total"><td>Net change in cash</td>{% for v in fc.net %}<td class="num">{{ v|acct }}</td>{% endfor %}<td class="num">{{ total_net|acct }}</td></tr>
+      <tr class="grand"><td>Cash at the end</td>{% for v in fc.closing %}<td class="num{% if v < 0 %} err{% endif %}">{{ v|acct }}</td>{% endfor %}<td></td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+{% if fc.notes %}<p class="muted small">{{ fc.notes|join:" " }}</p>{% endif %}
+
+<section class="box">
+  <div class="box-head"><h2>By entity</h2><div class="aside"><span>Each entity pays from its own cash</span></div></div>
+  <table data-sort>
+    <thead><tr><th>Entity</th><th class="num">Cash today</th><th class="num">Liquid investments</th><th class="num">Money in</th><th class="num">Money out</th><th class="num">Lowest point</th><th class="num">End of period</th><th>Outlook</th></tr></thead>
+    <tbody>
+    {% for e in fc.entities %}
+      <tr><td><strong>{{ e.entity }}</strong></td><td class="num">{{ e.cash|money }}</td><td class="num">{{ e.liquid|money }}</td>
+        <td class="num">{{ e.inflow|acct }}</td><td class="num">{{ e.outflow|acct }}</td>
+        <td class="num{% if e.short %} err{% endif %}">{{ e.low|acct }}<br><span class="muted small">{{ e.low_month }}</span></td><td class="num">{{ e.end|acct }}</td>
+        <td>{% if e.short and e.covered %}<span class="pill sev-warning">Short: sell or transfer</span>{% elif e.short %}<span class="pill sev-error">Short of cash</span>{% else %}<span class="pill booked">Covered</span>{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<div class="networth">
+  <section class="box">
+    <div class="box-head"><h2>Liquidity tiers</h2><div class="aside"><span>How fast the assets turn into cash</span></div></div>
+    <div class="box-body">{% alloc tiers "Liquidity tiers" %}
+      <p class="muted small">Cash is from the books. The investments are at their latest value in the investment records, by the liquidity of their asset class.</p></div>
+  </section>
+  <section class="box">
+    <div class="box-head"><h2>Unfunded commitments</h2><div class="aside"><span>{% if fc.pace %}In the forecast, called evenly over {{ fc.pace }} months{% else %}Only notices received are in the forecast{% endif %}</span></div></div>
+    {% if fc.unfunded %}
+    <table>
+      <thead><tr><th>Fund</th><th>Entity</th><th class="num">Commitment</th><th class="num">Unfunded</th><th class="num">Notices received</th></tr></thead>
+      <tbody>
+      {% for u in fc.unfunded %}<tr><td><strong>{{ u.fund }}</strong></td><td>{{ u.entity }}</td><td class="num">{{ u.commitment|money }}</td><td class="num">{{ u.unfunded|money }}</td><td class="num">{{ u.noticed|acct }}</td></tr>{% endfor %}
+      </tbody>
+    </table>
+    {% else %}<div class="empty"><strong>No unfunded commitments</strong>Commitments to private funds appear here with what is still to be called.</div>{% endif %}
+  </section>
+</div>
+{% endif %}
+
+<h2 id="expected">What you expect <span class="count-chip">{{ planned|length }}</span></h2>
+<p class="muted">Receipts and payments that aren't a bill or a capital call notice yet: distributions to the family, tax payments, rent, debt service, fund distributions. Open bills are counted on their own, on their due dates, so leave out costs you already enter as bills.</p>
+
+{% if suggestions %}
+<section class="box" id="suggest">
+  <div class="box-head"><h2>Suggested from the books</h2><div class="aside"><span>What moved cash regularly, {{ suggestions.start|date:"M Y" }} to {{ suggestions.end|date:"M Y" }}</span></div></div>
+  {% if suggestions.items %}
+  <form method="post" action="{{ post_action }}">
+    {% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}<input type="hidden" name="action" value="add_suggested">
+    <table>
+      <thead><tr><th>Add</th><th>What</th><th>Entity</th><th></th><th class="num">Each time</th><th>How often</th><th>Next</th><th>In the books</th></tr></thead>
+      <tbody>
+      {% for s in suggestions.items %}
+        <tr><td><input type="checkbox" name="pick" value="{{ forloop.counter }}" aria-label="Add {{ s.label }}, {{ s.entity }}" {% if s.checked %}checked{% endif %}>
+            <input type="hidden" name="s{{ forloop.counter }}-entity" value="{{ s.entity_id }}"><input type="hidden" name="s{{ forloop.counter }}-account" value="{{ s.account_id }}">
+            <input type="hidden" name="s{{ forloop.counter }}-label" value="{{ s.label }}"><input type="hidden" name="s{{ forloop.counter }}-direction" value="{{ s.direction }}">
+            <input type="hidden" name="s{{ forloop.counter }}-amount" value="{{ s.amount }}"><input type="hidden" name="s{{ forloop.counter }}-frequency" value="{{ s.frequency }}">
+            <input type="hidden" name="s{{ forloop.counter }}-start" value="{{ s.start|date:'Y-m-d' }}"></td>
+          <td><strong>{{ s.label }}</strong></td><td>{{ s.entity }}</td>
+          <td><span class="amount-chip {{ s.direction }}">{% if s.direction == "in" %}In{% else %}Out{% endif %}</span></td>
+          <td class="num">{{ s.amount|acct }}</td><td>{{ s.frequency_label }}</td><td class="nowrap">{{ s.start|date:"M j, Y" }}</td><td class="small muted">{{ s.basis }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <div class="box-body actions"><button class="btn" type="submit">Add the ticked items</button>
+      <span class="muted small">{% if suggestions.one_offs %}{{ suggestions.one_offs }} one-off movement{{ suggestions.one_offs|pluralize }} left out. {% endif %}{% if suggestions.partial %}The ledger was too long to read in full: older entries were left out. {% endif %}You can remove any item afterwards.</span></div>
+  </form>
+  {% else %}<div class="empty"><strong>Nothing new to suggest</strong>{% if suggestions.one_offs %}The books show only one-off movements, or everything recurring is already in the forecast.{% else %}No entries moved cash in the last twelve months, or everything recurring is already in the forecast.{% endif %}</div>{% endif %}
+</section>
+{% endif %}
+
+<details class="settings" id="plan"{% if reopen %} open{% endif %}>
+  <summary>Add an expected receipt or payment</summary>
+  <form method="post" action="{{ post_action }}" class="record-form flat">
+    {% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}<input type="hidden" name="action" value="add">
+    <div class="fields">
+      <div class="field"><label>What it is <span class="req">*</span></label><input name="label" value="{{ entered.label }}" placeholder="Distribution to beneficiaries, estimated taxes, rent" required></div>
+      <div class="field"><label>Entity <span class="req">*</span></label><select name="entity" required><option value="">Choose</option>{% for id, name in names %}<option value="{{ id }}" {% if entered.entity == id|stringformat:"s" %}selected{% endif %}>{{ name }}</option>{% endfor %}</select></div>
+      <div class="field"><label>In or out <span class="req">*</span></label><select name="direction" required>{% for k, label in directions %}<option value="{{ k }}" {% if entered.direction == k or not entered.direction and k == "out" %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+      <div class="field"><label>Amount each time <span class="req">*</span></label><input name="amount" inputmode="decimal" value="{{ entered.amount }}" required></div>
+      <div class="field"><label>How often <span class="req">*</span></label><select name="frequency" required>{% for k, label in frequencies %}<option value="{{ k }}" {% if entered.frequency == k or not entered.frequency and k == "monthly" %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+      <div class="field"><label>First date <span class="req">*</span></label><input type="date" name="start" value="{{ entered.start }}" required></div>
+      <div class="field"><label>Last date (optional)</label><input type="date" name="end" value="{{ entered.end }}"></div>
+    </div>
+    <div class="actions"><button class="btn" type="submit">Add to the forecast</button><span class="muted small">Nothing is posted to the books: this only changes the forecast.</span></div>
+  </form>
+</details>
+
+<section class="box">
+  <div class="box-head"><h2>In the forecast</h2><div class="aside"><a class="btn secondary small" href="{{ suggest_url }}">Suggest from the books</a></div></div>
+  {% if planned %}
+  <table data-sort>
+    <thead><tr><th>What</th><th>Entity</th><th></th><th class="num">Each time</th><th>How often</th><th>From</th><th>Until</th><th>Added by</th><th></th></tr></thead>
+    <tbody>
+    {% for p in planned %}
+      <tr><td><strong>{{ p.label }}</strong></td><td>{{ p.entity_label }}</td><td><span class="amount-chip {{ p.direction }}">{% if p.direction == "in" %}In{% else %}Out{% endif %}</span></td>
+        <td class="num">{{ p.amount|acct }}</td><td>{{ p.get_frequency_display }}</td><td class="nowrap">{{ p.start|date:"M j, Y" }}</td><td class="nowrap">{{ p.end|date:"M j, Y"|default:"–" }}</td>
+        <td class="small muted">{{ p.created_by|default:"—" }}</td>
+        <td><form method="post" action="{{ post_action }}" class="actions inline">{% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}
+          <input type="hidden" name="action" value="delete"><input type="hidden" name="item" value="{{ p.pk }}"><button class="link-btn" type="submit" aria-label="Remove {{ p.label }}, {{ p.entity_label }}">Remove</button></form></td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<div class="empty"><strong>Nothing added yet</strong>The forecast shows only open bills and capital calls so far. Let the books suggest what recurs, or add what you expect.</div>{% endif %}
+</section>
+
+{% if fc and fc.flows %}
+<section class="box">
+  <div class="box-head"><h2>Coming up, next {{ soon_days }} days <span class="count-chip">{{ soon|length }}</span></h2>
+    <div class="aside"><input type="search" placeholder="Filter by entity, payee or kind" aria-label="Filter what is coming up" data-filter="#flows"></div></div>
+  {% if soon %}{% include "gl/_flows.html" with flows=soon table_id="flows" %}
+  {% else %}<div class="empty"><strong>Nothing dated in the next {{ soon_days }} days</strong>Bills, capital calls and what you expect appear here as they come due.</div>{% endif %}
+  <p class="muted small box-body">Bills are on <a href="{{ bills_url }}">Bills</a>, capital call notices on <a href="{{ calls_url }}">Capital calls</a>, balances on <a href="{{ cash_url }}">Cash</a>.</p>
+</section>
+{% if later %}
+<details class="settings">
+  <summary>Later in the forecast <span class="count-chip">{{ later|length }}</span></summary>
+  {% include "gl/_flows.html" with flows=later table_id="flows-later" %}
+</details>
+{% endif %}
+{% endif %}
+{% endblock %}

@@ -24,6 +24,7 @@ NAV = [
     ("Operations", "Review", "records:review", "check", "review"),
     ("Operations", "Month-end close", "gl:close", "calendar", ""),
     ("Books", "Cash", "gl:cash", "bank", ""),
+    ("Books", "Liquidity forecast", "gl:liquidity", "trend", ""),
     ("Books", "Bills", "gl:bills", "bill", "bills"),
     ("Books", "Journal entries", "gl:journals", "journal", "journals"),
     ("Books", "Financial statements", "gl:statements", "report", ""),
@@ -37,6 +38,7 @@ NAV = [
 ACTIONS = [
     ("Write a journal entry", "For approval, then posted to the ledger", "gl:journals", (), "#enter"),
     ("Enter a bill", "For approval, then into the payables", "gl:bills", (), "#enter"),
+    ("Add an expected receipt or payment", "A distribution, tax payment or other cash the forecast should count", "gl:liquidity", (), "#plan"),
     ("Upload a custodian file", "Transactions, prices or positions from the custodian", "investments:imports", (), ""),
     ("Record a capital call notice", "Then send it to Campfire as a bill", "records:new", ("capital-calls",), ""),
     ("Record a distribution", "Return of capital, income and gains from a fund", "gl:calls", (), "#distribution"),
@@ -57,6 +59,7 @@ ICONS = {
     "book": '<path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"/><path d="M5 17a3 3 0 0 1 3-3h11"/>',
     "database": '<ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6"/><path d="M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/>',
     "bank": '<path d="M3 10 12 4l9 6"/><path d="M5 10v8M9.5 10v8M14.5 10v8M19 10v8"/><path d="M3 20h18"/>',
+    "trend": '<path d="M3 17l5-5 4 3 8-8"/><path d="M15 7h5v5"/><path d="M3 21h18"/>',
     "bill": '<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>',
     "journal": '<path d="M5 4h14v16H5z"/><path d="M9 4v16"/><path d="M12 9h4M12 13h4"/>',
     "partners": '<circle cx="8" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M2.5 20c.5-3.5 2.7-5.5 5.5-5.5s5 2 5.5 5.5"/><path d="M14.5 14.6c.8-.4 1.6-.6 2.5-.6 2.3 0 4 1.600 4.500 4.500"/>',

@@ -62,7 +62,7 @@ kbd { font: 500 11px var(--font); color: var(--muted); background: var(--surface
 .side { position: sticky; top: 0; height: 100vh; overflow-y: auto; background: var(--side); border-right: 1px solid var(--line); padding: 16px 12px 12px; display: flex; flex-direction: column; }
 .brand { display: flex; align-items: center; gap: 10px; padding: 4px 8px 18px; font-weight: 650; font-size: 15px; letter-spacing: -.01em; color: var(--fg); }
 .brand:hover { text-decoration: none; }
-.brand-mark { width: 28px; height: 28px; border-radius: 8px; background: linear-gradient(135deg, var(--accent-bright), #f59e0b); color: #fff; display: grid; place-items: center; font-size: 14px; font-weight: 700; }
+.brand-mark { width: 28px; height: 28px; border-radius: 8px; display: block; object-fit: cover; flex: none; }  /* Campfire's mark, as its own site serves it */
 .side nav { display: flex; flex-direction: column; gap: 2px; }
 .side a.nav { display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 10px; border-radius: 8px; color: var(--fg-2); font-weight: 500; font-size: 13.5px; }
 .side a.nav .icon { color: var(--muted); }
@@ -281,7 +281,7 @@ ol.steps { padding-left: 20px; } ol.steps li { margin: 8px 0; }
 .networth { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 16px; align-items: start; margin: 16px 0; }
 .networth .box { margin: 0; height: 100%; }
 .login { max-width: 420px; margin: 12vh auto; text-align: center; }
-.login .card { padding: 32px; } .login .brand-mark { width: 44px; height: 44px; font-size: 20px; margin: 0 auto 14px; border-radius: 12px; }
+.login .card { padding: 32px; } .login .brand-mark { width: 44px; height: 44px; margin: 0 auto 14px; border-radius: 12px; }
 
 /* ---- small screens ---- */
 @media (max-width: 1080px) { .dash, .networth { grid-template-columns: minmax(0, 1fr); } }
@@ -465,3 +465,32 @@ form.decide.k1 input, form.decide.k1 select { width: 100%; max-width: none; heig
 /* ---- people & roles, refusal message ---- */
 form.actions.inline { margin: 0; flex-wrap: nowrap; } form.actions.inline select { height: 30px; font-size: 13px; }
 .box.message { max-width: 640px; margin: 6vh auto; } .box.message h1 { font-size: 20px; margin-bottom: 8px; }
+
+/* ---- liquidity and cash flow forecast ---- */
+.table-scroll { overflow-x: auto; }
+.box-flush > .table-scroll > table.statement { margin: 0; border: 0; border-top: 1px solid var(--line); border-radius: 0 0 var(--radius) var(--radius); box-shadow: none; }
+table.statement.wide.forecast td.num, table.statement.wide.forecast th.num { white-space: nowrap; padding-left: 4px; padding-right: 8px; font-size: 12px; }
+table.forecast td.err { color: var(--bad); font-weight: 600; }
+table.statement.wide.forecast td:first-child, table.forecast th:first-child { position: sticky; left: 0; z-index: 1; min-width: 165px; max-width: 240px; padding-right: 8px; background: var(--surface); }
+table.forecast thead th:first-child { background: var(--surface-2); } table.forecast tr.grand td:first-child { background: var(--surface-2); }
+/* month-end cash: thin columns on one zero baseline; a month that ends short of cash hangs below it */
+.fc-chart { padding: 6px 0 4px; }
+.fc-plot { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); height: 240px; }
+.fc-col { position: relative; display: flex; flex-direction: column; min-width: 0; outline: 0; border-radius: 6px; }
+.fc-col:hover, .fc-col:focus-visible { background: var(--surface-2); }
+.fc-up, .fc-down { display: flex; flex-direction: column; align-items: center; min-height: 0; }
+.fc-up { flex: var(--up) 1 0; justify-content: flex-end; border-bottom: 1px solid var(--line-strong); padding-top: 18px; }
+.fc-down { flex: var(--down) 1 0; justify-content: flex-start; }
+.fc-up i, .fc-down i { display: block; width: min(24px, 60%); min-height: 2px; background: var(--s1); }
+.fc-up i { border-radius: 4px 4px 0 0; } .fc-down i { border-radius: 0 0 4px 4px; background: var(--bad); }
+.fc-val { font-size: 11.5px; font-weight: 600; color: var(--fg-2); font-variant-numeric: tabular-nums; white-space: nowrap; line-height: 16px; }
+.fc-col.neg .fc-val { color: var(--bad); }
+.fc-x { flex: none; text-align: center; font-size: 11.5px; color: var(--muted); padding-top: 6px; line-height: 1.25; min-height: 34px; }
+.fc-x small { display: block; font-size: 10.5px; }
+.fc-tip { display: none; position: absolute; z-index: 6; left: 50%; bottom: calc(100% - 12px); transform: translateX(-50%); min-width: 190px; padding: 9px 11px;
+  background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--radius-sm); box-shadow: var(--shadow-lg);
+  grid-template-columns: 1fr auto; gap: 3px 14px; font-size: 12.5px; color: var(--fg-2); pointer-events: none; }
+.fc-tip strong { grid-column: 1 / -1; color: var(--fg); margin-bottom: 2px; } .fc-tip b { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--fg); }
+.fc-col:hover .fc-tip, .fc-col:focus .fc-tip { display: grid; }
+.fc-col.left .fc-tip { left: 0; transform: none; } .fc-col.right .fc-tip { left: auto; right: 0; transform: none; }
+@media (max-width: 640px) { .fc-plot { height: 200px; } .fc-val { font-size: 10.5px; } .fc-x { font-size: 10.5px; } }

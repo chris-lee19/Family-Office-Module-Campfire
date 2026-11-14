@@ -1,9 +1,9 @@
 {% extends "base.html" %}
-{% block title %}Sign in{% endblock %}
+{% load static %}{% block title %}Sign in{% endblock %}
 {% block content %}
 <div class="login">
   <div class="card">
-    <div class="brand-mark">F</div>
+    <img class="brand-mark" src="{% static 'fo/campfire-mark.png' %}" alt="Campfire" width="44" height="44">
     <h1>Family Office <span class="on-campfire">on Campfire</span></h1>
     <p class="muted">The family office's books, investments, cash and bills in one place. Campfire keeps the ledger; you work here.</p>
     <p style="margin-top:20px"><a class="btn" href="{% url 'campfire:connect' %}">Log in with Campfire</a></p>
