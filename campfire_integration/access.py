@@ -35,7 +35,7 @@ READ_ACTIONS = {"refresh", "tieout", "refresh_balances", "setup_preview", "sync"
 APPROVE_ACTIONS = {("bills", "approve"), ("bills", "reject"), ("journals", "approve"), ("journals", "reject"), ("review", "accept"),
                    ("review", "reject"), ("review", "correct"), ("review", "sign_off"), ("close", "signoff")}
 MANAGE_ACTIONS = {("gl", "map"), ("gl", "link"), ("gl", "auto_link"), ("gl", "post_from"), ("gl", "fair_value_from"), ("gl", "setup_create"),
-                  ("review", "policy"), ("close", "reopen")}
+                  ("review", "policy"), ("close", "reopen"), ("statements", "tax_rate")}
 MANAGE_PAGES = {"load_demo", "access"}
 
 

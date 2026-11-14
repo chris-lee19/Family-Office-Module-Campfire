@@ -161,3 +161,24 @@ def balances(workspace: Workspace, as_of: date) -> list[tuple[int, Account, Inst
                 continue  # the tie-out reports the ledger error for the account's other balances
             out += [(cf_entity, account, instrument, value - cost) for instrument, cost, value in rows.values() if value != cost]
     return out
+
+
+def holdings_for(workspace: Workspace, campfire_entity_ids: Any, as_of: date) -> list[tuple[str, str, Decimal, Decimal]]:
+    """(entity name, holding, cost, fair value) for the investment holdings booked in these Campfire entities on a
+    date. Cash is left out (it has no unrealized gain); accounts whose ledger doesn't replay are skipped."""
+    wanted = set(campfire_entity_ids)
+    out = []
+    for accounts in booked_accounts(workspace).values():
+        for account in accounts:
+            if account.entity.campfire_entity_id not in wanted:  # type: ignore[union-attr]
+                continue
+            try:
+                rows = unrealized_at(account, as_of)
+            except LedgerError:
+                continue
+            out += [(account.entity.name, instrument.name, cost, value) for instrument, cost, value in rows.values()]  # type: ignore[union-attr]
+    return out
+
+
+def unrealized_for(workspace: Workspace, campfire_entity_ids: Any, as_of: date) -> Decimal:
+    return sum((value - cost for _, _, cost, value in holdings_for(workspace, campfire_entity_ids, as_of)), ZERO)

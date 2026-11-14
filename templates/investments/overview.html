@@ -51,7 +51,7 @@
     </section>
 
     <section class="box" data-tabs="alloc-{{ fi.family.pk }}">
-      <div class="box-head"><h3>Allocation</h3>
+      <div class="box-head"><h3>Asset allocation</h3>
         <div class="aside"><div class="seg" role="tablist">
           <button type="button" data-tab="class">Asset class</button>
           <button type="button" data-tab="owner">Owner</button>
@@ -73,7 +73,7 @@
 
   {% if fi.privates %}
   <section class="box">
-    <div class="box-head"><h3>Private investments</h3><div class="aside">{{ fi.privates|length }} fund{{ fi.privates|length|pluralize }} · <a href="{{ calls_url }}">Capital calls</a></div></div>
+    <div class="box-head"><h3>Private investments: performance</h3><div class="aside">{{ fi.privates|length }} fund{{ fi.privates|length|pluralize }} · <a href="{{ calls_url }}">Capital calls</a></div></div>
     <table data-sort>
       <thead><tr><th>Fund</th><th class="num">Commitment</th><th class="num">Called</th><th class="num">Unfunded</th><th class="num">Distributed</th><th class="num">NAV</th><th class="num">DPI</th><th class="num">TVPI</th><th class="num">IRR</th></tr></thead>
       <tbody>
@@ -96,9 +96,9 @@
   {% endif %}
 
   <section class="box">
-    <div class="box-head"><h3>Holdings</h3>
+    <div class="box-head"><h3>Schedule of investments</h3>
       <div class="aside"><span id="holdings-count-{{ fi.family.pk }}">{{ p.holdings|length }}</span> shown
-        <input type="search" placeholder="Filter holdings" aria-label="Filter holdings" data-filter="#holdings-{{ fi.family.pk }}" data-count="#holdings-count-{{ fi.family.pk }}"></div></div>
+        <input type="search" placeholder="Filter the schedule" aria-label="Filter the schedule of investments" data-filter="#holdings-{{ fi.family.pk }}" data-count="#holdings-count-{{ fi.family.pk }}"></div></div>
     <table data-sort id="holdings-{{ fi.family.pk }}">
       <thead><tr><th>Account</th><th>Holding</th><th class="num">Quantity</th><th class="num">Cost</th><th class="num">Value</th><th class="num">Unrealized</th><th>Valued by</th></tr></thead>
       <tbody>

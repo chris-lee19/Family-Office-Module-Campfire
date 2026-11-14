@@ -13,6 +13,11 @@ from django.utils import timezone
 from campfire_integration import pages
 from campfire_integration.client import CampfireClient, CampfireError, NotConnected
 from campfire_integration.models import Workspace
+from datetime import timedelta
+from decimal import Decimal, InvalidOperation
+
+from gl.models import AccountMapping, GLSettings, Role
+from gl.services import fairvalue
 from gl.services import statements as svc
 
 CAMPFIRE_ERRORS = (CampfireError, NotConnected, requests.RequestException)
@@ -44,30 +49,61 @@ def _headline(statement: svc.Statement) -> list[tuple[str, Any]]:
     """The totals of a statement as headline figures (last column: the latest balance, or the period total)."""
     totals = [(r.label, r.values[-1], r.kind) for r in statement.rows if r.kind in ("total", "grand") and r.values and r.values[-1] is not None]
     by_label = {label: value for label, value, _ in totals}
-    for wanted in (("Net worth", "Total assets", "Total liabilities"),  # the answer first
-                   ("Change in net worth", "Excess of income over expenses", "Total contributions and distributions")):
-        if all(w in by_label for w in wanted[:2]):
-            return [(w, by_label[w]) for w in wanted if w in by_label]
+    if len(statement.columns) == 4 and statement.columns[0].startswith("Tax basis"):  # the tax basis report: its last row
+        last = statement.rows[-1].values if statement.rows else []
+        return [(c, v) for c, v in zip(statement.columns, last) if v is not None]
+    for names in svc.NAMES.values():  # the answer first: net worth (or net assets, equity), then what makes it up
+        for wanted in ((names["equity"], "Total assets", "Total liabilities"), (names["change"], names["result"], "Total contributions and distributions")):
+            if all(w in by_label for w in wanted[:2]):
+                return [(w, by_label[w]) for w in wanted if w in by_label]
     grand = [t[:2] for t in totals if t[2] == "grand"][:2]
     return (grand + [t[:2] for t in totals if t[2] == "total"])[:4]
 
 
+def _fair_values(workspace: Workspace, scope: svc.Scope, start: Any, end: Any, tax_rate: Decimal) -> svc.FairValues | None:
+    """What the investment records add to the books for a fair-value statement (None for conventional entity books)."""
+    if not scope.fair_value:
+        return None
+    booked = frozenset(AccountMapping.objects.filter(workspace=workspace, role=Role.UNREALIZED).values_list("campfire_account_id", flat=True))
+    return svc.FairValues(fairvalue.unrealized_for(workspace, scope.members, start - timedelta(days=1)),
+                          fairvalue.unrealized_for(workspace, scope.members, end), booked, tax_rate)
+
+
 def statements_page(request: HttpRequest, workspace: Workspace, framed: bool) -> HttpResponse:
-    if request.method != "GET":
-        return HttpResponseNotAllowed(["GET"])
+    if request.method not in ("GET", "POST"):
+        return HttpResponseNotAllowed(["GET", "POST"])
     today = timezone.localdate()
+    settings = GLSettings.for_workspace(workspace)
+    message = ""
+    if request.method == "POST":  # the one setting on this page: the rate for estimated income taxes
+        if request.POST.get("action") != "tax_rate":
+            return HttpResponseNotAllowed(["GET"])
+        try:
+            rate = Decimal(str(request.POST.get("rate") or "0").replace("%", "").strip())
+            if not 0 <= rate <= 60:
+                raise InvalidOperation
+            settings.estimated_tax_rate = rate.quantize(Decimal("0.01"))
+            settings.save(update_fields=["estimated_tax_rate"])
+            message = (f"Estimated income taxes use {settings.estimated_tax_rate.normalize():f}% of unrealized appreciation."
+                       if settings.estimated_tax_rate else "No estimate of income taxes is shown.")
+        except InvalidOperation:
+            message = "Enter the rate as a percentage between 0 and 60."
+        request.GET = request.POST  # keep the choices that were on the page
     c = _choices(request)
     start, end = svc.period_dates(c["period"], today, c["start"], c["end"])
     base = pages.page_url(request, framed, "gl:statements")
     error, statement, options, scope = "", None, [], None
     try:
         client = _client(workspace)
-        options = svc.scopes(client)
+        options = svc.classify(workspace, svc.scopes(client))
         scope = _scope(options, c["entity"])
         if scope is None:
             error = "No entities in Campfire yet."
+        elif c["view"] == "tx":
+            statement = svc.tax_basis_report(scope, fairvalue.holdings_for(workspace, scope.members, end), settings.estimated_tax_rate)
         else:
-            statement = svc.build(client, c["view"], scope, start, end, c["cols"])
+            fair = _fair_values(workspace, scope, start, end, settings.estimated_tax_rate) if c["view"] in ("bs", "is") else None
+            statement = svc.build(client, c["view"], scope, start, end, c["cols"], fair)
     except CAMPFIRE_ERRORS as e:
         error = f"Couldn't read the books from Campfire ({type(e).__name__}). Check that the workspace is connected."
     current = {**c, "entity": scope.value if scope else "", "start": start.isoformat(), "end": end.isoformat()}
@@ -88,7 +124,8 @@ def statements_page(request: HttpRequest, workspace: Workspace, framed: bool) ->
     return render(request, "gl/statements.html", {
         "workspace": workspace, "framed": framed, "frame_token": getattr(request, "fo_frame_token", ""), "action": base.split("?")[0],
         "statement": statement, "rows": rows, "error": error, "options": options, "scope": scope, "choices": current,
-        "start": start, "end": end, "views": [(k, label, _with(base, {**current, "view": k}), k == c["view"]) for k, label in svc.VIEWS.items()],
+        "start": start, "end": end, "message": message, "tax_rate": settings.estimated_tax_rate, "post_action": base,
+        "views": [(k, (scope.names if scope else svc.NAMES[svc.ENTITY])[k], _with(base, {**current, "view": k}), k == c["view"]) for k in svc.VIEWS],
         "columns": svc.COLUMNS, "periods": svc.PERIODS, "headline": _headline(statement) if statement else [],
         "csv_url": _with(base, {**current, "format": "csv"}), "cents": c["view"] == "tb",
     })

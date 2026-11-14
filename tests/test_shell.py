@@ -52,6 +52,6 @@ def test_shell_in_campfire_and_standalone(client, workspace: Workspace) -> None:
     session["campfire_user"] = {"email": "ops@example.test", "campfire_user_id": 2}
     session.save()
     home = client.get("/").content.decode()
-    assert 'class="side"' in home and 'aria-current="page"' in home and "Allocation by asset class" in home
+    assert 'class="side"' in home and 'aria-current="page"' in home and "Asset allocation" in home
     assert "Sign out" in home and 'href="/fo/gl"' in home and "data-frame-nav" not in home
     assert 'class="side"' not in client.get("/campfire/logout").content.decode()

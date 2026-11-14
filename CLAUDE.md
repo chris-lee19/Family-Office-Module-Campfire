@@ -273,6 +273,40 @@ end. Held marks aren't used; non-USD accounts are skipped. Securities without a 
 - NOT done: limiting a person to certain entities or families; per-user Campfire connections (API calls still use the
   workspace's one stored connection). Buttons a role can't use are still shown (the refusal explains). 165 tests.
 
+## Report names and structure: the naming authority (user's reporting reference, 2026-11-14)
+- The user uploaded a generic "Family Office Financial Reporting Reference" (not in the repo; ask to re-upload if needed):
+  "family office and wealth management accounting is different than GAAP". Its names and layers are the rule for every
+  statement and report; never use "balance sheet" / "income statement" for the consolidated view. This supersedes the
+  tab names in "Family-office vocabulary" below.
+- Two layers. Entity layer (transactional): each legal entity keeps conventional books (ledger, bank, bills, entries,
+  trial balance), often at cost. Consolidated layer (reporting): rolled up, re-measured at fair value, shown as net
+  worth, changes in net worth, liquidity and performance.
+- Names by whose books are shown (`gl/services/statements.py` `NAMES`, `Scope.kind`; `classify` marks partnership-like
+  app entities as investment vehicles):
+  - FAMILY (a consolidated group; ASC 274, estimated current value): **Statement of Net Worth** (formal name Statement
+    of Financial Condition), **Statement of Changes in Net Worth**; equity section "Net worth".
+  - INVESTMENT (FLP, pooled LLC, fund; ASC 946, fair value): **Statement of Assets and Liabilities**, **Statement of
+    Operations and Changes in Net Assets**; "Net assets", "Net increase (decrease) from operations".
+  - ENTITY (any other legal entity; its books at cost): **Entity Balance Sheet**, **Statement of Income and Expenses**;
+    "Equity". Also for all: Statement of Cash Flows, Trial Balance, **Tax Basis and Unrealized Gain Report** (`view=tx`).
+- Fair value in the statements (one column only; columns over time show the books): `FairValues` from the investment
+  records (`fairvalue.holdings_for`), less what the unrealized account (role UNREALIZED) already carries -> line
+  "Investments: adjustment to estimated current value" (or "to fair value") in assets and "Unrealized appreciation not
+  in the books" in net worth. FAMILY only: "Estimated income taxes on unrealized appreciation" as a liability at
+  `GLSettings.estimated_tax_rate` (default 0 = no line; set on the page, manage capability, audited). The changes
+  statement carries "Change in unrealized appreciation not in the books" and "Change in estimated income taxes".
+- Bank lines nobody has categorized: Campfire leaves them out of equity, so its own statement doesn't balance while any
+  are open. Both statements show "Bank lines not categorized yet" as a line and net worth = assets - liabilities, so
+  the two statements agree (verified on the sandbox: 22,796,838 on both; every scope foots).
+- Supporting report names in use: Schedule of investments, Asset allocation, Private investments: performance
+  (Investments page), Capital account statements (Partnerships & K-1s).
+- From the reference, NOT built yet: Liquidity and Cash Flow Forecast (cash by entity, inflows, unfunded commitments,
+  upcoming calls); Budget vs. Actual / Lifestyle Expense Report (needs spending tags: family member, property,
+  category); Investment Performance Report (time-weighted returns for liquid holdings; only private IRR / multiples
+  exist); Statement of Cash Receipts and Disbursements; Statement of Net Worth with columns by entity or family member;
+  Entity / Ownership Structure Chart as a drawing (a table today); realized vs unrealized gains as separate lines in
+  the changes statement; per-entity accounting basis (cash / tax / accrual). 168 tests.
+
 ## Sign-in and new permissions (lesson, 2026-11-13)
 - Adding `transactions:write` to the defaults broke sign-in for everyone: Campfire answers `invalid_scope` ("This app may
   not request: ...") for a scope that is only in the app's development version. Fixed: the callback retries the

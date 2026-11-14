@@ -5,7 +5,7 @@
 <div class="page-head">
   <div>
     <h1>Financial statements</h1>
-    <p class="muted">{{ workspace }}{% if scope %} · {{ scope.label }}{% endif %} · {{ start|date:"M j, Y" }} to {{ end|date:"M j, Y" }}</p>
+    <p class="muted">{{ workspace }}{% if scope %} · {{ scope.label }} · {{ scope.names.basis }}{% endif %} · {{ start|date:"M j, Y" }} to {{ end|date:"M j, Y" }}</p>
   </div>
   {% if statement %}<div class="page-actions"><a class="btn secondary" href="{{ csv_url }}">Download CSV</a></div>{% endif %}
 </div>
@@ -30,6 +30,7 @@
   {% for key, label, url, on in views %}<a role="tab" href="{{ url }}"{% if on %} class="active" aria-selected="true"{% endif %}>{{ label }}</a>{% endfor %}
 </div>
 
+{% if message %}<div class="notice" data-toast="success">{{ message }}</div>{% endif %}
 {% if error %}<div class="issues">{{ error }}</div>{% endif %}
 {% if statement %}
 {% if headline %}<div class="kpis">
@@ -48,6 +49,18 @@
     </tbody>
   </table>
 </section>
-<p class="muted small">{% if statement.note %}{{ statement.note }} {% endif %}Figures come from the general ledger. Select an account to see the entries behind it.</p>
+<p class="muted small">{% if statement.note %}{{ statement.note }} {% endif %}{% if choices.view != "tx" %}Figures come from the general ledger{% if scope.fair_value %}, with investments brought to {{ scope.names.value }} from the investment records{% endif %}. Select an account to see the entries behind it.{% endif %}</p>
+{% if scope.kind == "family" or choices.view == "tx" %}
+<details class="settings">
+  <summary>Estimated income taxes: {% if tax_rate %}{{ tax_rate|floatformat:"-2" }}% of unrealized appreciation{% else %}not shown{% endif %}</summary>
+  <form method="post" action="{{ post_action }}" class="actions">
+    {% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}<input type="hidden" name="action" value="tax_rate">
+    {% for k, v in choices.items %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
+    <label>Rate (%) <input name="rate" inputmode="decimal" value="{{ tax_rate|floatformat:'-2' }}" size="6"></label>
+    <button class="btn secondary" type="submit">Save</button>
+    <span class="muted small">Personal financial statements show an estimate of the income taxes due if assets were sold at their current values. 0 leaves it out.</span>
+  </form>
+</details>
+{% endif %}
 {% endif %}
 {% endblock %}

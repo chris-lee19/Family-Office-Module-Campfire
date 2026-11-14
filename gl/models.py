@@ -48,6 +48,9 @@ class GLSettings(models.Model):
     # Accounting policy: empty keeps the books at cost. A date books investments at market value from that month on,
     # with a month-end entry that brings unrealized appreciation to market value less cost.
     fair_value_from = models.DateField(null=True, blank=True)
+    # Rate (percent) for the estimate of income taxes on unrealized appreciation in the Statement of Net Worth
+    # (personal financial statements, ASC 274). 0 leaves the estimate out.
+    estimated_tax_rate = models.DecimalField(max_digits=5, decimal_places=2, default=0)
 
     class Meta:
         verbose_name_plural = "GL settings"

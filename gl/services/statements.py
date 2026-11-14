@@ -20,8 +20,25 @@ TRIAL_BALANCE_PATH = "/ca/api/get_trial_balance"
 LEDGER_PATH = "/coa/api/transaction"
 ENTITY_PATH = "/coa/api/entity"
 ZERO = Decimal(0)
-# Family-office names (personal financial statements): net worth, and what changed it.
-VIEWS = {"bs": "Net worth", "is": "Changes in net worth", "cf": "Cash flow", "tb": "Trial balance"}
+# Statement names follow family-office practice, not corporate labels, and depend on whose books are shown:
+#   family     the consolidated view for the principals: personal financial statements (ASC 274), at estimated
+#              current value, with an estimate of income taxes on unrealized appreciation
+#   investment a family investment vehicle (partnership, pooled LLC): investment company presentation (ASC 946),
+#              at fair value
+#   entity     any other legal entity: its conventional books, at cost
+FAMILY, INVESTMENT, ENTITY = "family", "investment", "entity"
+NAMES: dict[str, dict[str, str]] = {
+    FAMILY: {"bs": "Statement of Net Worth", "is": "Statement of Changes in Net Worth", "cf": "Statement of Cash Flows", "tb": "Trial Balance",
+             "tx": "Tax Basis and Unrealized Gain Report", "equity": "Net worth", "total": "Total liabilities and net worth",
+             "result": "Excess of income over expenses", "change": "Change in net worth", "basis": "Estimated current value (ASC 274)", "value": "estimated current value"},
+    INVESTMENT: {"bs": "Statement of Assets and Liabilities", "is": "Statement of Operations and Changes in Net Assets", "cf": "Statement of Cash Flows",
+                 "tb": "Trial Balance", "tx": "Tax Basis and Unrealized Gain Report", "equity": "Net assets", "total": "Total liabilities and net assets",
+                 "result": "Net increase (decrease) from operations", "change": "Change in net assets", "basis": "Fair value (ASC 946)", "value": "fair value"},
+    ENTITY: {"bs": "Entity Balance Sheet", "is": "Statement of Income and Expenses", "cf": "Statement of Cash Flows", "tb": "Trial Balance",
+             "tx": "Tax Basis and Unrealized Gain Report", "equity": "Equity", "total": "Total liabilities and equity",
+             "result": "Excess of income over expenses", "change": "Change in equity", "basis": "The entity's books, investments at cost", "value": "cost"},
+}
+VIEWS = {"bs": "Net worth", "is": "Changes in net worth", "cf": "Cash flow", "tb": "Trial balance", "tx": "Tax basis"}  # the keys; labels come from NAMES
 COLUMNS = {"total": "One column", "monthly": "By month", "quarterly": "By quarter"}
 PERIODS = {"ytd": "This year to date", "month": "Last month", "quarter": "Last quarter", "year": "Last year", "custom": "Custom dates"}
 
@@ -51,6 +68,16 @@ class Scope:
     entity_id: int
     rollup: bool
     label: str
+    members: tuple[int, ...] = ()  # the Campfire entities whose books are in it
+    kind: str = ENTITY  # family | investment | entity: which statements it gets (see NAMES)
+
+    @property
+    def names(self) -> dict[str, str]:
+        return NAMES[self.kind]
+
+    @property
+    def fair_value(self) -> bool:
+        return self.kind in (FAMILY, INVESTMENT)
 
     @property
     def value(self) -> str:
@@ -65,10 +92,39 @@ def scopes(client: CampfireClient) -> list[Scope]:
     data = client.get_json(ENTITY_PATH)
     entities = [e for e in (data if isinstance(data, list) else data.get("results", [])) if not e.get("is_deleted") and e.get("active", True)]
     parents = {e.get("parent") for e in entities if e.get("parent")}
-    groups = [Scope(int(e["id"]), True, f"{e['name']}: all entities") for e in entities if e["id"] in parents]
-    singles = [Scope(int(e["id"]), False, e["name"]) for e in sorted(entities, key=lambda e: (bool(e.get("is_elimination_entity")), e["name"]))
-               if e["id"] not in parents]
+    groups = [Scope(int(e["id"]), True, f"{e['name']}: all entities", tuple(int(c["id"]) for c in entities if c.get("parent") == e["id"]), FAMILY)
+              for e in entities if e["id"] in parents]
+    singles = [Scope(int(e["id"]), False, e["name"], (int(e["id"]),))
+               for e in sorted(entities, key=lambda e: (bool(e.get("is_elimination_entity")), e["name"])) if e["id"] not in parents]
     return groups + singles
+
+
+def classify(workspace: Any, options: list[Scope]) -> list[Scope]:
+    """Mark the investment vehicles (entities taxed as partnerships, limited and general partnerships): they report
+    like an investment company. Everything else that isn't a consolidated group keeps conventional entity books."""
+    from dataclasses import replace
+
+    from entities.models import Entity
+
+    T, X = Entity.EntityType, Entity.TaxClassification
+    vehicles = {e.campfire_entity_id for e in Entity.objects.filter(family__workspace=workspace, campfire_entity_id__isnull=False)
+                if e.tax_classification == X.PARTNERSHIP or e.entity_type in (T.LIMITED_PARTNERSHIP, T.GENERAL_PARTNERSHIP)}
+    return [s if s.rollup or s.entity_id not in vehicles else replace(s, kind=INVESTMENT) for s in options]
+
+
+@dataclass
+class FairValues:
+    """What the app's investment records add to the books for a fair-value statement: unrealized appreciation
+    (market value less cost) of the scope's holdings at the start and end, the GL accounts that already carry
+    unrealized appreciation, and the rate for the estimate of income taxes on it (family statements only)."""
+
+    start: Decimal = ZERO
+    end: Decimal = ZERO
+    booked_accounts: frozenset[int] = frozenset()
+    tax_rate: Decimal = ZERO  # percent
+
+    def tax(self, unrealized: Decimal) -> Decimal:
+        return (max(unrealized, ZERO) * self.tax_rate / 100).quantize(Decimal("0.01"))
 
 
 def month_start(d: date) -> date:
@@ -136,42 +192,68 @@ def _nonzero(row: Row) -> bool:
     return any(v for v in row.values)
 
 
-def balance_sheet(client: CampfireClient, scope: Scope, start: date, end: date, columns: str) -> Statement:
+def balance_sheet(client: CampfireClient, scope: Scope, start: date, end: date, columns: str, fair: FairValues | None = None) -> Statement:
     if columns == "total":
         start = month_start(end)  # one column: the balances on the end date
     data, keys, cadence = _fetch(client, BALANCE_SHEET_PATH, scope, start, end, columns)
     rows = data.get("balance_sheet", [])
     value = lambda r: [_dec(r.get(f"{k}_Total")) for k in keys]  # noqa: E731
-    le = "LIABILITIES_AND_EQUITY"
-    out = Statement("Statement of net worth", [_label(k, cadence, True, end) for k in keys])
+    le, names = "LIABILITIES_AND_EQUITY", scope.names
+    out = Statement(names["bs"], [_label(k, cadence, True, end) for k in keys])
     add = out.rows.append
+    # At fair value, the books' cost (plus any unrealized appreciation already booked) is brought to estimated current
+    # value from the investment records. One column only: the adjustment is as of the statement date.
+    adjust = tax = ZERO
+    if fair is not None and scope.fair_value and len(keys) == 1:
+        booked = sum((v[0] or ZERO for r in rows if str((r.get("hierarchy") or [""])[-1]).isdigit() and int(r["hierarchy"][-1]) in fair.booked_accounts
+                      for v in [value(r)]), ZERO)
+        adjust = fair.end - booked
+        tax = fair.tax(fair.end) if scope.kind == FAMILY else ZERO
+    plus = lambda r, extra: Row(r.label, [(r.values[0] or ZERO) + extra], r.kind)  # noqa: E731
     add(Row("Assets", [None] * len(keys), "section"))
     out.rows += _account_rows(rows, ["ASSET"], value)
-    add(Row("Total assets", value(_group(rows, ["ASSET"])), "total"))
+    if adjust:
+        add(Row(f"Investments: adjustment to {names['value']}", [adjust], "account", level=1))
+    total_assets = Row("Total assets", value(_group(rows, ["ASSET"])), "total")
+    add(plus(total_assets, adjust) if adjust else total_assets)
     add(Row("Liabilities", [None] * len(keys), "section"))
     out.rows += _account_rows(rows, [le, "LIABILITY"], value)
-    add(Row("Total liabilities", value(_group(rows, [le, "LIABILITY"])), "total"))
-    add(Row("Net worth", [None] * len(keys), "section"))
+    if tax:
+        add(Row("Estimated income taxes on unrealized appreciation", [tax], "account", level=1))
+    total_liabilities = Row("Total liabilities", value(_group(rows, [le, "LIABILITY"])), "total")
+    add(plus(total_liabilities, tax) if tax else total_liabilities)
+    add(Row(names["equity"], [None] * len(keys), "section"))
     out.rows += _account_rows(rows, [le, "EQUITY"], value)
     for key, label in (("RETAINED_EARNINGS", "Accumulated from prior years"), ("NET_INCOME", "Income less expenses, year to date")):
         extra = Row(label, value(_group(rows, [le, "EQUITY", key])), "account", level=1)
         if _nonzero(extra):
             add(extra)
-    add(Row("Net worth", value(_group(rows, [le, "EQUITY"])), "total"))
-    add(Row("Total liabilities and net worth", value(_group(rows, [le])), "grand"))
-    uncategorized = Row("Uncategorized (bank lines waiting to be categorized)", value(_group(rows, ["UNCATEGORIZED_TOTAL"])), "account")
-    if _nonzero(uncategorized):
-        add(uncategorized)
-        out.note = "Uncategorized bank lines are not in the totals above until they are categorized."
+    if adjust:
+        add(Row("Unrealized appreciation not in the books", [adjust], "account", level=1))
+    if tax:
+        add(Row("Less estimated income taxes", [-tax], "account", level=1))
+    # Campfire leaves bank lines that nobody has categorized out of equity, so its statement doesn't balance while
+    # any are open. Here they are a line of their own, and assets less liabilities is what is shown.
+    assets, booked_total = value(_group(rows, ["ASSET"])), value(_group(rows, [le]))
+    gap = [(a or ZERO) - (b or ZERO) for a, b in zip(assets, booked_total)]
+    if any(gap):
+        add(Row("Bank lines not categorized yet", list(gap), "account", level=1))
+    extra = [g + (adjust - tax if n == 0 else ZERO) for n, g in enumerate(gap)]
+    add(Row(names["equity"], [(v or ZERO) + x for v, x in zip(value(_group(rows, [le, "EQUITY"])), extra)], "total"))
+    add(Row(names["total"], [(v or ZERO) + g + (adjust if n == 0 else ZERO) for n, (v, g) in enumerate(zip(booked_total, gap))], "grand"))
+    if any(gap):
+        out.note += "Bank lines not categorized yet are included as their own line; categorize them on the Cash page. "
+    if scope.fair_value and fair is not None and len(keys) > 1:
+        out.note = f"Columns over time show the books (investments at cost). Choose one column for {names['value']}. "
     return out
 
 
-def income_statement(client: CampfireClient, scope: Scope, start: date, end: date, columns: str) -> Statement:
+def income_statement(client: CampfireClient, scope: Scope, start: date, end: date, columns: str, fair: FairValues | None = None) -> Statement:
     data, keys, cadence = _fetch(client, INCOME_STATEMENT_PATH, scope, start, end, columns)
     rows = data.get("income_statement", [])
     show = [] if columns == "total" else keys
     value = lambda r: [_dec(r.get(f"{k}_Total")) for k in show] + [_dec(r.get("Total"))]  # noqa: E731
-    out = Statement("Statement of changes in net worth", [_label(k, cadence, False, end) for k in show] + ["Total"])
+    out = Statement(scope.names["is"], [_label(k, cadence, False, end) for k in show] + ["Total"])
     blank: list[Decimal | None] = [None] * (len(show) + 1)
     sections = (("REVENUE", "Fee and operating income", "Total fee and operating income"), ("COGS", "Direct costs", "Total direct costs"),
                 ("OTHER_INCOME", "Investment and other income", "Total investment and other income"),
@@ -184,25 +266,29 @@ def income_statement(client: CampfireClient, scope: Scope, start: date, end: dat
         out.rows += accounts
         out.rows.append(Row(total, value(_group(rows, [key])), "total"))
     net_income = value(_group(rows, ["NET_INCOME"]))
-    out.rows.append(Row("Excess of income over expenses", net_income, "total"))
-    out.rows += _net_worth_bridge(client, scope, start, end, net_income[-1] or ZERO, len(show))
+    out.rows.append(Row(scope.names["result"], net_income, "total"))
+    out.rows += _net_worth_bridge(client, scope, start, end, net_income[-1] or ZERO, len(show), fair)
     return out
 
 
-def _net_worth_bridge(client: CampfireClient, scope: Scope, start: date, end: date, net_income: Decimal, blanks: int) -> list[Row]:
+def _net_worth_bridge(client: CampfireClient, scope: Scope, start: date, end: date, net_income: Decimal, blanks: int,
+                      fair: FairValues | None = None) -> list[Row]:
     """From income less expenses to the change in net worth: contributions and distributions (movements on the equity
     accounts), bank lines not categorized yet, then net worth at the start and the end. For the whole period only."""
     data = client.get_json(TRIAL_BALANCE_PATH, params={**scope.params(), "start_date": start.isoformat(), "end_date": end.isoformat()})
     accounts = [a for a in data.get("trial_balance", {}).get("accounts", []) if a.get("id") != "total"]
     net = lambda b: _dec((b or {}).get("debits")) - _dec((b or {}).get("credits"))  # noqa: E731  (debit positive)
     pad: list[Decimal | None] = [None] * blanks
-    opening = closing = uncategorized = ZERO
+    opening = closing = uncategorized = booked_start = booked_end = ZERO
     movements: list[Row] = []
     for a in sorted(accounts, key=lambda a: str(a.get("number") or "~")):
         kind = a.get("account_type")
         if kind in ("ASSET", "LIABILITY"):
             opening += net(a.get("beginning_balances"))
             closing += net(a.get("ending_balances"))
+            if fair is not None and str(a.get("id")).isdigit() and int(a["id"]) in fair.booked_accounts:
+                booked_start += net(a.get("beginning_balances"))
+                booked_end += net(a.get("ending_balances"))
         elif kind == "EQUITY":
             change = -net(a.get("activity"))  # a credit to an equity account adds to net worth
             if change:
@@ -220,16 +306,25 @@ def _net_worth_bridge(client: CampfireClient, scope: Scope, start: date, end: da
     other = closing - opening - net_income - sum((m.values[-1] or ZERO for m in movements), ZERO) - uncategorized
     if abs(other) >= Decimal("0.01"):
         out.append(Row("Other changes", [*pad, other], "account"))
-    out.append(Row("Change in net worth", [*pad, closing - opening], "total"))
-    out.append(Row(f"Net worth, {start:%b %-d, %Y}", [*pad, opening], "account"))
-    out.append(Row(f"Net worth, {end:%b %-d, %Y}", [*pad, closing], "grand"))
+    names = scope.names
+    if fair is not None and scope.fair_value:  # at fair value: what the investment records add to the books
+        adjust_start, adjust_end = fair.start - booked_start, fair.end - booked_end
+        tax_start, tax_end = (fair.tax(fair.start), fair.tax(fair.end)) if scope.kind == FAMILY else (ZERO, ZERO)
+        if adjust_end != adjust_start:
+            out.append(Row("Change in unrealized appreciation not in the books", [*pad, adjust_end - adjust_start], "account"))
+        if tax_end != tax_start:
+            out.append(Row("Change in estimated income taxes", [*pad, tax_start - tax_end], "account"))
+        opening, closing = opening + adjust_start - tax_start, closing + adjust_end - tax_end
+    out.append(Row(names["change"], [*pad, closing - opening], "total"))
+    out.append(Row(f"{names['equity']}, {start:%b %-d, %Y}", [*pad, opening], "account"))
+    out.append(Row(f"{names['equity']}, {end:%b %-d, %Y}", [*pad, closing], "grand"))
     return out
 
 
 def cash_flow(client: CampfireClient, scope: Scope, start: date, end: date, columns: str) -> Statement:
     data, keys, cadence = _fetch(client, CASH_FLOW_PATH, scope, start, end, columns)
     show = [] if columns == "total" else keys
-    out = Statement("Statement of cash flows", [_label(k, cadence, False, end) for k in show] + ["Total"])
+    out = Statement(scope.names["cf"], [_label(k, cadence, False, end) for k in show] + ["Total"])
     labels = {"OPERATING": "Cash from operations", "INVESTING": "Cash from investing", "FINANCING": "Cash from financing",
               "TOTAL_NET_CASH_FLOW": "Net change in cash", "CASH_BALANCE_BEGINNING_PERIOD": "Cash at the start",
               "CASH_BALANCE_ENDING_PERIOD": "Cash at the end"}
@@ -249,7 +344,7 @@ def cash_flow(client: CampfireClient, scope: Scope, start: date, end: date, colu
 
 def trial_balance(client: CampfireClient, scope: Scope, start: date, end: date) -> Statement:
     data = client.get_json(TRIAL_BALANCE_PATH, params={**scope.params(), "start_date": start.isoformat(), "end_date": end.isoformat()})
-    out = Statement("Trial balance", ["Opening", "Debits", "Credits", "Closing debit", "Closing credit"])
+    out = Statement(scope.names["tb"], ["Opening", "Debits", "Credits", "Closing debit", "Closing credit"])
 
     def values(a: dict[str, Any]) -> list[Decimal | None]:
         b, act, e = a.get("beginning_balances") or {}, a.get("activity") or {}, a.get("ending_balances") or {}
@@ -266,14 +361,33 @@ def trial_balance(client: CampfireClient, scope: Scope, start: date, end: date) 
     return out
 
 
-def build(client: CampfireClient, view: str, scope: Scope, start: date, end: date, columns: str) -> Statement:
+def build(client: CampfireClient, view: str, scope: Scope, start: date, end: date, columns: str, fair: FairValues | None = None) -> Statement:
     if view == "is":
-        return income_statement(client, scope, start, end, columns)
+        return income_statement(client, scope, start, end, columns, fair)
     if view == "cf":
         return cash_flow(client, scope, start, end, columns)
     if view == "tb":
         return trial_balance(client, scope, start, end)
-    return balance_sheet(client, scope, start, end, columns)
+    return balance_sheet(client, scope, start, end, columns, fair)
+
+
+def tax_basis_report(scope: Scope, holdings: list[tuple[str, str, Decimal, Decimal]], tax_rate: Decimal) -> Statement:
+    """Tax basis against fair value by holding: (entity, holding, cost, fair value) rows, grouped by entity."""
+    out = Statement(scope.names["tx"], ["Tax basis (cost)", "Fair value", "Unrealized gain (loss)", "Estimated tax"])
+    rate = FairValues(tax_rate=tax_rate)
+    totals = [ZERO, ZERO, ZERO]
+    for entity in sorted({h[0] for h in holdings}):
+        out.rows.append(Row(entity, [None, None, None, None], "section"))
+        sub = [ZERO, ZERO, ZERO]
+        for _, name, cost, value in sorted((h for h in holdings if h[0] == entity), key=lambda h: h[1]):
+            out.rows.append(Row(name, [cost, value, value - cost, None], "account", level=1))
+            sub = [sub[0] + cost, sub[1] + value, sub[2] + value - cost]
+        out.rows.append(Row(f"Total {entity}", [*sub, None], "total"))
+        totals = [t + x for t, x in zip(totals, sub)]
+    out.rows.append(Row("Total", [*totals, rate.tax(totals[2]) if tax_rate else None], "grand"))
+    out.note = ("Cost is the tax basis the investment records carry; fair value uses the latest accepted marks and prices. "
+                + (f"Estimated tax is {tax_rate.normalize():f}% of the net unrealized gain." if tax_rate else "Set an estimated tax rate to see the tax on the unrealized gain."))
+    return out
 
 
 @dataclass

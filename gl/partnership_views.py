@@ -16,7 +16,7 @@ from investments.models import K1
 from records.models import AuditEntry
 
 CAMPFIRE_ERRORS = (CampfireError, NotConnected, requests.RequestException)
-VIEWS = {"capital": "Capital accounts", "issue": "K-1s to issue", "receive": "K-1s to receive"}
+VIEWS = {"capital": "Capital account statements", "issue": "K-1s to issue", "receive": "K-1s to receive"}
 
 
 def _client(workspace: Workspace) -> CampfireClient:
