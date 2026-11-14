@@ -423,3 +423,16 @@ class BankReconciliation(models.Model):
 
     def __str__(self) -> str:
         return f"{self.entity_label} · {self.account_label}: statement to {self.statement_end} ({self.get_status_display()})"
+
+
+class DashboardSnapshot(models.Model):
+    """The figures the executive dashboard reads from Campfire (net worth and its trend, cash, the liquidity forecast,
+    reconciliation standing), kept so Home opens at once. Rebuilt on request and when it has gone stale."""
+
+    workspace = models.OneToOneField(Workspace, on_delete=models.CASCADE, related_name="dashboard_snapshot")
+    data = models.JSONField(default=dict)
+    as_of = models.DateField()
+    built_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self) -> str:
+        return f"Dashboard of {self.workspace} at {self.built_at:%Y-%m-%d %H:%M}"

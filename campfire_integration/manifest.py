@@ -14,6 +14,7 @@ APP_NAME = "Family Office"
 NAV_PAGES: list[tuple[str, str, str, str]] = [
     # The same order as the app's own sidebar: Home, then Family, Operations, Books, Data.
     ("home", "Home", "home", "/fo/frame/home"),
+    ("work", "To do", "list-checks", "/fo/frame/work"),
     ("investments", "Investments", "chart-pie", "/fo/frame/investments"),
     ("entities", "Entities & Ownership", "users", "/fo/frame/entities"),
     ("partnerships", "Partnerships & K-1s", "handshake", "/fo/frame/partnerships"),

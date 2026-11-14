@@ -84,8 +84,12 @@ def test_home_page_in_campfire_and_standalone(client, alder: Family) -> None:  #
     ws = alder.workspace
     r = client.get(f"/fo/frame/home?cf_ctx={context_token(customer_id=ws.customer_id, surface='nav', user_id=2)}")
     page = r.content.decode()
-    assert r.status_code == 200 and "need attention" in page and "held for review" in page
-    assert '/fo/frame/review?fo_t=' in page and '/fo/frame/calls?fo_t=' in page  # buttons stay inside the frame
+    assert r.status_code == 200 and "Needs a decision" in page and "held for review" in page  # Home is the dashboard: the top of the list
+    assert '/fo/frame/review?fo_t=' in page and '/fo/frame/work?fo_t=' in page  # buttons stay inside the frame
+    token = page.split('name="fo_t" value="')[1].split('"')[0]
+    from urllib.parse import unquote
+    work = client.get("/fo/frame/work", {"fo_t": unquote(token)}).content.decode()  # the whole list has its own page
+    assert "need attention" in work and "held for review" in work and '/fo/frame/calls?fo_t=' in work
 
     assert "Log in with Campfire" in client.get("/").content.decode()
     session = client.session
@@ -93,5 +97,5 @@ def test_home_page_in_campfire_and_standalone(client, alder: Family) -> None:  #
     session["campfire_user"] = {"email": "ops@example.test", "campfire_user_id": 2}
     session.save()
     home = client.get("/").content.decode()
-    assert "need attention" in home and 'href="/fo/entities"' in home
+    assert "Needs a decision" in home and 'href="/fo/entities"' in home and "need attention" in client.get("/fo/work").content.decode()
     assert client.get("/fo/entities").status_code == 200

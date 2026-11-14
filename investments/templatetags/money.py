@@ -46,3 +46,9 @@ def compact(value: Decimal | None) -> str:
             scaled = (v / size).quantize(Decimal(step), rounding=ROUND_HALF_UP)
             return f"{sign}${scaled.normalize():f}{unit}" if scaled == scaled.to_integral() else f"{sign}${scaled}{unit}"
     return f"{sign}${v.quantize(Decimal('1'), rounding=ROUND_HALF_UP)}"
+
+
+@register.filter
+def get(mapping: object, key: str) -> object:
+    """A value from a dict by key, for data that reached the template as plain JSON."""
+    return mapping.get(key, "") if isinstance(mapping, dict) else ""

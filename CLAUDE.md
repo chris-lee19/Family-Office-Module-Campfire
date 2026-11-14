@@ -375,6 +375,36 @@ end. Held marks aren't used; non-USD accounts are skipped. Securities without a 
   month-end close step and a Home item for accounts not reconciled; custody cash reconciles the same way but custody
   POSITION reconciliation (REC-02) is separate. 177 tests.
 
+## Executive dashboard = Home, and the UX direction (2026-11-14)
+- Manager's feedback (relayed by the user, who agrees on dashboards, less sure on "UX needs work"): bones and features
+  are solid; it needs charts and diagrams throughout instead of heavy text, an executive dashboard that summarizes
+  positions and actions, and higher fidelity overall, because we can't use Campfire's UX and now compete with Rillet,
+  Sage and Asseta. Take: charts where they answer a question (never decoration); the working pages stay task-first.
+- Home (`records:attention`, "/" standalone) is now the executive dashboard (`records/attention_views.home_page`,
+  `templates/records/home.html`): net worth hero (the Statement of Net Worth's figure, change since last month end and
+  this year, assets - liabilities - estimated taxes) with a month-end trend line; "Needs a decision" (top 6 items) +
+  approvals waiting (bills, entries, reconciliations, marks/imports) + "Coming due"; Liquidity (4 figures + the 12-month
+  cash chart + entities that run short); Net worth by entity (ranked bars); Investments by asset class; Cash by entity
+  (operating / at custodians); Private fund commitments (called vs committed meters, TVPI, IRR); close, bank
+  reconciliation and bills ageing. The full work list moved to "To do" (`records:work`, /fo/work, in NAV and NAV_PAGES).
+- Figures come from the pages' own services (`gl/services/dashboard.py`: `net_worth`, `cash_and_liquidity`, `bills`,
+  `reconciliation`), so a dashboard number equals the number on its page (net worth by entity sums to net worth before
+  the family's estimated taxes). Reading them takes ~9 s of Campfire calls, so they are kept in `DashboardSnapshot`
+  (JSON of strings / numbers, one per workspace): the first visit builds it, later visits show it at once (<1 s) and,
+  when older than 15 minutes or from another day, the page refreshes it behind itself (`form[data-auto-refresh]` in
+  app.js: POST action=refresh with `X-Requested-With: fetch` -> 204 / 502, then reloads via a frame-token URL, at most
+  once per two minutes). "Refresh" does it on demand. What comes from the app's own database (work items, approvals,
+  allocation, commitments, close) is always live. Not done: marking the snapshot stale from Campfire's events.
+- Chart components (all in app.css, plain HTML/SVG, light + dark, tooltips on hover and focus, the page's table or
+  figures as the full view): `.trend` (one series over time; points sit mid-column so labels and hit areas line up),
+  `.fc-*` columns on a zero baseline, `.hbars` ranked bars (one hue; `.track.split` for two series with a key),
+  `.meter` and `.ring` (a ratio against a limit), `{% alloc %}` stacked bar. Series colours in fixed order
+  (`--s1`, `--s2`, ...); status red only with a label. Reuse these on other pages.
+- Sidebar: 21 items, rows tightened; the signed-in person stays visible at the bottom.
+- Proposed next for the UX pass (not built): an ownership structure diagram on Entities; charts on Cash (in / out by
+  month), Bills (ageing), Capital calls (called / unfunded over time), Partnerships (capital account bridge),
+  Investments (value over time, performance); fewer words on the working pages; print-ready statements. 180 tests.
+
 ## Sign-in and new permissions (lesson, 2026-11-13)
 - Adding `transactions:write` to the defaults broke sign-in for everyone: Campfire answers `invalid_scope` ("This app may
   not request: ...") for a scope that is only in the app's development version. Fixed: the callback retries the

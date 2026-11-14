@@ -240,6 +240,19 @@
     update();
   });
 
+  /* ---- the dashboard shows its last figures at once and reads the books again behind the page ---- */
+  d.querySelectorAll("form[data-auto-refresh]").forEach(function (form) {
+    var key = "fo-dash-refresh", last = 0, note = d.querySelector("[data-updated]");
+    try { last = parseInt(sessionStorage.getItem(key) || "0", 10); } catch (e) { /* storage may be blocked in a frame */ }
+    if (Date.now() - last < 120000) return;  // not more than once every two minutes, whatever happens
+    try { sessionStorage.setItem(key, String(Date.now())); } catch (e) { /* as above */ }
+    var body = new FormData(form); body.append("action", "refresh");
+    if (note) note.textContent = "Reading the books…";
+    fetch(form.action, { method: "POST", body: body, headers: { "X-Requested-With": "fetch" }, credentials: "same-origin" })
+      .then(function (r) { if (r.ok) window.location.replace(form.getAttribute("data-auto-refresh")); else if (note) note.textContent = "Couldn't read the books just now"; })
+      .catch(function () { if (note) note.textContent = "Couldn't read the books just now"; });
+  });
+
   /* ---- a filter bar applies itself when a choice changes ---- */
   d.querySelectorAll("form[data-autosubmit]").forEach(function (form) {
     form.addEventListener("change", function (e) { if (e.target.tagName === "SELECT") form.submit(); });
