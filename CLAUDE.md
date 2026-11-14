@@ -381,7 +381,8 @@ end. Held marks aren't used; non-USD accounts are skipped. Securities without a 
   positions and actions, and higher fidelity overall, because we can't use Campfire's UX and now compete with Rillet,
   Sage and Asseta. Take: charts where they answer a question (never decoration); the working pages stay task-first.
 - Home (`records:attention`, "/" standalone) is now the executive dashboard (`records/attention_views.home_page`,
-  `templates/records/home.html`): net worth hero (the Statement of Net Worth's figure, change since last month end and
+  `templates/records/dashboard.html`; NOT `records/home.html`, which is the Records page's template and was
+  overwritten by mistake for one deploy): net worth hero (the Statement of Net Worth's figure, change since last month end and
   this year, assets - liabilities - estimated taxes) with a month-end trend line; "Needs a decision" (top 6 items) +
   approvals waiting (bills, entries, reconciliations, marks/imports) + "Coming due"; Liquidity (4 figures + the 12-month
   cash chart + entities that run short); Net worth by entity (ranked bars); Investments by asset class; Cash by entity
