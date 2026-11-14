@@ -17,7 +17,7 @@ from campfire_integration.models import Workspace
 from entities.models import Family
 from entities.services import structure
 from gl.models import AccountMapping, GLSettings, Role
-from gl.services import dashboard, fairvalue, liquidity, partnership
+from gl.services import dashboard, fairvalue, liquidity, partnership, receipts
 from gl.services import statements as st
 from investments.models import AssetClass
 from investments.services import performance
@@ -32,6 +32,7 @@ SECTIONS = (
     ("by_entity", "Statement of Net Worth by entity", "The same statement, a column per entity", True),
     ("by_person", "Statement of Net Worth by family member", "Each person's share, traced through the ownership chain", True),
     ("changes", "Statement of Changes in Net Worth", "From net worth at the start of the period to net worth at the end", False),
+    ("receipts", "Statement of Cash Receipts and Disbursements", "Where cash came from and where it went", False),
     ("schedule", "Schedule of Investments", "Every holding with its cost and its value", True),
     ("performance", "Investment Performance Report", "Time-weighted returns, and IRR and multiples for private funds", True),
     ("liquidity", "Liquidity and Cash Flow Forecast", "Cash by month for the next twelve months", True),
@@ -121,6 +122,7 @@ def build(workspace: Workspace, client: CampfireClient, start: date, end: date, 
     rate = GLSettings.for_workspace(workspace).estimated_tax_rate
     booked = frozenset(AccountMapping.objects.filter(workspace=workspace, role=Role.UNREALIZED).values_list("campfire_account_id", flat=True))
     ids = {s.label: s.entity_id for s in options if not s.rollup}
+    clearing = frozenset(AccountMapping.objects.filter(workspace=workspace, role__in=(Role.CASH_CLEARING, Role.TRANSFERS)).values_list("campfire_account_id", flat=True))
 
     def fair() -> st.FairValues:
         members = scope.members if scope else ()
@@ -156,6 +158,7 @@ def build(workspace: Workspace, client: CampfireClient, start: date, end: date, 
         "by_person": (True, lambda: st.net_worth_split(client, scope, end, "person", fairvalue.unrealized_by_entity(workspace, end), booked, rate,  # type: ignore[arg-type]
                                                        st.look_through(workspace, end, ids))),
         "changes": (True, lambda: st.income_statement(client, scope, start, end, "total", fair())),  # type: ignore[arg-type]
+        "receipts": (True, lambda: receipts.build(client, scope, start, end, "total", clearing)),  # type: ignore[arg-type]
         "schedule": (False, lambda: schedule(workspace, end)),
         "performance": (False, performance_section),
         "liquidity": (True, liquidity_section),
@@ -178,7 +181,7 @@ def build(workspace: Workspace, client: CampfireClient, start: date, end: date, 
             section.note = f"The forecast always starts from today ({today:%B %-d, %Y})."
         if key == "capital" and section.data == []:
             section.error = "No partnership keeps books in Campfire yet."
-        if key in ("glance", "net_worth", "by_entity", "by_person", "changes") and section.data is None and not section.error:
+        if key in ("glance", "net_worth", "by_entity", "by_person", "changes", "receipts") and section.data is None and not section.error:
             section.error = "Nothing in the books for this period."
         pack.sections.append(section)
     return pack

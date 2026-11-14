@@ -173,6 +173,7 @@ def test_pack_is_built_from_the_same_reports(workspace: Workspace, alder: Family
     assert next(r.values[-1] for r in by["by_entity"].data.rows if r.label == "Net worth") == net
     assert next(r.values[-1] for r in by["by_person"].data.rows if r.label == "Net worth") == net
     assert by["changes"].data.title == "Statement of Changes in Net Worth" and by["schedule"].data["count"] > 5
+    assert by["receipts"].data.title == "Statement of Cash Receipts and Disbursements" and by["receipts"].data.rows[-1].kind == "grand"
     assert by["performance"].data[0]["r"].total is not None and len(by["liquidity"].data["fc"].months) == 12
     assert [c.entity.name for c in by["capital"].data] == [LP] and by["structure"].data[0][1].links
     assert by["by_entity"].wide and not by["net_worth"].wide

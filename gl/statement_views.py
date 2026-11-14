@@ -17,7 +17,7 @@ from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 
 from gl.models import AccountMapping, GLSettings, Role
-from gl.services import fairvalue
+from gl.services import fairvalue, receipts
 from gl.services import statements as svc
 
 CAMPFIRE_ERRORS = (CampfireError, NotConnected, requests.RequestException)
@@ -49,6 +49,9 @@ def _headline(statement: svc.Statement) -> list[tuple[str, Any]]:
     """The totals of a statement as headline figures (last column: the latest balance, or the period total)."""
     totals = [(r.label, r.values[-1], r.kind) for r in statement.rows if r.kind in ("total", "grand") and r.values and r.values[-1] is not None]
     by_label = {label: value for label, value, _ in totals}
+    if statement.title == receipts.TITLE:  # the answer first: cash now, then what came in and what went out
+        return [(totals[-1][0], totals[-1][1]), ("Receipts", by_label.get("Total receipts")), ("Disbursements", by_label.get("Total disbursements")),
+                ("Net change in cash", by_label.get("Net change in cash", by_label.get("Excess of receipts over disbursements")))]
     if len(statement.columns) == 4 and statement.columns[0].startswith("Tax basis"):  # the tax basis report: its last row
         last = statement.rows[-1].values if statement.rows else []
         return [(c, v) for c, v in zip(statement.columns, last) if v is not None]
@@ -67,6 +70,11 @@ def _fair_values(workspace: Workspace, scope: svc.Scope, start: Any, end: Any, t
     booked = frozenset(AccountMapping.objects.filter(workspace=workspace, role=Role.UNREALIZED).values_list("campfire_account_id", flat=True))
     return svc.FairValues(fairvalue.unrealized_for(workspace, scope.members, start - timedelta(days=1)),
                           fairvalue.unrealized_for(workspace, scope.members, end), booked, tax_rate)
+
+
+def _clearing(workspace: Workspace) -> frozenset[int]:
+    """The GL accounts that only pass money between the family's own accounts: what moves through them is a transfer."""
+    return frozenset(AccountMapping.objects.filter(workspace=workspace, role__in=(Role.CASH_CLEARING, Role.TRANSFERS)).values_list("campfire_account_id", flat=True))
 
 
 def statements_page(request: HttpRequest, workspace: Workspace, framed: bool) -> HttpResponse:
@@ -108,6 +116,8 @@ def statements_page(request: HttpRequest, workspace: Workspace, framed: bool) ->
             booked = frozenset(AccountMapping.objects.filter(workspace=workspace, role=Role.UNREALIZED).values_list("campfire_account_id", flat=True))
             statement = svc.net_worth_split(client, scope, end, split, fairvalue.unrealized_by_entity(workspace, end), booked, settings.estimated_tax_rate,
                                             svc.look_through(workspace, end, ids) if split == "person" else None)
+        elif c["view"] == "rd":
+            statement = receipts.build(client, scope, start, end, c["cols"], _clearing(workspace))
         elif c["view"] == "tx":
             statement = svc.tax_basis_report(scope, fairvalue.holdings_for(workspace, scope.members, end), settings.estimated_tax_rate)
         else:
@@ -127,6 +137,7 @@ def statements_page(request: HttpRequest, workspace: Workspace, framed: bool) ->
             out.writerow([r.number, r.label, *["" if v is None else f"{v:.2f}" for v in r.values]])
         return response
 
+    basis = "" if scope is None else "Cash basis" if c["view"] == "rd" else scope.names["basis"]
     ledger_base = lambda account_id: _with(pages.page_url(request, framed, "gl:ledger", account_id),  # noqa: E731
                                            {"entity": current["entity"], "start": current["start"], "end": current["end"]})
     rows = [(r, ledger_base(r.account_id) if r.account_id else "") for r in statement.rows] if statement else []
@@ -137,7 +148,8 @@ def statements_page(request: HttpRequest, workspace: Workspace, framed: bool) ->
         "views": [(k, (scope.names if scope else svc.NAMES[svc.ENTITY])[k], _with(base, {**current, "view": k}), k == c["view"]) for k in svc.VIEWS],
         "columns": {**svc.COLUMNS, **(svc.SPLITS if scope is not None and scope.kind == svc.FAMILY and c["view"] == "bs" else {})}, "periods": svc.PERIODS, "headline": _headline(statement) if statement else [],
         "csv_url": _with(base, {**current, "format": "csv"}), "cents": c["view"] == "tb",
-        "print_sub": " · ".join(x for x in (scope.label if scope else "", scope.names["basis"] if scope else "",
+        "basis": basis, "fair_note": bool(scope and scope.fair_value and c["view"] in ("bs", "is")),
+        "print_sub": " · ".join(x for x in (scope.label if scope else "", basis,
                                             f"As of {end:%B %-d, %Y}" if c["view"] in ("bs", "tx") else f"{start:%B %-d, %Y} to {end:%B %-d, %Y}") if x),
     })
 

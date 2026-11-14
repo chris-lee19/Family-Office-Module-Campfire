@@ -27,18 +27,19 @@ ZERO = Decimal(0)
 #              at fair value
 #   entity     any other legal entity: its conventional books, at cost
 FAMILY, INVESTMENT, ENTITY = "family", "investment", "entity"
+RECEIPTS_TITLE = "Statement of Cash Receipts and Disbursements"  # the same for all three: cash basis (gl/services/receipts.py)
 NAMES: dict[str, dict[str, str]] = {
     FAMILY: {"bs": "Statement of Net Worth", "is": "Statement of Changes in Net Worth", "cf": "Statement of Cash Flows", "tb": "Trial Balance",
-             "tx": "Tax Basis and Unrealized Gain Report", "equity": "Net worth", "total": "Total liabilities and net worth",
+             "rd": RECEIPTS_TITLE, "tx": "Tax Basis and Unrealized Gain Report", "equity": "Net worth", "total": "Total liabilities and net worth",
              "result": "Excess of income over expenses", "change": "Change in net worth", "basis": "Estimated current value (ASC 274)", "value": "estimated current value"},
     INVESTMENT: {"bs": "Statement of Assets and Liabilities", "is": "Statement of Operations and Changes in Net Assets", "cf": "Statement of Cash Flows",
-                 "tb": "Trial Balance", "tx": "Tax Basis and Unrealized Gain Report", "equity": "Net assets", "total": "Total liabilities and net assets",
+                 "rd": RECEIPTS_TITLE, "tb": "Trial Balance", "tx": "Tax Basis and Unrealized Gain Report", "equity": "Net assets", "total": "Total liabilities and net assets",
                  "result": "Net increase (decrease) from operations", "change": "Change in net assets", "basis": "Fair value (ASC 946)", "value": "fair value"},
     ENTITY: {"bs": "Entity Balance Sheet", "is": "Statement of Income and Expenses", "cf": "Statement of Cash Flows", "tb": "Trial Balance",
-             "tx": "Tax Basis and Unrealized Gain Report", "equity": "Equity", "total": "Total liabilities and equity",
+             "rd": RECEIPTS_TITLE, "tx": "Tax Basis and Unrealized Gain Report", "equity": "Equity", "total": "Total liabilities and equity",
              "result": "Excess of income over expenses", "change": "Change in equity", "basis": "The entity's books, investments at cost", "value": "cost"},
 }
-VIEWS = {"bs": "Net worth", "is": "Changes in net worth", "cf": "Cash flow", "tb": "Trial balance", "tx": "Tax basis"}  # the keys; labels come from NAMES
+VIEWS = {"bs": "Net worth", "is": "Changes in net worth", "rd": "Cash receipts and disbursements", "cf": "Cash flow", "tb": "Trial balance", "tx": "Tax basis"}  # the keys; labels come from NAMES
 COLUMNS = {"total": "One column", "monthly": "By month", "quarterly": "By quarter"}
 # The family's Statement of Net Worth can also be split across: a column per entity, or per family member (look-through).
 SPLITS = {"entity": "By entity", "person": "By family member"}
@@ -50,7 +51,7 @@ PERIODS = {"ytd": "This year to date", "month": "Last month", "quarter": "Last q
 class Row:
     label: str
     values: list[Decimal | None]
-    kind: str = "account"  # account | section | total | grand
+    kind: str = "account"  # account | group (a subtotal above its accounts) | section | total | grand
     number: str = ""
     level: int = 0
     account_id: int | None = None  # set on account rows: the ledger lines can be opened

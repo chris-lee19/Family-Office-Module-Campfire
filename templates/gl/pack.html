@@ -40,7 +40,7 @@
     <header class="pack-head">
       <div class="ph-org">{{ workspace }}</div>
       <h2>{{ s.title }}</h2>
-      <p>{{ s.about }} · {% if s.key == "changes" or s.key == "capital" %}{{ pack.period }}{% elif s.key == "liquidity" %}from {{ pack.today|date:"F j, Y" }}{% else %}as of {{ pack.end|date:"F j, Y" }}{% endif %}</p>
+      <p>{{ s.about }} · {% if s.key == "changes" or s.key == "capital" or s.key == "receipts" %}{{ pack.period }}{% elif s.key == "liquidity" %}from {{ pack.today|date:"F j, Y" }}{% else %}as of {{ pack.end|date:"F j, Y" }}{% endif %}</p>
     </header>
     {% if s.error %}<div class="callout warn">{{ s.error }}</div>
     {% elif s.key == "glance" %}
@@ -51,7 +51,7 @@
         <section class="box"><div class="box-head"><h3>Investments by asset class</h3><div class="aside"><span>{{ s.data.investments|money }}</span></div></div>
           <div class="box-body">{% alloc s.data.allocation "Investments by asset class" %}</div></section>
       </div>
-    {% elif s.key == "net_worth" or s.key == "by_entity" or s.key == "by_person" or s.key == "changes" %}
+    {% elif s.key == "net_worth" or s.key == "by_entity" or s.key == "by_person" or s.key == "changes" or s.key == "receipts" %}
       {% include "includes/statement_plain.html" with statement=s.data %}
     {% elif s.key == "schedule" %}
       <section class="box box-flush">

@@ -411,6 +411,13 @@ table.statement.wide td.num, table.statement.wide th.num { padding-left: 10px; p
 table.statement .acct-no { display: inline-block; min-width: 46px; margin-right: 8px; color: var(--muted); font-variant-numeric: tabular-nums; font-size: 12.5px; }
 table.statement tr.st-account td:first-child { padding-left: 28px; } table.statement tr.st-account.lvl-2 td:first-child { padding-left: 46px; }
 table.statement tr.st-account td { border-bottom-color: transparent; }
+table.statement tr.st-group td { font-weight: 600; border-bottom-color: transparent; } table.statement tr.st-group td:first-child { padding-left: 28px; }
+table.statement tr.st-group td a { font-weight: 600; }
+table.statement th:first-child { white-space: normal; }
+@media (min-width: 900px) { .tabs:has(> a) { flex-wrap: wrap; overflow-x: visible; } }
+@media (max-width: 640px) { table.statement:not(.wide) td:first-child { width: auto; } table.statement td, table.statement th { padding-left: 12px; padding-right: 12px; }
+  table.statement tr.st-account td:first-child, table.statement tr.st-group td:first-child { padding-left: 20px; } table.statement tr.st-account.lvl-2 td:first-child { padding-left: 28px; }
+  table.statement .acct-no { min-width: 0; margin-right: 6px; } }
 table.statement tr.st-account td a { font-weight: 400; }
 table.statement tr.st-section td { padding-top: 16px; font-weight: 650; font-size: 12px; letter-spacing: .05em; text-transform: uppercase; color: var(--fg-2); border-bottom-color: transparent; }
 table.statement tr.st-total td { font-weight: 600; border-top: 1px solid var(--line-strong); }
@@ -642,7 +649,7 @@ details.inline-more { margin: 4px 0 12px; } details.inline-more > summary { font
   table { overflow: visible; display: table !important; } thead { display: table-header-group; } tr { break-inside: avoid; }
   .table-scroll { overflow: visible; } table.statement.wide.forecast td:first-child, table.forecast th:first-child { position: static; }
   table.statement.wide td.num, table.statement.wide th.num { font-size: 8.5pt; padding-left: 3pt; padding-right: 5pt; }
-  table.statement td, table.statement th { padding-top: 2.2pt; padding-bottom: 2.2pt; font-size: 9pt; line-height: 1.3; }
+  table.statement td, table.statement th { padding-top: 1.5pt; padding-bottom: 1.5pt; font-size: 9pt; line-height: 1.3; } table.statement:not(.wide) td:first-child { width: 68%; }
   table.statement tr.st-section td { padding-top: 7pt; font-size: 7.5pt; } table.statement tr.st-grand td { font-size: 9.5pt; } table.statement th { font-size: 7.5pt; }
   a { color: inherit !important; text-decoration: none !important; }
   .kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); } .kpi .value { font-size: 15pt; }

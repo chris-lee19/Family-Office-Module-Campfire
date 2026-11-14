@@ -300,8 +300,9 @@ end. Held marks aren't used; non-USD accounts are skipped. Securities without a 
   the two statements agree (verified on the sandbox: 22,796,838 on both; every scope foots).
 - Supporting report names in use: Schedule of investments, Asset allocation, Private investments: performance
   (Investments page), Capital account statements (Partnerships & K-1s).
-- From the reference, NOT built yet (the Liquidity and Cash Flow Forecast is built, see below): Budget vs. Actual / Lifestyle Expense Report (needs spending tags: family member, property,
-  category); Statement of Cash Receipts and Disbursements; realized vs unrealized gains as separate lines in
+- From the reference, NOT built yet (the Liquidity and Cash Flow Forecast and the Statement of Cash Receipts and
+  Disbursements are built, see below): Budget vs. Actual / Lifestyle Expense Report (needs spending tags: family member, property,
+  category); realized vs unrealized gains as separate lines in
   the changes statement; per-entity accounting basis (cash / tax / accrual). 168 tests.
 
 ## Liquidity and Cash Flow Forecast, and Campfire's mark (2026-11-14)
@@ -446,7 +447,8 @@ end. Held marks aren't used; non-USD accounts are skipped. Securities without a 
      itself is unchanged (many tests pin its figures). The live demo family was loaded before this: click the button.
 3. **The pack** (`gl/services/pack.py`, `gl/pack_views.py`, sidebar "Reporting pack", `gl:pack`, in NAV_PAGES): choose
    the period and the sections, "Build the pack" (GET `?build=1`; nothing is read from Campfire before that; ~13 s),
-   then "Print or save as PDF". Cover + up to ten sections, each built by its page's own service so figures agree: At
+   then "Print or save as PDF". Cover + up to eleven sections (the Statement of Cash Receipts and
+   Disbursements was added after Changes in Net Worth), each built by its page's own service so figures agree: At
    a glance (dashboard `net_worth` as of the period end + allocation), Statement of Net Worth, by entity, by family
    member, Statement of Changes in Net Worth, Schedule of Investments (`pack.schedule`: every holding by asset class
    with owner, quantity, cost, value, gain, how it was valued), Investment Performance Report, Liquidity and Cash Flow
@@ -460,6 +462,38 @@ end. Held marks aren't used; non-USD accounts are skipped. Securities without a 
      overflows sideways, which hid a too-wide table once: check page count and widths after print changes.
 - Not done: saving a built pack (it is rebuilt each time), a PDF made on the server (the browser's print is used),
   commentary / notes pages, comparative columns (prior period), per-branch packs. 193 tests.
+
+## Statement of Cash Receipts and Disbursements (2026-11-14)
+- `gl/services/receipts.py` (`build(client, scope, start, end, columns, clearing)`), a tab on Financial statements
+  (`view=rd`, after Changes in Net Worth; same name for family / investment vehicle / entity; basis shown as "Cash basis";
+  one column, by month or by quarter; CSV; print) and a section of the Reporting pack (`receipts`, after `changes`).
+- Read from the ledger (`/coa/api/transaction` for the scope and period, cap 6000 lines): every entry with a line on a
+  BANK account, shown by the lines on its other side, so receipts less disbursements plus transfers equals the change in
+  the cash accounts. Opening and closing cash come from the balance sheet (subtype BANK rows, as on the Cash page): one
+  call for the day before the start, one for the columns. What the entries don't explain is "Other changes in cash" (it
+  only appears when it doesn't foot, e.g. the ledger was too long). Verified on the sandbox: foots to the cent for the
+  family and for single entities, by quarter too (~3 s).
+- Placement (`_place`): income and expense accounts net in their own section (Income / Expenses); assets, liabilities
+  and equity gross by direction (From / Into investments and other assets; Borrowed / Repaid on loans; Contributions /
+  Distributions); uncategorized bank lines one line on each side; names with due to / due from / intercompany and the
+  accounts mapped to roles CASH_CLEARING / TRANSFERS are transfers, below the excess; an entry whose memo says "opening"
+  is "Opening balances brought onto the books". A prepaid / accrued / depreciation line against an income or expense
+  line of exactly the opposite amount in the same entry is not cash: both are left out (`_not_cash`).
+- A paid bill is shown under what the bill was for: the payment entry is type `bill_payment`, Dr Accounts Payable
+  (subtype ACCOUNTS_PAYABLE, line carries `bill: {id, bill_number}`) / Cr bank; the bill's lines come from the bill list
+  (then up to 20 single reads), the payment is split pro rata, account types from the ledger read or else
+  `/coa/api/account`. A bill that can't be traced stays under "Bills paid".
+- Row kind `group` (a subtotal above its accounts, `tr.st-group`) is new; the uncategorized line is a group row with the
+  account id so it opens the ledger. "Net change in cash" is only shown when there are transfers or other changes
+  (otherwise it equals the excess). Headline tiles are not printed on Financial statements any more, printed rows are
+  tighter and the first column wider, so each statement fits one sheet for the demo; the tabs wrap on wide screens; at
+  phone width the label column takes the room (the title in the table head wraps).
+- Sandbox lesson (repeated): voiding a bill payment (`DELETE .../payment/<id>/void` -> 204) leaves the payment's entry
+  behind with its payable line moved to Uncategorized, and the ledger LIST can be stale for a minute, so a list right
+  after the void showed nothing. Read the payment's `payment_journal_entry` by id and delete that entry
+  (`POST /coa/api/journal_entry/<id>/delete`); then check the cash balance on the trial balance. Done: books as before.
+- Not done: receipts and disbursements by family member or property (needs spending tags: the Budget vs. Actual work);
+  a comparative column; custody cash that isn't in the books is not in this statement. 196 tests.
 
 ## Sign-in and new permissions (lesson, 2026-11-13)
 - Adding `transactions:write` to the defaults broke sign-in for everyone: Campfire answers `invalid_scope` ("This app may
