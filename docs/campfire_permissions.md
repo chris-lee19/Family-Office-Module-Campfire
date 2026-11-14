@@ -16,6 +16,7 @@ The app's permissions are the most it can ever request. A connecting person is s
 | Accounting | General Ledger Transactions | `transactions:write` | ✓ | | ✓ | Ledger lines behind the statements; categorizing bank lines on the Cash page (changes the account on the line's entry) |
 | Accounting | Bills | `bills:write` | ✓ | ✓ | ✓ | Capital call → bill → Campfire approval and payment (WF-01, INT-08), `Bill.paid` events |
 | Accounting | Bill Payments | `bill_payments:read` | ✓ | | | Know when a capital call was paid (funded / unfunded update) |
+| Accounting | Bank Reconciliation | `reconciliations:write` | ✓ | | ✓ | Bank reconciliation page: start a statement, mark the ledger lines that cleared, finish and approve (the app keeps who prepared and approved) |
 | Reports | Financial Statements | `reports:read` | ✓ | | | Trial balance for the tie-out (REC-04); cash and liabilities per entity for net worth (REP-01, INT-03) |
 | Cash Management | Bank Accounts | `bank_accounts:read` | ✓ | | | Consolidated cash (CASH-01) |
 | Cash Management | Cash Management Transactions | `bank_transactions:read` | ✓ | | | Cash actuals for liquidity view |
@@ -43,6 +44,6 @@ Custom Fields are **not** needed: journal entries carry lineage in Campfire's ow
 
 ## Never needed
 
-Custom Fields (lineage uses native fields), Revenue (all), Check Printing, Credit/Debit Memos and their payments, Invoice Reminder templates/settings, Leases, Amortizations, Product Bundles, Products and Services, Payment Terms, Contract Templates, Contact Titles, Statistical Accounts, Tax Rates, Validation Rules, Auto Categorization Rules, Fixed Asset classes/rules, Cost Allocations (configured in Campfire directly), Webhooks (events come through the manifest), Bank Reconciliation, Custom Reports, Ember AI.
+Custom Fields (lineage uses native fields), Revenue (all), Check Printing, Credit/Debit Memos and their payments, Invoice Reminder templates/settings, Leases, Amortizations, Product Bundles, Products and Services, Payment Terms, Contract Templates, Contact Titles, Statistical Accounts, Tax Rates, Validation Rules, Auto Categorization Rules, Fixed Asset classes/rules, Cost Allocations (configured in Campfire directly), Webhooks (events come through the manifest), Custom Reports, Ember AI.
 
 Identity scopes `openid email profile` are separate and always requested.

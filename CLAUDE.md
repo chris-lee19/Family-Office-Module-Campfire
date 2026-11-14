@@ -164,8 +164,8 @@ end. Held marks aren't used; non-USD accounts are skipped. Securities without a 
    `get_trial_balance`, `/coa/api/general-ledger`, `/coa/api/transaction`.
 3. ~~Cash~~ (page done 2026-11-13, see below; bank reconciliation `/coa/api/v2/reconciliation` still to do).
 4. ~~Bills and payments~~ (done). 5. ~~Journal entries~~ (done, see below). Agreed next (user 2026-11-13, in this order):
-   ~~partnership accounting and K-1s~~ (done) -> ~~Connectors page~~ (done) -> ~~roles~~ (done; entity-level limits and per-user connections not yet) -> ~~liquidity forecast~~ (done 2026-11-14, user moved it first) -> bank
-   reconciliation -> family reporting pack.
+   ~~partnership accounting and K-1s~~ (done) -> ~~Connectors page~~ (done) -> ~~roles~~ (done; entity-level limits and per-user connections not yet) -> ~~liquidity forecast~~ (done 2026-11-14, user moved it first) -> ~~bank
+   reconciliation~~ (done 2026-11-14) -> family reporting pack.
    Later: budgets, fixed assets (property, art), documents/K-1s, liquidity, reporting pack.
 - Added by the user 2026-11-13 (don't lose): **partnership accounting and K-1s** (capital accounts per partner,
   allocations of income/gain, K-1 tracking and figures by entity and person) and a **Connectors page** to bring in
@@ -336,6 +336,44 @@ end. Held marks aren't used; non-USD accounts are skipped. Securities without a 
   Campfire's own mark as its docs site serves it (not redrawn), in the sidebar and on the sign-in card. This
   supersedes "Campfire's logo is not used". The mark is Campfire's trademark: the user should confirm with the partner
   contact that partner apps may show it.
+
+## Bank reconciliation (2026-11-14)
+- `gl/services/reconcile.py` + `gl/reconcile_views.py`, sidebar "Bank reconciliation" (`gl:reconcile`, Books, after Cash;
+  badge = statements waiting for approval; in NAV_PAGES). Campfire keeps the report (`/coa/api/v2/reconciliation`); the
+  app drives it and keeps who prepared / approved in `BankReconciliation` (every call goes through the workspace's one
+  connection, so Campfire only ever sees "Family Office Connector").
+- A "bank account" here = an entity's balance on a GL account of subtype BANK (balance sheet `group_by=entity`; the
+  account id is the row's last `hierarchy` element). Flow: Start (account, statement's last day, ending balance) ->
+  tick the ledger lines that cleared -> Save -> Finish (only at zero difference; status PENDING_APPROVAL) -> Approve by
+  someone else when a second person is required (APPROVED) -> Reopen (only the account's latest statement; approve
+  capability) / Discard (a draft only). A statement follows the account's last one (start = last end + 1, starting =
+  last ending). The FIRST statement starts at the account's first ledger line with a starting balance of 0, so every
+  line is accounted for; a typed first day + starting balance starts part-way (earlier lines then stay open and the
+  proof says so). Target shown: every account reconciled through the last month end.
+- Figures: difference = (ending - starting) - cleared lines (0 = reconciles). Proof beside it: statement balance +
+  deposits in transit - payments outstanding = adjusted bank balance vs the book balance on the statement date (trial
+  balance). Both update live as lines are ticked (`form[data-recon]` in app.js). Lines the bank feed posted
+  (`has_parent_bank_transaction`) are ticked for the person on a fresh statement and carry the bank's description.
+- Verified on the sandbox 2026-11-14 with the admin key (test statements on Alder Management LLC, all discarded; 0 reports
+  and no reconciled lines left):
+  - create `POST` {entity, account (GL account id), statement_starting_date, statement_ending_date, starting_balance,
+    ending_balance} -> 201; an overlapping date range for the same account -> 400 {"error": ...}.
+  - `GET /{id}/source-transactions` = this report's cleared lines + EVERY line no report has cleared (any date; filters
+    start_date / end_date / unreconciled / reconciled_only); `is_cleared`, amounts in `debit_amount_in_currency` /
+    `credit_amount_in_currency`.
+  - `POST /{id}/transactions/confirm` {selected: [gl line ids]} -> 204 and REPLACES the selection.
+  - `PATCH` {status} moves freely between DRAFT / PENDING_APPROVAL / APPROVED; `approved_by` is read-only and stays
+    empty; `reconciled_by` is the connection's user. Campfire does NOT lock a finished report (confirm, PATCH and
+    DELETE all still work on APPROVED): the locks are the app's, and approve re-checks that it still reconciles.
+  - `DELETE /{id}` -> 204 and its lines are open again. Campfire's own `reconciliation_difference` = cleared - statement
+    activity (same test, opposite sign). The ledger list sorts ascending with `sort=posted_at` (`ordering=` does not).
+- Needs scope `reconciliations:write` (added to the defaults, requested at the write tier also in draft posting mode;
+  scopes read / draft / write / approve exist). Until the user Promotes the new app version and reconnects, the page
+  answers "Promote the app's new version in Campfire, then reconnect". The OAuth-token path (vs the admin key) is
+  therefore still to be confirmed on the live app.
+- Not done: statement PDF / CSV upload and line matching (Campfire has parse-statement-page and bulk-match); a
+  month-end close step and a Home item for accounts not reconciled; custody cash reconciles the same way but custody
+  POSITION reconciliation (REC-02) is separate. 177 tests.
 
 ## Sign-in and new permissions (lesson, 2026-11-13)
 - Adding `transactions:write` to the defaults broke sign-in for everyone: Campfire answers `invalid_scope` ("This app may

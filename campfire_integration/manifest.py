@@ -22,6 +22,7 @@ NAV_PAGES: list[tuple[str, str, str, str]] = [
     ("review", "Review", "check-circle", "/fo/frame/review"),
     ("close", "Month-end close", "calendar-check", "/fo/frame/close"),
     ("cash", "Cash", "landmark", "/fo/frame/cash"),
+    ("reconcile", "Bank reconciliation", "scale", "/fo/frame/reconcile"),
     ("liquidity", "Liquidity forecast", "trending-up", "/fo/frame/liquidity"),
     ("bills", "Bills", "receipt", "/fo/frame/bills-page"),
     ("journals", "Journal entries", "notebook", "/fo/frame/journals"),

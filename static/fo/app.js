@@ -209,6 +209,37 @@
     table.addEventListener("input", update); update();
   });
 
+  /* ---- a bank reconciliation shows what the ticked lines add up to, and what is still unexplained ---- */
+  d.querySelectorAll("form[data-recon]").forEach(function (form) {
+    var target = Math.round(parseFloat(form.getAttribute("data-recon")) * 100), boxes = form.querySelectorAll("input[data-amount]");
+    var fmt = function (cents) { var v = Math.abs(cents) / 100, s = v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }); return cents < 0 ? "(" + s + ")" : s; };
+    var set = function (sel, text) { d.querySelectorAll(sel).forEach(function (el) { el.textContent = text; }); };
+    var cents = function (name) { return Math.round(parseFloat(form.getAttribute(name)) * 100); };
+    var update = function () {
+      var sum = 0, count = 0, transit = 0, outstanding = 0;
+      boxes.forEach(function (b) {
+        var amount = Math.round(parseFloat(b.getAttribute("data-amount")) * 100);
+        if (b.checked) { sum += amount; count++; } else if (amount > 0) transit += amount; else outstanding -= amount;
+        b.closest("tr").classList.toggle("is-cleared", b.checked);
+      });
+      var diff = target - sum, adjusted = cents("data-ending") + transit - outstanding, proof = adjusted - cents("data-book");
+      set("[data-recon-cleared]", fmt(sum)); set("[data-recon-count]", String(count)); set("[data-recon-diff]", diff ? fmt(diff) : "0.00");
+      set("[data-recon-transit]", transit ? fmt(transit) : "–"); set("[data-recon-outstanding]", outstanding ? "(" + fmt(outstanding) + ")" : "–");
+      set("[data-recon-adjusted]", fmt(adjusted)); if (!isNaN(proof)) set("[data-recon-proof]", proof ? fmt(proof) : "0.00");
+      d.querySelectorAll("[data-recon-state]").forEach(function (el) { el.classList.toggle("is-zero", diff === 0); });
+      d.querySelectorAll("[data-recon-proof-state]").forEach(function (el) { el.classList.toggle("is-zero", proof === 0); });
+    };
+    form.addEventListener("change", update);
+    form.querySelectorAll("[data-recon-tick]").forEach(function (button) {
+      button.addEventListener("click", function () {
+        var which = button.getAttribute("data-recon-tick");
+        boxes.forEach(function (b) { if (b.closest("tr").hidden) return; b.checked = which === "all" || (which === "feed" && (b.checked || b.hasAttribute("data-feed"))); });
+        update();
+      });
+    });
+    update();
+  });
+
   /* ---- a filter bar applies itself when a choice changes ---- */
   d.querySelectorAll("form[data-autosubmit]").forEach(function (form) {
     form.addEventListener("change", function (e) { if (e.target.tagName === "SELECT") form.submit(); });

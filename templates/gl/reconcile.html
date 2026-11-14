@@ -1,0 +1,229 @@
+{% extends "base.html" %}
+{% load money %}
+{% block title %}Bank reconciliation{% endblock %}
+{% block content %}
+{% if detail %}
+<p class="small"><a href="{{ overview_url }}">← All bank accounts</a></p>
+<div class="page-head">
+  <div>
+    <h1>{{ report.entity }}</h1>
+    <p class="muted">{{ report.account }} · statement {{ report.start|date:"M j, Y" }} to {{ report.end|date:"M j, Y" }}
+      <span class="pill {% if report.status == 'APPROVED' %}booked{% elif report.status == 'PENDING_APPROVAL' %}sev-warning{% else %}att-info{% endif %}">{{ report.status_label }}</span></p>
+  </div>
+</div>
+{% if message %}<div class="notice" data-toast="success">{{ message }}</div>{% endif %}
+{% if error %}<div class="issues">{{ error }}</div>{% endif %}
+
+<div class="kpis">
+  <div class="kpi"><div class="label">Statement ending balance</div><div class="value">{{ report.ending|acct:2 }}</div>
+    <div class="sub">Started at {% if report.starting %}{{ report.starting|acct:2 }}{% else %}0.00{% endif %} · moved {{ report.activity|acct:2 }}</div></div>
+  <div class="kpi"><div class="label">Cleared the bank</div><div class="value" data-recon-cleared>{{ detail.cleared_activity|acct:2 }}</div>
+    <div class="sub"><span data-recon-count>{{ detail.cleared|length }}</span> line{{ detail.cleared|length|pluralize }} ticked</div></div>
+  <div class="kpi recon-diff{% if detail.reconciles %} is-zero{% endif %}" data-recon-state><div class="label">Still unexplained</div>
+    <div class="value" data-recon-diff>{% if detail.reconciles %}0.00{% else %}{{ detail.difference|acct:2 }}{% endif %}</div>
+    <div class="sub"><span class="when-zero">It reconciles</span><span class="when-not">Statement movement less what is ticked</span></div></div>
+  <div class="kpi"><div class="label">On the books, {{ report.end|date:"M j, Y" }}</div><div class="value">{{ detail.book_balance|acct:2 }}</div>
+    <div class="sub">The balance the statement is proving</div></div>
+</div>
+
+{% if report.status == "PENDING_APPROVAL" %}
+<article class="box decision">
+  <div class="decision-main">
+    <div class="decision-title"><strong>Waiting for approval</strong></div>
+    <p>{% if detail.reconciles %}Everything on the statement is explained: {{ detail.cleared|length }} line{{ detail.cleared|length|pluralize }} cleared, {{ detail.open|length }} still outstanding.{% else %}<span class="err">It no longer reconciles: {{ detail.difference|acct:2 }} is unexplained. Reopen it to correct it.</span>{% endif %}</p>
+    <div class="muted small">Prepared by {{ report.record.prepared_by|default:"—" }}{% if report.record.prepared_at %}, {{ report.record.prepared_at|date:"M j, H:i" }}{% endif %}</div>
+  </div>
+  <div class="decision-actions">
+    {% if report.record.prepared_by_id and report.record.prepared_by_id == me %}<p class="small muted">You prepared this reconciliation. Someone else approves it (preparer ≠ approver).</p>{% endif %}
+    <form method="post" action="{{ post_action }}" class="decide">
+      {% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}<input type="hidden" name="report" value="{{ report.id }}">
+      <div class="actions"><button class="btn small" type="submit" name="action" value="approve">Approve</button>
+        <button class="btn secondary small" type="submit" name="action" value="reopen">Reopen</button></div>
+    </form>
+  </div>
+</article>
+{% elif report.status == "APPROVED" %}
+<div class="callout">
+  <strong>Approved{% if report.record.approved_by %} by {{ report.record.approved_by }}{% endif %}{% if report.record.approved_at %} on {{ report.record.approved_at|date:"M j, Y" }}{% endif %}.</strong>
+  {% if report.record.prepared_by %}<span class="muted">Prepared by {{ report.record.prepared_by }}.</span>{% endif %}
+  <form method="post" action="{{ post_action }}" class="actions inline" style="margin-top:8px">
+    {% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}<input type="hidden" name="report" value="{{ report.id }}">
+    <button class="btn secondary small" type="submit" name="action" value="reopen">Reopen to correct it</button></form>
+</div>
+{% endif %}
+
+<div class="networth">
+  <section class="box">
+    <div class="box-head"><h2>Proof</h2><div class="aside"><span>As of {{ report.end|date:"M j, Y" }}</span></div></div>
+    <table class="statement proof">
+      <tbody>
+        <tr class="account"><td>Balance on the bank statement</td><td class="num">{{ report.ending|acct:2 }}</td></tr>
+        <tr class="account"><td class="indent">Add: deposits in transit</td><td class="num" data-recon-transit>{{ detail.in_transit|acct:2 }}</td></tr>
+        <tr class="account"><td class="indent">Less: payments outstanding</td><td class="num" data-recon-outstanding>{% if detail.outstanding %}({{ detail.outstanding|acct:2 }}){% else %}–{% endif %}</td></tr>
+        <tr class="total"><td>Bank balance, adjusted</td><td class="num" data-recon-adjusted>{{ detail.adjusted|acct:2 }}</td></tr>
+        <tr class="account"><td>Balance on the books</td><td class="num">{{ detail.book_balance|acct:2 }}</td></tr>
+        <tr class="grand recon-proof{% if not detail.unexplained %} is-zero{% endif %}" data-recon-proof-state><td>Difference</td><td class="num" data-recon-proof>{% if detail.unexplained %}{{ detail.unexplained|acct:2 }}{% else %}0.00{% endif %}</td></tr>
+      </tbody>
+    </table>
+    <p class="muted small box-body">Lines not ticked and dated on or before the statement's last day count as in transit (money in) or outstanding (money out).{% if detail.unexplained and detail.reconciles %} The statement reconciles, but the books hold lines from before it that no statement has cleared: tick them, or start the account's first statement where the books start.{% endif %}</p>
+  </section>
+  <section class="box">
+    <div class="box-head"><h2>Statement</h2></div>
+    <div class="box-body">
+      {% if report.editable %}
+      <form method="post" action="{{ post_action }}" class="record-form flat">
+        {% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}<input type="hidden" name="report" value="{{ report.id }}"><input type="hidden" name="action" value="ending">
+        <div class="fields"><div class="field"><label for="recon-ending">Ending balance on the statement</label><input id="recon-ending" name="ending" inputmode="decimal" value="{{ report.ending|stringformat:'s' }}" required></div></div>
+        <div class="actions"><button class="btn secondary small" type="submit">Change the balance</button></div>
+      </form>
+      <form method="post" action="{{ post_action }}" class="actions" style="margin-top:14px">
+        {% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}<input type="hidden" name="report" value="{{ report.id }}">
+        <button class="link-btn" type="submit" name="action" value="discard">Discard this statement</button><span class="muted small">Its lines go back to not cleared.</span>
+      </form>
+      {% else %}
+      <p>Ending balance {{ report.ending|acct:2 }} on {{ report.end|date:"M j, Y" }}; starting balance {% if report.starting %}{{ report.starting|acct:2 }}{% else %}0.00{% endif %}.</p>
+      <p class="muted small">A finished statement can't be changed. Reopen it to correct it; a later statement has to be reopened or discarded first.</p>
+      {% endif %}
+      {% if report.record.created_by %}<p class="muted small">Started by {{ report.record.created_by }}, {{ report.record.created_at|date:"M j, Y" }}.</p>{% endif %}
+    </div>
+  </section>
+</div>
+
+<form method="post" action="{{ post_action }}" data-recon="{{ report.activity|stringformat:'s' }}" data-ending="{{ report.ending|stringformat:'s' }}" data-book="{{ detail.book_balance|stringformat:'s' }}">
+  {% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}<input type="hidden" name="report" value="{{ report.id }}"><input type="hidden" name="with_lines" value="1">
+  <section class="box">
+    <div class="box-head"><h2>Ledger lines <span class="count-chip">{{ detail.lines|length }}</span></h2>
+      <div class="aside">
+        {% if report.editable and detail.lines %}
+        <button class="btn secondary small" type="button" data-recon-tick="all">Tick all</button>
+        {% if feed_count %}<button class="btn secondary small" type="button" data-recon-tick="feed">Tick bank-feed lines</button>{% endif %}
+        <button class="btn secondary small" type="button" data-recon-tick="none">Untick all</button>
+        {% endif %}
+        <input type="search" placeholder="Filter lines" aria-label="Filter the ledger lines" data-filter="#recon-lines"></div></div>
+    {% if suggested %}<p class="box-body small"><span class="pill att-info">Ticked for you</span> {{ suggested|length }} line{{ suggested|length|pluralize }} came through the bank feed, so the bank has {{ suggested|length|pluralize:"it,them" }}. Check and save.</p>{% endif %}
+    {% if detail.lines %}
+    <table id="recon-lines" class="recon">
+      <thead><tr><th class="tick">Cleared</th><th>Date</th><th>Description</th><th>Entry</th><th class="num">Money in</th><th class="num">Money out</th></tr></thead>
+      <tbody>
+      {% for ln, on in rows %}
+        <tr{% if on %} class="is-cleared"{% endif %}>
+          <td class="tick"><input type="checkbox" name="line" value="{{ ln.id }}" data-amount="{{ ln.amount|stringformat:'s' }}"{% if ln.from_feed %} data-feed{% endif %}{% if on %} checked{% endif %}{% if not report.editable %} disabled{% endif %} aria-label="Cleared: {{ ln.posted|date:'M j' }}, {{ ln.description|default:'ledger line' }}, {{ ln.amount|acct:2 }}"></td>
+          <td class="nowrap">{{ ln.posted|date:"Y-m-d" }}</td>
+          <td>{{ ln.description|default:"—" }}{% if ln.from_feed %} <span class="pill plain">Bank feed</span>{% endif %}</td>
+          <td class="muted small">{{ ln.entry }}</td>
+          <td class="num">{% if ln.amount > 0 %}{{ ln.amount|acct:2 }}{% endif %}</td><td class="num">{% if ln.amount < 0 %}{{ ln.amount|acct:2 }}{% endif %}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<div class="empty"><strong>No ledger lines up to {{ report.end|date:"M j, Y" }}</strong>Everything on this account is already cleared by an earlier statement.</div>{% endif %}
+    {% if report.editable %}
+    <div class="box-body recon-bar" data-recon-state>
+      <div><strong>Still unexplained: <span data-recon-diff>{{ detail.difference|acct:2 }}</span></strong>
+        <span class="muted small">Cleared <span data-recon-cleared>{{ detail.cleared_activity|acct:2 }}</span> of {{ report.activity|acct:2 }} on the statement</span></div>
+      <div class="actions"><button class="btn secondary" type="submit" name="action" value="save">Save</button>
+        <button class="btn" type="submit" name="action" value="finish">Finish and send for approval</button></div>
+    </div>
+    {% endif %}
+    <p class="muted small box-body">{% if detail.later %}{{ detail.later }} later line{{ detail.later|pluralize }} (after {{ report.end|date:"M j" }}) belong{{ detail.later|pluralize:"s," }} to a later statement and {{ detail.later|pluralize:"is,are" }} not shown. {% endif %}{% if detail.truncated %}This account has more lines than fit here; the oldest are shown. {% endif %}A line the bank doesn't have yet stays unticked: it carries to the next statement. Something on the statement that isn't in the books? Add it on <a href="{{ journals_url }}">Journal entries</a> or categorize it on <a href="{{ cash_url }}">Cash</a>, then come back.</p>
+  </section>
+</form>
+
+{% else %}
+<div class="page-head">
+  <div>
+    <h1>Bank reconciliation</h1>
+    <p class="muted">{{ workspace }} · every bank account proved against its statement · target: reconciled through {{ target|date:"M j, Y" }}</p>
+  </div>
+  <div class="page-actions"><a class="btn" href="#start" data-open="#start">Reconcile an account</a></div>
+</div>
+{% if message %}<div class="notice" data-toast="success">{{ message }}</div>{% endif %}
+{% if error %}<div class="issues">{{ error }}</div>{% endif %}
+
+{% if books %}
+<div class="kpis">
+  <div class="kpi"><div class="label">Reconciled through {{ target|date:"M j" }}</div><div class="value">{{ stats.current }} of {{ stats.total }}</div><div class="sub">{% if stats.current == stats.total %}Every account is up to date{% else %}Bank accounts on the books{% endif %}</div></div>
+  <div class="kpi"><div class="label">In progress</div><div class="value">{{ stats.progress }}</div><div class="sub">{% if stats.progress %}Statements being ticked off{% else %}Nothing open{% endif %}</div></div>
+  <div class="kpi"><div class="label">Waiting for approval</div><div class="value">{{ stats.pending }}</div><div class="sub">{% if stats.pending %}Finished, needs a second person{% else %}Nothing to approve{% endif %}</div></div>
+  <div class="kpi"><div class="label">Behind</div><div class="value">{{ stats.never|add:stats.behind }}</div><div class="sub">{% if stats.never %}{{ stats.never }} never reconciled{% elif stats.behind %}Last statement is older than {{ target|date:"M j" }}{% else %}None{% endif %}</div></div>
+</div>
+
+{% if pending %}
+<h2>To approve <span class="count-chip">{{ pending|length }}</span></h2>
+{% for r, url in pending %}
+<article class="box decision">
+  <div class="decision-main">
+    <div class="decision-title"><strong>{{ r.entity }}</strong><span class="amount-chip out">{{ r.ending|acct:2 }}</span></div>
+    <div class="muted small">{{ r.account }} · statement {{ r.start|date:"M j, Y" }} to {{ r.end|date:"M j, Y" }}</div>
+    <p>The statement's ending balance is explained by what cleared. <a href="{{ url }}">See the lines</a></p>
+    <div class="muted small">Prepared by {{ r.record.prepared_by|default:"—" }}{% if r.record.prepared_at %}, {{ r.record.prepared_at|date:"M j, H:i" }}{% endif %}</div>
+  </div>
+  <div class="decision-actions">
+    {% if r.record.prepared_by_id and r.record.prepared_by_id == me %}<p class="small muted">You prepared this reconciliation. Someone else approves it (preparer ≠ approver).</p>{% endif %}
+    <form method="post" action="{{ post_action }}" class="decide">
+      {% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}<input type="hidden" name="report" value="{{ r.id }}">
+      <div class="actions"><button class="btn small" type="submit" name="action" value="approve">Approve</button>
+        <button class="btn secondary small" type="submit" name="action" value="reopen">Reopen</button></div>
+    </form>
+  </div>
+</article>
+{% endfor %}
+{% endif %}
+
+<section class="box">
+  <div class="box-head"><h2>Bank accounts</h2><div class="aside"><input type="search" placeholder="Filter accounts" aria-label="Filter the bank accounts" data-filter="#recon-books"></div></div>
+  <table data-sort id="recon-books">
+    <thead><tr><th>Entity</th><th>Account</th><th class="num">On the books today</th><th>Reconciled through</th><th class="num">Statement balance</th><th>Standing</th><th></th></tr></thead>
+    <tbody>
+    {% for b, url in books %}
+      <tr><td><strong>{{ b.entity }}</strong></td><td>{{ b.account }}</td><td class="num">{{ b.balance|money }}</td>
+        <td class="nowrap">{% if b.through %}{{ b.through|date:"M j, Y" }}{% else %}<span class="muted">Never</span>{% endif %}</td>
+        <td class="num">{% if b.last %}{{ b.last.ending|acct:2 }}{% endif %}</td>
+        <td>{% if b.state == "pending" %}<span class="pill sev-warning">Waiting for approval</span>{% elif b.state == "progress" %}<span class="pill att-info">In progress, to {{ b.open.end|date:"M j" }}</span>{% elif b.state == "current" %}<span class="pill booked">Up to date</span>{% elif b.state == "never" %}<span class="pill sev-error">Not reconciled</span>{% else %}<span class="pill sev-warning">Behind</span>{% endif %}</td>
+        <td class="nowrap">{% if b.open %}<a class="btn secondary small" href="{{ url }}">{% if b.state == "pending" %}Open{% else %}Continue{% endif %}</a>{% else %}<a class="btn secondary small" href="{{ url }}">Reconcile</a>{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% elif not error %}
+<div class="box empty"><strong>No bank accounts on the books yet</strong>Bank accounts appear here once Campfire's books hold a balance on an account of the bank kind.</div>
+{% endif %}
+
+<details class="settings" id="start"{% if reopen %} open{% endif %}>
+  <summary>Reconcile an account</summary>
+  <form method="post" action="{{ post_action }}" class="record-form flat">
+    {% csrf_token %}{% if frame_token %}<input type="hidden" name="fo_t" value="{{ frame_token }}">{% endif %}<input type="hidden" name="action" value="start">
+    <div class="fields">
+      <div class="field"><label>Bank account <span class="req">*</span></label><select name="book" required><option value="">Choose</option>
+        {% for b, url in books %}{% if not b.open %}<option value="{{ b.key }}" {% if entered.book == b.key %}selected{% endif %}>{{ b.entity }} · {{ b.account }}{% if b.through %} (reconciled to {{ b.through|date:"M j, Y" }}){% endif %}</option>{% endif %}{% endfor %}</select></div>
+      <div class="field"><label>Statement's last day <span class="req">*</span></label><input type="date" name="end" value="{{ start_default }}" max="{{ today|date:'Y-m-d' }}" required></div>
+      <div class="field"><label>Ending balance on the statement <span class="req">*</span></label><input name="ending" inputmode="decimal" value="{{ entered.ending }}" required></div>
+    </div>
+    <details class="inline-more"><summary>First statement of an account: where it starts</summary>
+      <p class="muted small">Leave these empty and the first statement starts where the books start, from a balance of zero, so every line is accounted for. Fill them in only to start part-way: lines before that date then stay open. Later statements always continue from the one before.</p>
+      <div class="fields">
+        <div class="field"><label>Statement's first day</label><input type="date" name="start" value="{{ entered.start }}"></div>
+        <div class="field"><label>Starting balance on the statement</label><input name="starting" inputmode="decimal" value="{{ entered.starting }}"></div>
+      </div>
+    </details>
+    <div class="actions"><button class="btn" type="submit">Start</button><span class="muted small">Next you tick the ledger lines that cleared the bank.</span></div>
+  </form>
+</details>
+
+{% if history %}
+<section class="box">
+  <div class="box-head"><h2>Statements <span class="count-chip">{{ history|length }}</span></h2></div>
+  <table data-sort>
+    <thead><tr><th>Statement to</th><th>Entity</th><th>Account</th><th class="num">Ending balance</th><th>Status</th><th>Prepared by</th><th>Approved by</th><th></th></tr></thead>
+    <tbody>
+    {% for r, url in history %}
+      <tr><td class="nowrap">{{ r.end|date:"Y-m-d" }}</td><td><strong>{{ r.entity }}</strong></td><td>{{ r.account }}</td><td class="num">{{ r.ending|acct:2 }}</td>
+        <td><span class="pill {% if r.status == 'APPROVED' %}booked{% elif r.status == 'PENDING_APPROVAL' %}sev-warning{% else %}att-info{% endif %}">{{ r.status_label }}</span></td>
+        <td class="small muted">{{ r.record.prepared_by|default:"—" }}</td><td class="small muted">{{ r.record.approved_by|default:"—" }}</td>
+        <td><a href="{{ url }}">Open</a></td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+{% endif %}
+{% endblock %}

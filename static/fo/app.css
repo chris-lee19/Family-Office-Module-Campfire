@@ -494,3 +494,16 @@ table.forecast thead th:first-child { background: var(--surface-2); } table.fore
 .fc-col:hover .fc-tip, .fc-col:focus .fc-tip { display: grid; }
 .fc-col.left .fc-tip { left: 0; transform: none; } .fc-col.right .fc-tip { left: auto; right: 0; transform: none; }
 @media (max-width: 640px) { .fc-plot { height: 200px; } .fc-val { font-size: 10.5px; } .fc-x { font-size: 10.5px; } }
+
+/* ---- bank reconciliation ---- */
+.recon-diff .value { color: var(--bad); } .recon-diff.is-zero .value { color: var(--ok); }
+.recon-diff .when-zero, .recon-diff.is-zero .when-not { display: none; } .recon-diff.is-zero .when-zero { display: inline; }
+table.recon th.tick, table.recon td.tick { width: 76px; text-align: center; } table.recon input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--primary); }
+table.recon tr.is-cleared td { background: color-mix(in srgb, var(--ok-bg) 45%, transparent); }
+table.proof td:first-child { width: auto; } .box > table.proof { margin-top: 10px; }
+tr.recon-proof td.num { color: var(--bad); } tr.recon-proof.is-zero td.num { color: inherit; }
+.recon-bar { position: sticky; bottom: 0; z-index: 3; display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between;
+  background: var(--surface); border-top: 1px solid var(--line-strong); }
+.recon-bar > div:first-child { display: grid; gap: 2px; } .recon-bar strong { color: var(--bad); } .recon-bar.is-zero strong { color: var(--ok); }
+.recon-bar .actions { margin: 0; }
+details.inline-more { margin: 4px 0 12px; } details.inline-more > summary { font-size: 13px; color: var(--muted); cursor: pointer; } details.inline-more[open] > summary { margin-bottom: 8px; }

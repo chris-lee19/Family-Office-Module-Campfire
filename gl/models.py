@@ -386,3 +386,40 @@ class PlannedCashFlow(models.Model):
 
     def __str__(self) -> str:
         return f"{self.label}: {self.get_direction_display().lower()} {self.amount} {self.get_frequency_display().lower()} ({self.entity_label})"
+
+
+class BankReconciliation(models.Model):
+    """The app's side of a bank reconciliation. Campfire keeps the report itself (statement dates and balances, which
+    ledger lines cleared); this records who prepared and who approved it, because every call to Campfire goes through
+    the workspace's one connection, and Campfire doesn't stop a finished report from being changed."""
+
+    class Status(models.TextChoices):
+        DRAFT = "draft", "In progress"
+        PENDING = "pending", "Waiting for approval"
+        APPROVED = "approved", "Approved"
+
+    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE, related_name="bank_reconciliations")
+    campfire_report_id = models.BigIntegerField()
+    campfire_entity_id = models.BigIntegerField()
+    entity_label = models.CharField(max_length=255)
+    campfire_account_id = models.BigIntegerField()
+    account_label = models.CharField(max_length=255)
+    statement_start = models.DateField()
+    statement_end = models.DateField()
+    ending_balance = models.DecimalField(**MONEY)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.DRAFT)
+    created_by = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    prepared_by = models.CharField(max_length=255, blank=True, help_text="Who finished it and sent it for approval")
+    prepared_by_id = models.CharField(max_length=64, blank=True)
+    prepared_at = models.DateTimeField(null=True, blank=True)
+    approved_by = models.CharField(max_length=255, blank=True)
+    approved_by_id = models.CharField(max_length=64, blank=True)
+    approved_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-statement_end", "entity_label"]
+        constraints = [models.UniqueConstraint(fields=["workspace", "campfire_report_id"], name="bank_reconciliation_report_unique")]
+
+    def __str__(self) -> str:
+        return f"{self.entity_label} · {self.account_label}: statement to {self.statement_end} ({self.get_status_display()})"

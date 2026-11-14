@@ -24,6 +24,7 @@ NAV = [
     ("Operations", "Review", "records:review", "check", "review"),
     ("Operations", "Month-end close", "gl:close", "calendar", ""),
     ("Books", "Cash", "gl:cash", "bank", ""),
+    ("Books", "Bank reconciliation", "gl:reconcile", "scale", "reconcile"),
     ("Books", "Liquidity forecast", "gl:liquidity", "trend", ""),
     ("Books", "Bills", "gl:bills", "bill", "bills"),
     ("Books", "Journal entries", "gl:journals", "journal", "journals"),
@@ -38,6 +39,7 @@ NAV = [
 ACTIONS = [
     ("Write a journal entry", "For approval, then posted to the ledger", "gl:journals", (), "#enter"),
     ("Enter a bill", "For approval, then into the payables", "gl:bills", (), "#enter"),
+    ("Reconcile a bank account", "Tick what cleared against the bank's statement", "gl:reconcile", (), "#start"),
     ("Add an expected receipt or payment", "A distribution, tax payment or other cash the forecast should count", "gl:liquidity", (), "#plan"),
     ("Upload a custodian file", "Transactions, prices or positions from the custodian", "investments:imports", (), ""),
     ("Record a capital call notice", "Then send it to Campfire as a bill", "records:new", ("capital-calls",), ""),
@@ -59,6 +61,7 @@ ICONS = {
     "book": '<path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"/><path d="M5 17a3 3 0 0 1 3-3h11"/>',
     "database": '<ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6"/><path d="M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/>',
     "bank": '<path d="M3 10 12 4l9 6"/><path d="M5 10v8M9.5 10v8M14.5 10v8M19 10v8"/><path d="M3 20h18"/>',
+    "scale": '<path d="M12 4v16M7 20h10"/><path d="M5 8h14"/><path d="M5 8l-2.500 6a3 3 0 0 0 5 0z"/><path d="M19 8l-2.500 6a3 3 0 0 0 5 0z"/>',
     "trend": '<path d="M3 17l5-5 4 3 8-8"/><path d="M15 7h5v5"/><path d="M3 21h18"/>',
     "bill": '<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>',
     "journal": '<path d="M5 4h14v16H5z"/><path d="M9 4v16"/><path d="M12 9h4M12 13h4"/>',
@@ -86,10 +89,11 @@ def _badges(workspace: Any) -> dict[str, int]:
     review = (Valuation.objects.filter(account__family__workspace=workspace, status=Valuation.Status.HELD).count()
               + ImportBatch.objects.filter(workspace=workspace, status=ImportBatch.Status.VALIDATED).count())
     calls = CapitalCall.objects.filter(commitment__account__family__workspace=workspace, status__in=CapitalCall.OPEN_STATUSES).count()
-    from gl.models import BillRequest, JournalRequest
+    from gl.models import BankReconciliation, BillRequest, JournalRequest
 
     return {"review": review, "calls": calls, "bills": BillRequest.objects.filter(workspace=workspace, status=BillRequest.Status.PENDING).count(),
-            "journals": JournalRequest.objects.filter(workspace=workspace, status=JournalRequest.Status.PENDING).count()}
+            "journals": JournalRequest.objects.filter(workspace=workspace, status=JournalRequest.Status.PENDING).count(),
+            "reconcile": BankReconciliation.objects.filter(workspace=workspace, status=BankReconciliation.Status.PENDING).count()}
 
 
 def _search_index(request: Any, framed: bool, workspace: Any, nav: list[dict[str, Any]], actions: list[dict[str, Any]]) -> list[dict[str, str]]:
